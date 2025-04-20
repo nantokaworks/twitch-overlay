@@ -1,0 +1,23 @@
+.env*
+!.env.safe
+!.env.template
+!.dev.vars.template
+
+logs
+*.log
+
+.cache
+.eslintcache
+*.tsbuildinfo
+
+*.DS_Store
+
+dist
+
+// Misc
+.certs
+.wrangler
+.db
+.db.sqlite3
+local.db
+
