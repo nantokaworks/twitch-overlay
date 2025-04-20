@@ -262,13 +262,14 @@ func MessageToImage(userName string, msg []twitch.ChatMessageFragment) (image.Im
 				break
 			}
 		}
-		if !hasNonEmptyText && len(emoteFrags) > 0 && len(emoteFrags) <= 8 {
+		if len(lines) == 1 && !hasNonEmptyText && len(emoteFrags) > 0 && len(emoteFrags) <= 8 {
 			cellW := PaperWidth / len(emoteFrags)
 			currH += cellW
 			continue
 		}
+
 		// single-character text-only line: 高さも幅いっぱいに拡大
-		if len(line) == 1 &&
+		if len(lines) == 1 && len(line) == 1 &&
 			line[0].Emote == nil &&
 			!urlRe.MatchString(line[0].Text) &&
 			len([]rune(strings.TrimSpace(line[0].Text))) == 1 {
