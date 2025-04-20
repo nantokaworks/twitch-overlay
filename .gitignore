@@ -13,6 +13,7 @@ logs
 *.DS_Store
 
 dist
+tmp
 
 // Misc
 .certs
