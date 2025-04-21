@@ -17,7 +17,7 @@ tmp
 
 // Misc
 .certs
-.wrangler
+.output
 .db
 .db.sqlite3
 local.db
