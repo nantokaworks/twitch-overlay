@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 
-const FaxDisplay = ({ faxData, onComplete, imageType }) => {
+const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageHeight, setImageHeight] = useState(0);
   const [animationComplete, setAnimationComplete] = useState(false);
+  const [imagePosition, setImagePosition] = useState(-1); // -1 means use 100% (初期位置)
   const containerRef = useRef(null);
+  const animationRef = useRef(null);
 
   useEffect(() => {
     if (!faxData) return;
@@ -27,22 +29,48 @@ const FaxDisplay = ({ faxData, onComplete, imageType }) => {
   useEffect(() => {
     if (!imageLoaded || !imageHeight) return;
 
-    // スクロールアニメーションの時間を計算（画像の高さに基づく）
-    const scrollDuration = Math.max(5000, (imageHeight / 100) * 1000); // 最低5秒、100pxあたり1秒
+    // 毎フレームのピクセル移動量を計算
+    const pixelsPerFrame = 2; // 毎フレーム2ピクセル移動
+    let currentImagePosition = -imageHeight; // 開始位置（画像が完全に上にある状態）
     
-    // アニメーション完了タイマー
-    const timer = setTimeout(() => {
-      setAnimationComplete(true);
-      setTimeout(onComplete, 500); // フェードアウト後に完了を通知
-    }, scrollDuration + 5000); // スクロール時間 + 5秒待機
+    // アニメーションの進行状況を更新
+    const updateAnimation = () => {
+      currentImagePosition += pixelsPerFrame;
+      
+      // 画像位置を更新
+      setImagePosition(currentImagePosition);
+      
+      // ラベル位置の計算
+      // 画像と同じスピードで動くが、最大250pxまで
+      const labelPosition = Math.min(Math.max(0, currentImagePosition + imageHeight), 250);
+      
+      if (onLabelPositionUpdate) {
+        onLabelPositionUpdate(labelPosition);
+      }
+      
+      // 画像が完全に表示されるまで続行
+      if (currentImagePosition < 0) {
+        animationRef.current = requestAnimationFrame(updateAnimation);
+      } else {
+        // アニメーション完了、5秒待機
+        setImagePosition(0); // 最終位置に固定
+        setTimeout(() => {
+          setAnimationComplete(true);
+          setTimeout(onComplete, 500); // フェードアウト後に完了を通知
+        }, 5000);
+      }
+    };
+    
+    animationRef.current = requestAnimationFrame(updateAnimation);
 
-    return () => clearTimeout(timer);
-  }, [imageLoaded, imageHeight, onComplete]);
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, [imageLoaded, imageHeight, onComplete, onLabelPositionUpdate]);
 
   if (!faxData || !imageLoaded) return null;
-
-  // アニメーション時間を動的に設定
-  const animationDuration = Math.max(5, imageHeight / 100); // 100pxあたり1秒
 
   return (
     <div
@@ -67,7 +95,7 @@ const FaxDisplay = ({ faxData, onComplete, imageType }) => {
           alt="FAX"
           className="w-full h-auto"
           style={{
-            animation: `fax-image-scroll ${animationDuration}s ease-out forwards`,
+            transform: `translateY(${imagePosition === -1 ? '-100%' : `${imagePosition}px`})`,
           }}
         />
       </div>

@@ -4,7 +4,15 @@ import FaxDisplay from './FaxDisplay';
 
 const FaxReceiver = ({ imageType = 'mono' }) => {
   const [isConnected, setIsConnected] = useState(false);
+  const [labelPosition, setLabelPosition] = useState(0);
   const { currentFax, addToQueue, onDisplayComplete } = useFaxQueue();
+  
+  // ラベル位置をリセット
+  useEffect(() => {
+    if (!currentFax) {
+      setLabelPosition(0);
+    }
+  }, [currentFax]);
   
   // デバッグモードの判定（URLパラメータまたは環境変数）
   const isDebug = new URLSearchParams(window.location.search).get('debug') === 'true';
@@ -64,7 +72,16 @@ const FaxReceiver = ({ imageType = 'mono' }) => {
   return (
     <div className="h-screen text-white relative overflow-hidden" style={{ backgroundColor: isDebug ? '#374151' : 'transparent' }}>
       {/* コントロールパネル */}
-      <div className="fixed top-0 z-10" style={{ left: '20px', width: '250px', height: '40px' }}>
+      <div 
+        className="fixed z-10" 
+        style={{ 
+          left: '20px', 
+          width: '250px', 
+          height: '40px',
+          top: `${labelPosition}px`,
+          transition: currentFax ? 'none' : 'top 0.5s ease-out'
+        }}
+      >
         <div className="flex items-center h-full px-2">
           <span
             className={`text-outline ${
@@ -87,6 +104,7 @@ const FaxReceiver = ({ imageType = 'mono' }) => {
           faxData={currentFax}
           onComplete={onDisplayComplete}
           imageType={imageType}
+          onLabelPositionUpdate={setLabelPosition}
         />
       )}
 
