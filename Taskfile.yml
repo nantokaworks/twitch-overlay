@@ -69,6 +69,20 @@ tasks:
     cmds:
       - air
 
+  # ビルド済みアプリケーションを実行
+  run:
+    desc: ビルド済みのtwitch-faxを実行
+    dir: dist
+    cmds:
+      - |
+        if [ ! -f twitch-fax ]; then
+          echo "エラー: dist/twitch-fax が見つかりません"
+          echo "先に 'task build:all' でビルドしてください"
+          exit 1
+        fi
+      - echo "twitch-faxを起動中..."
+      - ./twitch-fax
+
   # テスト実行
   test:
     desc: 全テストを実行

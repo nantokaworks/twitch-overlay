@@ -105,14 +105,19 @@ func init() {
 
 // PrintClock sends clock output to printer and frontend
 func PrintClock(timeStr string) error {
+	return PrintClockWithOptions(timeStr, false)
+}
+
+// PrintClockWithOptions sends clock output to printer and frontend with options
+func PrintClockWithOptions(timeStr string, forceEmptyLeaderboard bool) error {
 	// Generate color version
-	colorImg, err := GenerateTimeImageWithStatsColor(timeStr)
+	colorImg, err := GenerateTimeImageWithStatsColorOptions(timeStr, forceEmptyLeaderboard)
 	if err != nil {
 		return fmt.Errorf("failed to create color clock image: %w", err)
 	}
 
 	// Generate monochrome version for printing
-	monoImg, err := GenerateTimeImageWithStats(timeStr)
+	monoImg, err := GenerateTimeImageWithStatsOptions(timeStr, forceEmptyLeaderboard)
 	if err != nil {
 		return fmt.Errorf("failed to create monochrome clock image: %w", err)
 	}

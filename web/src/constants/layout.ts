@@ -2,7 +2,7 @@
 export const LAYOUT = {
   // Dimensions
   FAX_WIDTH: 250,
-  FAX_HEIGHT: 280,
+  FAX_HEIGHT: 450,
   LABEL_HEIGHT: 40,
 
   // Positions

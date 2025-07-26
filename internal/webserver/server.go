@@ -461,7 +461,8 @@ func handleDebugChannelPoints(w http.ResponseWriter, r *http.Request) {
 
 // DebugClockRequest represents a debug clock print request
 type DebugClockRequest struct {
-	WithStats bool `json:"withStats"`
+	WithStats        bool `json:"withStats"`
+	EmptyLeaderboard bool `json:"emptyLeaderboard"`
 }
 
 // handleDebugClock handles debug clock print requests
@@ -503,10 +504,11 @@ func handleDebugClock(w http.ResponseWriter, r *http.Request) {
 
 	logger.Info("Processing debug clock print",
 		zap.String("time", timeStr),
-		zap.Bool("withStats", req.WithStats))
+		zap.Bool("withStats", req.WithStats),
+		zap.Bool("emptyLeaderboard", req.EmptyLeaderboard))
 
-	// Call PrintClock directly (same as scheduled clock printing)
-	err = output.PrintClock(timeStr)
+	// Call PrintClock with options based on request
+	err = output.PrintClockWithOptions(timeStr, req.EmptyLeaderboard)
 	if err != nil {
 		logger.Error("Failed to print debug clock", zap.Error(err))
 		http.Error(w, "Failed to print clock", http.StatusInternalServerError)

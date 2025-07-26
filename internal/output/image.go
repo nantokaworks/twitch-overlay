@@ -627,8 +627,13 @@ func downloadAndResizeAvatarGray(url string, size int) (image.Image, error) {
 
 // GenerateTimeImageWithStats creates a monochrome image with time and Twitch channel statistics
 func GenerateTimeImageWithStats(timeStr string) (image.Image, error) {
+	return GenerateTimeImageWithStatsOptions(timeStr, false)
+}
+
+// GenerateTimeImageWithStatsOptions creates a monochrome image with time and Twitch channel statistics with options
+func GenerateTimeImageWithStatsOptions(timeStr string, forceEmptyLeaderboard bool) (image.Image, error) {
 	// Get bits leaders
-	monthLeaders := getBitsLeaders()
+	monthLeaders := getBitsLeaders(forceEmptyLeaderboard)
 	
 	// Debug output
 	fmt.Printf("=== GenerateTimeImageWithStats Debug ===\n")
@@ -685,20 +690,37 @@ func GenerateTimeImageWithStats(timeStr string) (image.Image, error) {
 	}
 	defer smallFace.Close()
 	
+	// Extra small font for long messages
+	xsmallFace, err := opentype.NewFace(f, &opentype.FaceOptions{
+		Size:    18,
+		DPI:     72,
+		Hinting: font.HintingFull,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create xsmall font face: %w", err)
+	}
+	defer xsmallFace.Close()
+	
 	// Calculate image height (matching color version)
 	padding := 20
 	lineSpacing := 10
 	baseHeight := padding*2 + 48 + 36 + 10 + 20
 	
-	// Add height for bits leaders if present
+	// Add height for bits leaders
 	extraHeight := 0
-	if len(monthLeaders) > 0 {
-		// Separator + title
-		extraHeight += 20 + 24 + 10
+	// Always add height for leaderboard section header
+	// Separator + title
+	extraHeight += 20 + 24 + 10
+	
+	if len(monthLeaders) == 0 {
+		// Empty leaderboard - just add space for the message
+		extraHeight += 50 + 36 + 50 + 18 + 25 + 18 + 30  // Space + "まだ誰もいません" + 空行 + "最初のCheerを..." + 間隔 + "さいふ" + margin
+	} else {
+		// Normal leaderboard - show 5 places
 		// First place with avatar
 		extraHeight += 128 + 10 + 36 + 36 + lineSpacing
-		// 2nd-5th place without avatar (smaller font)
-		for i := 1; i < len(monthLeaders) && i < 5; i++ {
+		// 2nd-5th place without avatar (smaller font) - always 4 entries
+		for i := 1; i < 5; i++ {
 			extraHeight += 24 + 24 + lineSpacing
 		}
 	}
@@ -732,31 +754,42 @@ func GenerateTimeImageWithStats(timeStr string) (image.Image, error) {
 	// Calculate starting position for content
 	yPos = baseHeight - 20
 	
-	// Draw monthly bits leaders
-	if len(monthLeaders) > 0 {
-		// Draw separator line with margins
-		yPos += 10
-		drawHorizontalLine(img, yPos, 20, 20, 2, color.Black)
-		yPos += 15  // Space after separator
+	// Always draw monthly bits leaders section
+	// Draw separator line with margins
+	yPos += 10
+	drawHorizontalLine(img, yPos, 20, 20, 2, color.Black)
+	yPos += 15  // Space after separator
+	
+	// Section title
+	d.Face = smallFace
+	titleStr := "今月のトップCheer"
+	drawCenteredText(d, titleStr, yPos)
+	yPos += 24 + 10  // Title height + space
+	
+	// Check if no leaders exist
+	if len(monthLeaders) == 0 {
+		// Show gentle message for empty leaderboard
+		yPos += 50  // Add some space
+		d.Face = statsFace
+		d.Src = image.NewUniform(color.Gray{150})
+		drawCenteredText(d, "まだ誰もいません", yPos)
 		
-		// Section title
-		d.Face = smallFace
-		titleStr := "今月のトップCheer"
-		drawCenteredText(d, titleStr, yPos)
-		yPos += 24 + 10  // Title height + space
+		yPos += 50  // Add empty line
+		d.Face = xsmallFace
+		drawCenteredText(d, "最初のCheerをお待ちしています！", yPos)
 		
-		// Draw leaders
-		for i, leader := range monthLeaders {
-			if i >= 5 {
-				break
-			}
-			
+		yPos += 25
+		drawCenteredText(d, "収益の一部は「さいふ」に補填されます", yPos)
+	} else {
+		// Draw 5 places (with or without data)
+		for i := 0; i < 5; i++ {
 			if i == 0 {
 				// First place with avatar
 				avatarLocalSize := 128
 				avatarDrawn := false
-				if leader.AvatarURL != "" {
-					avatarImg, err := downloadAndResizeAvatarGray(leader.AvatarURL, avatarLocalSize)
+				
+				if i < len(monthLeaders) && monthLeaders[i].AvatarURL != "" {
+					avatarImg, err := downloadAndResizeAvatarGray(monthLeaders[i].AvatarURL, avatarLocalSize)
 					if err == nil {
 						avatarX := (PaperWidth - avatarLocalSize) / 2
 						draw.Draw(img, image.Rect(avatarX, yPos, avatarX+avatarLocalSize, yPos+avatarLocalSize),
@@ -766,32 +799,56 @@ func GenerateTimeImageWithStats(timeStr string) (image.Image, error) {
 					}
 				}
 				
-				// Leader name
+				// Leader name or placeholder
 				d.Face = statsFace
-				d.Src = image.Black
-				if avatarDrawn {
-					yPos += 10
-				} else {
-					yPos += 36  // Match color version spacing when no avatar
+				if !avatarDrawn {
+					yPos += avatarLocalSize  // Add space for missing avatar
 				}
-				drawCenteredText(d, leader.UserName, yPos)
+				yPos += 10
+				
+				if i < len(monthLeaders) {
+					d.Src = image.Black
+					drawCenteredText(d, monthLeaders[i].UserName, yPos)
+				} else {
+					d.Src = image.NewUniform(color.Gray{200})
+					drawCenteredText(d, "---", yPos)
+				}
 				
 				// Bits count
 				yPos += 36
-				bitsStr := fmt.Sprintf("%d Bits", leader.Score)
-				drawCenteredText(d, bitsStr, yPos)
+				if i < len(monthLeaders) {
+					bitsStr := fmt.Sprintf("%d Bits", monthLeaders[i].Score)
+					d.Src = image.Black
+					drawCenteredText(d, bitsStr, yPos)
+				} else {
+					d.Src = image.NewUniform(color.Gray{200})
+					drawCenteredText(d, "--- Bits", yPos)
+				}
 				yPos += 36 + 10  // Bits height + line spacing
 			} else {
 				// 2nd-5th place
 				d.Face = smallFace
-				d.Src = image.NewUniform(color.Gray{128})
-				placeStr := fmt.Sprintf("%d位 %s", i+1, leader.UserName)
-				drawCenteredText(d, placeStr, yPos)
+				
+				if i < len(monthLeaders) {
+					d.Src = image.NewUniform(color.Gray{128})
+					placeStr := fmt.Sprintf("%d位 %s", i+1, monthLeaders[i].UserName)
+					drawCenteredText(d, placeStr, yPos)
+				} else {
+					d.Src = image.NewUniform(color.Gray{200})
+					placeStr := fmt.Sprintf("%d位 ---", i+1)
+					drawCenteredText(d, placeStr, yPos)
+				}
 				
 				// Bits count
 				yPos += 24
-				bitsStr := fmt.Sprintf("%d Bits", leader.Score)
-				drawCenteredText(d, bitsStr, yPos)
+				if i < len(monthLeaders) {
+					bitsStr := fmt.Sprintf("%d Bits", monthLeaders[i].Score)
+					d.Src = image.NewUniform(color.Gray{128})
+					drawCenteredText(d, bitsStr, yPos)
+				} else {
+					d.Src = image.NewUniform(color.Gray{200})
+					drawCenteredText(d, "--- Bits", yPos)
+				}
 				yPos += 24 + 10  // Bits height + line spacing
 			}
 		}
@@ -810,7 +867,13 @@ func GenerateTimeImageWithStats(timeStr string) (image.Image, error) {
 
 
 // getBitsLeaders gets the top bits cheerers for month only
-func getBitsLeaders() (monthLeaders []*twitchapi.BitsLeaderboardEntry) {
+func getBitsLeaders(forceEmpty bool) (monthLeaders []*twitchapi.BitsLeaderboardEntry) {
+	// Check if we should return empty leaderboard for testing
+	if forceEmpty {
+		fmt.Printf("Clock: Empty leaderboard test mode enabled\n")
+		return nil
+	}
+	
 	// Get monthly leaders
 	monthLeaders, err := twitchapi.GetBitsLeaderboard("month")
 	if err != nil {
@@ -914,8 +977,13 @@ func GenerateTimeImageSimple(timeStr string) (image.Image, error) {
 
 // GenerateTimeImageWithStatsColor creates a color image with time and Twitch channel statistics
 func GenerateTimeImageWithStatsColor(timeStr string) (image.Image, error) {
+	return GenerateTimeImageWithStatsColorOptions(timeStr, false)
+}
+
+// GenerateTimeImageWithStatsColorOptions creates a color image with time and Twitch channel statistics with options
+func GenerateTimeImageWithStatsColorOptions(timeStr string, forceEmptyLeaderboard bool) (image.Image, error) {
 	// Get bits leaders
-	monthLeaders := getBitsLeaders()
+	monthLeaders := getBitsLeaders(forceEmptyLeaderboard)
 	
 	// Debug output
 	fmt.Printf("=== GenerateTimeImageWithStatsColor Debug ===\n")
@@ -961,15 +1029,21 @@ func GenerateTimeImageWithStatsColor(timeStr string) (image.Image, error) {
 	lineSpacing := 10
 	baseHeight := padding*2 + 48 + 36 + 10 + 20
 	
-	// Add height for bits leaders if present
+	// Add height for bits leaders
 	extraHeight := 0
-	if len(monthLeaders) > 0 {
-		// Separator + title
-		extraHeight += 20 + 24 + 10
+	// Always add height for leaderboard section header
+	// Separator + title
+	extraHeight += 20 + 24 + 10
+	
+	if len(monthLeaders) == 0 {
+		// Empty leaderboard - just add space for the message
+		extraHeight += 50 + 36 + 50 + 18 + 25 + 18 + 30  // Space + "まだ誰もいません" + 空行 + "最初のCheerを..." + 間隔 + "さいふ" + margin
+	} else {
+		// Normal leaderboard - show 5 places
 		// First place with avatar
 		extraHeight += 128 + 10 + 36 + 36 + lineSpacing
-		// 2nd-5th place without avatar (smaller font)
-		for i := 1; i < len(monthLeaders) && i < 5; i++ {
+		// 2nd-5th place without avatar (smaller font) - always 4 entries
+		for i := 1; i < 5; i++ {
 			extraHeight += 24 + 24 + lineSpacing
 		}
 	}
@@ -1007,118 +1081,210 @@ func GenerateTimeImageWithStatsColor(timeStr string) (image.Image, error) {
 	}
 	d.DrawString(dateStr)
 	
-	// Draw bits leaders if available
+	// Always draw bits leaders section
 	yPos := padding + 48 + 10 + 36 + 10  // padding + time + space + date + space
-	if len(monthLeaders) > 0 {
-		// Draw separator line in black
-		yPos += 10
-		drawHorizontalLine(img, yPos, 20, 20, 2, color.Black)
+	// Draw separator line in black
+	yPos += 10
+	drawHorizontalLine(img, yPos, 20, 20, 2, color.Black)
+	
+	// Small font for leader sections
+	smallFace, err := opentype.NewFace(f, &opentype.FaceOptions{
+		Size:    24,
+		DPI:     72,
+		Hinting: font.HintingFull,
+	})
+	if err == nil {
+		defer smallFace.Close()
 		
-		// Small font for leader sections
-		smallFace, err := opentype.NewFace(f, &opentype.FaceOptions{
-			Size:    24,
+		// Extra small font for long messages
+		xsmallFace, err := opentype.NewFace(f, &opentype.FaceOptions{
+			Size:    18,
 			DPI:     72,
 			Hinting: font.HintingFull,
 		})
 		if err == nil {
-			defer smallFace.Close()
-			d.Face = smallFace
-			
-			// Monthly leaders
-			if len(monthLeaders) > 0 {
-				yPos += 15  // Space after separator
-				titleText := "今月のトップCheer"
-				d.Src = image.Black
-				bounds, _ = d.BoundString(titleText)
-				titleWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
-				d.Dot = fixed.Point26_6{
-					X: fixed.I((PaperWidth - titleWidth) / 2),
-					Y: fixed.I(yPos) + smallFace.Metrics().Ascent,
-				}
-				d.DrawString(titleText)
-				yPos += 24 + 10  // Title height + space
-				
-				// Draw leaders
-				for i, leader := range monthLeaders {
-					if i >= 5 {
-						break // Show top 5
-					}
-					
-					if i == 0 {
-						// First place - with avatar and larger font
-						// Draw avatar if available
-						avatarSize := 128
-						avatarDrawn := false
-						if leader.AvatarURL != "" {
-							avatarImg, err := downloadAndResizeAvatarColor(leader.AvatarURL, avatarSize)
-							if err == nil {
-								avatarX := (PaperWidth - avatarSize) / 2
-								draw.Draw(img, image.Rect(avatarX, yPos, avatarX+avatarSize, yPos+avatarSize),
-									avatarImg, image.Point{}, draw.Over)
-								yPos += avatarSize
-								avatarDrawn = true
-							}
-						}
-						
-						// Leader name
-						d.Face = statsFace
-						d.Src = image.Black
-						if avatarDrawn {
-							yPos += 10
-						} else {
-							yPos += 36
-						}
-						leaderText := leader.UserName
-						bounds, _ = d.BoundString(leaderText)
-						leaderWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
-						d.Dot = fixed.Point26_6{
-							X: fixed.I((PaperWidth - leaderWidth) / 2),
-							Y: fixed.I(yPos) + statsFace.Metrics().Ascent,
-						}
-						d.DrawString(leaderText)
-						
-						// Bits count
-						yPos += 36
-						bitsText := fmt.Sprintf("%d Bits", leader.Score)
-						d.Src = image.Black
-						bounds, _ = d.BoundString(bitsText)
-						bitsWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
-						d.Dot = fixed.Point26_6{
-							X: fixed.I((PaperWidth - bitsWidth) / 2),
-							Y: fixed.I(yPos) + statsFace.Metrics().Ascent,
-						}
-						d.DrawString(bitsText)
-						yPos += 36 + lineSpacing
-					} else {
-						// 2nd-5th place - smaller font, no avatar
-						d.Face = smallFace
-						d.Src = image.NewUniform(color.RGBA{100, 100, 100, 255})
-						
-						// Place and name
-						placeText := fmt.Sprintf("%d位 %s", i+1, leader.UserName)
-						bounds, _ = d.BoundString(placeText)
-						placeWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
-						d.Dot = fixed.Point26_6{
-							X: fixed.I((PaperWidth - placeWidth) / 2),
-							Y: fixed.I(yPos) + smallFace.Metrics().Ascent,
-						}
-						d.DrawString(placeText)
-						
-						// Bits count
-						yPos += 24
-						bitsText := fmt.Sprintf("%d Bits", leader.Score)
-						d.Src = image.NewUniform(color.RGBA{100, 100, 100, 255})
-						bounds, _ = d.BoundString(bitsText)
-						bitsWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
-						d.Dot = fixed.Point26_6{
-							X: fixed.I((PaperWidth - bitsWidth) / 2),
-							Y: fixed.I(yPos) + smallFace.Metrics().Ascent,
-						}
-						d.DrawString(bitsText)
-						yPos += 24 + lineSpacing
-					}
-				}
+			defer xsmallFace.Close()
+		}
+		
+		d.Face = smallFace
+		
+		// Monthly leaders
+		yPos += 15  // Space after separator
+		titleText := "今月のトップCheer"
+		d.Src = image.Black
+		bounds, _ = d.BoundString(titleText)
+		titleWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
+		d.Dot = fixed.Point26_6{
+			X: fixed.I((PaperWidth - titleWidth) / 2),
+			Y: fixed.I(yPos) + smallFace.Metrics().Ascent,
+		}
+		d.DrawString(titleText)
+		yPos += 24 + 10  // Title height + space
+		
+		// Check if no leaders exist
+		if len(monthLeaders) == 0 {
+			// Show gentle message for empty leaderboard
+			yPos += 50  // Add some space
+			d.Face = statsFace
+			d.Src = image.NewUniform(color.RGBA{150, 150, 150, 255})
+			messageText := "まだ誰もいません"
+			bounds, _ = d.BoundString(messageText)
+			messageWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
+			d.Dot = fixed.Point26_6{
+				X: fixed.I((PaperWidth - messageWidth) / 2),
+				Y: fixed.I(yPos) + statsFace.Metrics().Ascent,
 			}
+			d.DrawString(messageText)
+			
+			yPos += 50  // Add empty line
+			if xsmallFace != nil {
+				d.Face = xsmallFace
+			} else {
+				d.Face = smallFace
+			}
+			waitText := "最初のCheerをお待ちしています！"
+			bounds, _ = d.BoundString(waitText)
+			waitWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
+			d.Dot = fixed.Point26_6{
+				X: fixed.I((PaperWidth - waitWidth) / 2),
+				Y: fixed.I(yPos) + d.Face.Metrics().Ascent,
+			}
+			d.DrawString(waitText)
+			
+			yPos += 25
+			saifuText := "収益の一部は「さいふ」に補填されます"
+			bounds, _ = d.BoundString(saifuText)
+			saifuWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
+			d.Dot = fixed.Point26_6{
+				X: fixed.I((PaperWidth - saifuWidth) / 2),
+				Y: fixed.I(yPos) + d.Face.Metrics().Ascent,
+			}
+			d.DrawString(saifuText)
+		} else {
+			// Draw 5 places (with or without data)
+			for i := 0; i < 5; i++ {
+					
+			if i == 0 {
+				// First place - with avatar and larger font
+				avatarSize := 128
+				avatarDrawn := false
+				
+				if i < len(monthLeaders) && monthLeaders[i].AvatarURL != "" {
+					avatarImg, err := downloadAndResizeAvatarColor(monthLeaders[i].AvatarURL, avatarSize)
+					if err == nil {
+						avatarX := (PaperWidth - avatarSize) / 2
+						draw.Draw(img, image.Rect(avatarX, yPos, avatarX+avatarSize, yPos+avatarSize),
+							avatarImg, image.Point{}, draw.Over)
+						yPos += avatarSize
+						avatarDrawn = true
+					}
+				}
+				
+				// Leader name or placeholder
+				d.Face = statsFace
+				if !avatarDrawn {
+					yPos += avatarSize  // Add space for missing avatar
+				}
+				yPos += 10
+				
+				if i < len(monthLeaders) {
+					d.Src = image.Black
+					leaderText := monthLeaders[i].UserName
+					bounds, _ = d.BoundString(leaderText)
+					leaderWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
+					d.Dot = fixed.Point26_6{
+						X: fixed.I((PaperWidth - leaderWidth) / 2),
+						Y: fixed.I(yPos) + statsFace.Metrics().Ascent,
+					}
+					d.DrawString(leaderText)
+				} else {
+					d.Src = image.NewUniform(color.RGBA{200, 200, 200, 255})
+					leaderText := "---"
+					bounds, _ = d.BoundString(leaderText)
+					leaderWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
+					d.Dot = fixed.Point26_6{
+						X: fixed.I((PaperWidth - leaderWidth) / 2),
+						Y: fixed.I(yPos) + statsFace.Metrics().Ascent,
+					}
+					d.DrawString(leaderText)
+				}
+				
+				// Bits count
+				yPos += 36
+				if i < len(monthLeaders) {
+					bitsText := fmt.Sprintf("%d Bits", monthLeaders[i].Score)
+					d.Src = image.Black
+					bounds, _ = d.BoundString(bitsText)
+					bitsWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
+					d.Dot = fixed.Point26_6{
+						X: fixed.I((PaperWidth - bitsWidth) / 2),
+						Y: fixed.I(yPos) + statsFace.Metrics().Ascent,
+					}
+					d.DrawString(bitsText)
+				} else {
+					d.Src = image.NewUniform(color.RGBA{200, 200, 200, 255})
+					bitsText := "--- Bits"
+					bounds, _ = d.BoundString(bitsText)
+					bitsWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
+					d.Dot = fixed.Point26_6{
+						X: fixed.I((PaperWidth - bitsWidth) / 2),
+						Y: fixed.I(yPos) + statsFace.Metrics().Ascent,
+					}
+					d.DrawString(bitsText)
+				}
+				yPos += 36 + lineSpacing
+			} else {
+				// 2nd-5th place - smaller font, no avatar
+				d.Face = smallFace
+				
+				if i < len(monthLeaders) {
+					d.Src = image.NewUniform(color.RGBA{100, 100, 100, 255})
+					placeText := fmt.Sprintf("%d位 %s", i+1, monthLeaders[i].UserName)
+					bounds, _ = d.BoundString(placeText)
+					placeWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
+					d.Dot = fixed.Point26_6{
+						X: fixed.I((PaperWidth - placeWidth) / 2),
+						Y: fixed.I(yPos) + smallFace.Metrics().Ascent,
+					}
+					d.DrawString(placeText)
+				} else {
+					d.Src = image.NewUniform(color.RGBA{200, 200, 200, 255})
+					placeText := fmt.Sprintf("%d位 ---", i+1)
+					bounds, _ = d.BoundString(placeText)
+					placeWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
+					d.Dot = fixed.Point26_6{
+						X: fixed.I((PaperWidth - placeWidth) / 2),
+						Y: fixed.I(yPos) + smallFace.Metrics().Ascent,
+					}
+					d.DrawString(placeText)
+				}
+				
+				// Bits count
+				yPos += 24
+				if i < len(monthLeaders) {
+					bitsText := fmt.Sprintf("%d Bits", monthLeaders[i].Score)
+					d.Src = image.NewUniform(color.RGBA{100, 100, 100, 255})
+					bounds, _ = d.BoundString(bitsText)
+					bitsWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
+					d.Dot = fixed.Point26_6{
+						X: fixed.I((PaperWidth - bitsWidth) / 2),
+						Y: fixed.I(yPos) + smallFace.Metrics().Ascent,
+					}
+					d.DrawString(bitsText)
+				} else {
+					d.Src = image.NewUniform(color.RGBA{200, 200, 200, 255})
+					bitsText := "--- Bits"
+					bounds, _ = d.BoundString(bitsText)
+					bitsWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
+					d.Dot = fixed.Point26_6{
+						X: fixed.I((PaperWidth - bitsWidth) / 2),
+						Y: fixed.I(yPos) + smallFace.Metrics().Ascent,
+					}
+					d.DrawString(bitsText)
+				}
+				yPos += 24 + lineSpacing
+			}
+		}
 		}
 	}
 	

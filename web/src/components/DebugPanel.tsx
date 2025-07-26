@@ -84,6 +84,39 @@ const DebugPanel = ({ onSendFax }: DebugPanelProps) => {
     }
   };
 
+  const handleClockEmpty = async () => {
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch(buildApiUrl('/debug/clock'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          withStats: true,
+          emptyLeaderboard: true,  // 空のリーダーボードをテスト
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to trigger clock: ${response.statusText} - ${errorText}`);
+      }
+      
+      // 成功時はアラートを表示しない（エラー時のみ表示）
+    } catch (error) {
+      console.error('Failed to trigger clock with empty leaderboard:', error);
+      if (error instanceof Error) {
+        alert(`時計印刷（空のリーダーボード）の実行に失敗しました:\n${error.message}`);
+      } else {
+        alert('時計印刷（空のリーダーボード）の実行に失敗しました。サーバーが起動しているか確認してください。');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="fixed bottom-4 right-4 z-50">
       {!isExpanded ? (
@@ -155,7 +188,7 @@ const DebugPanel = ({ onSendFax }: DebugPanelProps) => {
             <button
               onClick={handleClock}
               disabled={isSubmitting}
-              className={`w-full py-2 rounded transition-colors font-medium mb-3 ${
+              className={`w-full py-2 rounded transition-colors font-medium mb-2 ${
                 isSubmitting 
                   ? 'bg-gray-600 text-gray-400 cursor-not-allowed' 
                   : 'bg-purple-600 text-white hover:bg-purple-700'
@@ -163,6 +196,19 @@ const DebugPanel = ({ onSendFax }: DebugPanelProps) => {
               style={{ fontSize: '14px' }}
             >
               {isSubmitting ? '実行中...' : '🕐 時計印刷（リーダーボード付き）'}
+            </button>
+            
+            <button
+              onClick={handleClockEmpty}
+              disabled={isSubmitting}
+              className={`w-full py-2 rounded transition-colors font-medium mb-3 ${
+                isSubmitting 
+                  ? 'bg-gray-600 text-gray-400 cursor-not-allowed' 
+                  : 'bg-orange-600 text-white hover:bg-orange-700'
+              }`}
+              style={{ fontSize: '14px' }}
+            >
+              {isSubmitting ? '実行中...' : '🕐 時計印刷（空のリーダーボード）'}
             </button>
             
             <p className="text-gray-400 text-xs">
