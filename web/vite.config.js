@@ -8,6 +8,7 @@ export default defineConfig({
     proxy: {
       '/events': 'http://localhost:8080',
       '/fax': 'http://localhost:8080',
+      '/status': 'http://localhost:8080',
     }
   }
 })

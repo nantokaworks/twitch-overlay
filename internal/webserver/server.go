@@ -11,6 +11,7 @@ import (
 
 	"github.com/nantokaworks/twitch-fax/internal/faxmanager"
 	"github.com/nantokaworks/twitch-fax/internal/shared/logger"
+	"github.com/nantokaworks/twitch-fax/internal/status"
 	"go.uber.org/zap"
 )
 
@@ -34,6 +35,9 @@ func StartWebServer(port int) {
 
 	// Fax image endpoint
 	http.HandleFunc("/fax/", handleFaxImage)
+
+	// Status endpoint
+	http.HandleFunc("/status", handleStatus)
 
 	addr := fmt.Sprintf(":%d", port)
 	logger.Info("Starting web server", zap.String("address", addr))
@@ -164,4 +168,24 @@ func BroadcastFax(fax *faxmanager.Fax) {
 	logger.Info("Broadcasted fax to SSE clients", 
 		zap.String("id", fax.ID),
 		zap.Int("clients", len(sseServer.clients)))
+}
+
+// handleStatus returns the current system status
+func handleStatus(w http.ResponseWriter, r *http.Request) {
+	// Set CORS headers
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Content-Type", "application/json")
+
+	statusData := map[string]interface{}{
+		"printerConnected": status.IsPrinterConnected(),
+		"timestamp":        time.Now().Format("2006-01-02T15:04:05Z"),
+	}
+
+	jsonData, err := json.Marshal(statusData)
+	if err != nil {
+		http.Error(w, "Failed to marshal status", http.StatusInternalServerError)
+		return
+	}
+
+	w.Write(jsonData)
 }

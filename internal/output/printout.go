@@ -13,6 +13,7 @@ import (
 	"github.com/nantokaworks/twitch-fax/internal/env"
 	"github.com/nantokaworks/twitch-fax/internal/faxmanager"
 	"github.com/nantokaworks/twitch-fax/internal/shared/logger"
+	"github.com/nantokaworks/twitch-fax/internal/status"
 	"github.com/nantokaworks/twitch-fax/internal/webserver"
 	"go.uber.org/zap"
 )
@@ -284,6 +285,7 @@ func keepAliveRoutine() {
 				// Disconnect the printer
 				latestPrinter.Disconnect()
 				isConnected = false
+				status.SetPrinterConnected(false)
 			}
 			
 			// Create new client and connect

@@ -5,6 +5,7 @@ import { LAYOUT } from '../constants/layout';
 
 const FaxReceiver = ({ imageType = 'mono' }) => {
   const [isConnected, setIsConnected] = useState(false);
+  const [isPrinterConnected, setIsPrinterConnected] = useState(false);
   const [labelPosition, setLabelPosition] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
   const [faxState, setFaxState] = useState(null);
@@ -37,6 +38,29 @@ const FaxReceiver = ({ imageType = 'mono' }) => {
       setIsShaking(false);
     }
   }, [faxState]);
+
+  // プリンター状態のポーリング
+  useEffect(() => {
+    const checkPrinterStatus = async () => {
+      try {
+        const response = await fetch('/status');
+        if (response.ok) {
+          const data = await response.json();
+          setIsPrinterConnected(data.printerConnected);
+        }
+      } catch (error) {
+        console.error('Failed to check printer status:', error);
+      }
+    };
+
+    // 初回チェック
+    checkPrinterStatus();
+
+    // 5秒ごとにチェック
+    const interval = setInterval(checkPrinterStatus, 5000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     let reconnectTimeout;
@@ -106,7 +130,9 @@ const FaxReceiver = ({ imageType = 'mono' }) => {
         <div className="flex items-center h-full px-2">
           <span
             className={`text-outline ${
-              isConnected ? 'text-green-500' : 'text-red-500'
+              !isConnected ? 'text-red-500' : 
+              !isPrinterConnected ? 'text-yellow-500' : 
+              'text-green-500'
             }`}
             style={{
               fontSize: `${LAYOUT.FONT_SIZE}px`,

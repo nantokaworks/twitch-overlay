@@ -4,6 +4,7 @@ import (
 	"git.massivebox.net/massivebox/go-catprinter"
 	"github.com/nantokaworks/twitch-fax/internal/env"
 	"github.com/nantokaworks/twitch-fax/internal/shared/logger"
+	"github.com/nantokaworks/twitch-fax/internal/status"
 	"go.uber.org/zap"
 )
 
@@ -17,6 +18,7 @@ func SetupPrinter() (*catprinter.Client, error) {
 		latestPrinter.Disconnect()
 		latestPrinter = nil
 		isConnected = false
+		status.SetPrinterConnected(false)
 	}
 
 	instance, err := catprinter.NewClient()
@@ -49,6 +51,7 @@ func ConnectPrinter(c *catprinter.Client, address string) error {
 	}
 	logger.Info("Successfully connected to printer", zap.String("address", address))
 	isConnected = true
+	status.SetPrinterConnected(true)
 
 	return nil
 }
@@ -69,6 +72,7 @@ func Stop() {
 	if latestPrinter != nil && isConnected {
 		latestPrinter.Disconnect()
 		isConnected = false
+		status.SetPrinterConnected(false)
 		latestPrinter = nil
 	}
 }
