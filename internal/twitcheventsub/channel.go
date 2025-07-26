@@ -7,6 +7,8 @@ import (
 	"github.com/joeyak/go-twitch-eventsub/v3"
 	"github.com/nantokaworks/twitch-fax/internal/env"
 	"github.com/nantokaworks/twitch-fax/internal/output"
+	"github.com/nantokaworks/twitch-fax/internal/shared/logger"
+	"go.uber.org/zap"
 )
 
 func HandleChannelChatMessage(message twitch.EventChannelChatMessage) {
@@ -21,16 +23,17 @@ func HandleChannelPointsCustomRedemptionAdd(message twitch.EventChannelChannelPo
 		return
 	}
 
-	fragments := []twitch.ChatMessageFragment{
-		{
-			Type:      "text",
-			Text:      fmt.Sprintf("🎉チャネポ %s %s", message.Reward.Title, message.UserInput),
-			Cheermote: nil,
-			Emote:     nil,
-		},
-	}
+	// fragments := []twitch.ChatMessageFragment{
+	// 	{
+	// 		Type:      "text",
+	// 		Text:      fmt.Sprintf("🎉チャネポ %s %s", message.Reward.Title, message.UserInput),
+	// 		Cheermote: nil,
+	// 		Emote:     nil,
+	// 	},
+	// }
 
-	output.PrintOut(message.User.UserName, fragments, time.Now())
+	// output.PrintOut(message.User.UserName, fragments, time.Now())
+	logger.Info("チャネポ", zap.String("user", message.User.UserName), zap.String("reward", message.Reward.Title), zap.String("userInput", message.UserInput))
 }
 
 func HandleChannelCheer(message twitch.EventChannelCheer) {
