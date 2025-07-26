@@ -11,7 +11,10 @@ import (
 	"go.uber.org/zap"
 )
 
-var client *twitch.Client
+var (
+	client *twitch.Client
+	shutdownChan = make(chan struct{})
+)
 
 func SetupEventSub(token *twitchtoken.Token) {
 	client = twitch.NewClient()
@@ -165,9 +168,17 @@ func SetupEventSub(token *twitchtoken.Token) {
 		fmt.Printf("RAW EVENT: %s\n", subscription.Type)
 	})
 
-	err := client.Connect()
-	if err != nil {
-		fmt.Printf("Could not connect client: %v\n", err)
-	}
+	go func() {
+		err := client.Connect()
+		if err != nil {
+			fmt.Printf("Could not connect client: %v\n", err)
+		}
+	}()
+}
 
+// Shutdown closes the EventSub client connection
+func Shutdown() {
+	if client != nil {
+		client.Close()
+	}
 }

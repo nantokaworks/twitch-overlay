@@ -3,6 +3,9 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/nantokaworks/twitch-fax/internal/env"
@@ -81,6 +84,9 @@ func main() {
 	// start web server (always start, even without token)
 	webserver.StartWebServer(env.Value.ServerPort)
 
+	// Create a done channel for goroutines
+	done := make(chan struct{})
+
 	// check token and start monitoring
 	if token.AccessToken == "" {
 		// Display authentication URL
@@ -100,16 +106,21 @@ func main() {
 		// wait get token or ctrl+c in goroutine
 		go func() {
 			for {
-				if token, tokenValid, _ = twitchtoken.GetLatestToken(); tokenValid {
-					logger.Info("Token is valid.")
-					fmt.Println("")
-					fmt.Println("✅ Twitch認証が完了しました！")
-					fmt.Println("")
-					// start twitch eventsub after getting token
-					twitcheventsub.SetupEventSub(&token)
-					break
+				select {
+				case <-done:
+					return
+				default:
+					if token, tokenValid, _ = twitchtoken.GetLatestToken(); tokenValid {
+						logger.Info("Token is valid.")
+						fmt.Println("")
+						fmt.Println("✅ Twitch認証が完了しました！")
+						fmt.Println("")
+						// start twitch eventsub after getting token
+						twitcheventsub.SetupEventSub(&token)
+						return
+					}
+					time.Sleep(1 * time.Second)
 				}
-				time.Sleep(1 * time.Second)
 			}
 		}()
 	} else {
@@ -117,6 +128,24 @@ func main() {
 		twitcheventsub.SetupEventSub(&token)
 	}
 
-	// Keep the application running
-	select {}
+	// Setup signal handling for graceful shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	// Wait for signal
+	sig := <-sigChan
+	logger.Info("Received signal, shutting down...", zap.String("signal", sig.String()))
+
+	// Signal all goroutines to stop
+	close(done)
+
+	// Shutdown all services concurrently for faster shutdown
+	go twitcheventsub.Shutdown()
+	go webserver.Shutdown()
+
+	// Give services a moment to shutdown gracefully
+	time.Sleep(200 * time.Millisecond)
+
+	// Clean up resources (already handled by defer statements)
+	logger.Info("Shutdown complete")
 }

@@ -1,6 +1,7 @@
 package webserver
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -26,9 +27,12 @@ type SSEServer struct {
 	mu      sync.RWMutex
 }
 
-var sseServer = &SSEServer{
-	clients: make(map[chan string]bool),
-}
+var (
+	sseServer = &SSEServer{
+		clients: make(map[chan string]bool),
+	}
+	httpServer *http.Server
+)
 
 // corsMiddleware adds CORS headers to HTTP handlers
 func corsMiddleware(handler http.HandlerFunc) http.HandlerFunc {
@@ -137,11 +141,33 @@ func StartWebServer(port int) {
 	
 	logger.Info("Starting web server", zap.String("address", addr))
 
+	// Create HTTP server instance
+	httpServer = &http.Server{
+		Addr:    addr,
+		Handler: nil, // Use DefaultServeMux
+	}
+
 	go func() {
-		if err := http.ListenAndServe(addr, nil); err != nil {
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Fatal("Failed to start web server", zap.Error(err))
 		}
 	}()
+}
+
+// Shutdown gracefully shuts down the web server
+func Shutdown() {
+	if httpServer == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	if err := httpServer.Shutdown(ctx); err != nil {
+		logger.Error("Failed to shutdown web server gracefully", zap.Error(err))
+	} else {
+		logger.Info("Web server shutdown complete")
+	}
 }
 
 // handleSSE handles Server-Sent Events connections

@@ -35,6 +35,11 @@ tasks:
           cp .env ../../dist/.env
           echo ".envファイルをコピーしました → dist/.env"
         fi
+      - |
+        if [ -f local.db ]; then
+          cp local.db ../../dist/local.db
+          echo "local.dbファイルをコピーしました → dist/local.db"
+        fi
 
   # 統合ビルド
   build:all:
@@ -75,6 +80,13 @@ tasks:
     cmds:
       - claude --dangerously-skip-permissions
 
+  # twitch-faxプロセスを停止
+  stop:
+    desc: 実行中のtwitch-faxを停止
+    cmds:
+      - echo "twitch-faxプロセスを停止中..."
+      - pkill -f twitch-fax || echo "実行中のtwitch-faxプロセスが見つかりませんでした"
+
   # ビルド済みアプリケーションを実行
   run:
     desc: ビルド済みのtwitch-faxを実行
@@ -87,7 +99,7 @@ tasks:
           exit 1
         fi
       - echo "twitch-faxを起動中..."
-      - ./twitch-fax
+      - exec ./twitch-fax
 
   # テスト実行
   test:
