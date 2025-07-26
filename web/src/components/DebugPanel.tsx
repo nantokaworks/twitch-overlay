@@ -6,42 +6,59 @@ interface DebugPanelProps {
 }
 
 const DebugPanel = ({ onSendFax }: DebugPanelProps) => {
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [username, setUsername] = useState<string>('DebugUser');
   const [message, setMessage] = useState<string>('');
   const [imageUrl, setImageUrl] = useState<string>('');
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!message.trim()) return;
+    if (!message.trim() || isSubmitting) return;
 
-    // メッセージから画像URLを抽出する処理（サーバーと同じロジック）
-    let finalImageUrl = imageUrl.trim();
-    if (!finalImageUrl) {
-      // URLパターンを検索（http/https画像URL）
-      const urlPattern = /(https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp)(\?[^\s]*)?)/gi;
-      const matches = message.match(urlPattern);
-      if (matches && matches.length > 0) {
-        finalImageUrl = matches[0];
+    setIsSubmitting(true);
+
+    try {
+      // メッセージから画像URLを抽出する処理（サーバーと同じロジック）
+      let finalImageUrl = imageUrl.trim();
+      if (!finalImageUrl) {
+        // URLパターンを検索（http/https画像URL）
+        const urlPattern = /(https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp)(\?[^\s]*)?)/gi;
+        const matches = message.match(urlPattern);
+        if (matches && matches.length > 0) {
+          finalImageUrl = matches[0];
+        }
       }
+
+      // バックエンドのデバッグエンドポイントに送信
+      const response = await fetch('/debug/fax', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: username.toLowerCase(),
+          displayName: username,
+          message: message.trim(),
+          imageUrl: finalImageUrl || undefined,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to send debug fax: ${response.statusText}`);
+      }
+
+      // 成功時はSSE経由でFAXデータが届くので、ここでは何もしない
+      // フォームをリセット
+      setMessage('');
+      setImageUrl('');
+    } catch (error) {
+      console.error('Failed to send debug fax:', error);
+      alert('デバッグFAXの送信に失敗しました。サーバーがDEBUG_MODE=trueで起動されているか確認してください。');
+    } finally {
+      setIsSubmitting(false);
     }
-
-    const faxData: FaxData = {
-      id: `debug-${Date.now()}`,
-      type: 'fax',
-      timestamp: Date.now(),
-      username: username.toLowerCase(),
-      displayName: username,
-      message: message.trim(),
-      imageUrl: finalImageUrl || undefined,
-    };
-
-    onSendFax(faxData);
-    
-    // フォームをリセット
-    setMessage('');
-    setImageUrl('');
   };
 
   return (
@@ -113,10 +130,15 @@ const DebugPanel = ({ onSendFax }: DebugPanelProps) => {
             
             <button
               type="submit"
-              className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition-colors font-medium"
+              disabled={isSubmitting}
+              className={`w-full py-2 rounded transition-colors font-medium ${
+                isSubmitting 
+                  ? 'bg-gray-600 text-gray-400 cursor-not-allowed' 
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
+              }`}
               style={{ fontSize: '14px' }}
             >
-              FAX送信 (TRIGGER_CUSTOM_REWORD_ID)
+              {isSubmitting ? '送信中...' : 'FAX送信 (TRIGGER_CUSTOM_REWORD_ID)'}
             </button>
           </form>
           

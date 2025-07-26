@@ -3,6 +3,7 @@ package webserver
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -10,8 +11,10 @@ import (
 	"time"
 
 	"github.com/nantokaworks/twitch-fax/internal/faxmanager"
+	"github.com/nantokaworks/twitch-fax/internal/output"
 	"github.com/nantokaworks/twitch-fax/internal/shared/logger"
 	"github.com/nantokaworks/twitch-fax/internal/status"
+	"github.com/twitch/twitch-api-go"
 	"go.uber.org/zap"
 )
 
@@ -38,6 +41,12 @@ func StartWebServer(port int) {
 
 	// Status endpoint
 	http.HandleFunc("/status", handleStatus)
+
+	// Debug endpoint (only enabled in debug mode)
+	if os.Getenv("DEBUG_MODE") == "true" {
+		http.HandleFunc("/debug/fax", handleDebugFax)
+		logger.Info("Debug mode enabled - /debug/fax endpoint available")
+	}
 
 	addr := fmt.Sprintf(":%d", port)
 	logger.Info("Starting web server", zap.String("address", addr))
@@ -188,4 +197,82 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Write(jsonData)
+}
+
+// DebugFaxRequest represents a debug fax request
+type DebugFaxRequest struct {
+	Username string `json:"username"`
+	DisplayName string `json:"displayName"`
+	Message string `json:"message"`
+	ImageURL string `json:"imageUrl,omitempty"`
+}
+
+// handleDebugFax handles debug fax submissions
+func handleDebugFax(w http.ResponseWriter, r *http.Request) {
+	// Only allow in debug mode
+	if os.Getenv("DEBUG_MODE") != "true" {
+		http.Error(w, "Debug mode not enabled", http.StatusForbidden)
+		return
+	}
+
+	// Only accept POST
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Parse request body
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read request body", http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	var req DebugFaxRequest
+	if err := json.Unmarshal(body, &req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// Validate required fields
+	if req.Username == "" || req.Message == "" {
+		http.Error(w, "Username and message are required", http.StatusBadRequest)
+		return
+	}
+
+	// If displayName is empty, use username
+	if req.DisplayName == "" {
+		req.DisplayName = req.Username
+	}
+
+	// Create message fragments
+	fragments := []twitch.ChatMessageFragment{
+		{
+			Type: "text",
+			Text: req.Message,
+		},
+	}
+
+	// Process the fax
+	logger.Info("Processing debug fax", 
+		zap.String("username", req.Username),
+		zap.String("message", req.Message),
+		zap.String("imageUrl", req.ImageURL))
+
+	// Call PrintOut directly (same as custom reward handling)
+	err = output.PrintOut(req.Username, fragments, time.Now())
+	if err != nil {
+		logger.Error("Failed to process debug fax", zap.Error(err))
+		http.Error(w, "Failed to process fax", http.StatusInternalServerError)
+		return
+	}
+
+	// Return success
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	json.NewEncoder(w).Encode(map[string]string{
+		"status": "ok",
+		"message": "Debug fax queued successfully",
+	})
 }

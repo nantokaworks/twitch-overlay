@@ -9,6 +9,7 @@ export default defineConfig({
       '/events': 'http://localhost:8080',
       '/fax': 'http://localhost:8080',
       '/status': 'http://localhost:8080',
+      '/debug': 'http://localhost:8080',
     }
   }
 });
