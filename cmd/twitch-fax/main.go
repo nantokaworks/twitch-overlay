@@ -9,6 +9,7 @@ import (
 	"github.com/nantokaworks/twitch-fax/internal/shared/logger"
 	"github.com/nantokaworks/twitch-fax/internal/twitcheventsub"
 	"github.com/nantokaworks/twitch-fax/internal/twitchtoken"
+	"github.com/nantokaworks/twitch-fax/internal/webserver"
 	"go.uber.org/zap"
 
 	_ "github.com/nantokaworks/twitch-fax/internal/env"
@@ -82,7 +83,12 @@ func main() {
 		logger.Info("Token is valid.")
 	}
 
+	// start web server
+	webserver.StartWebServer(8080)
+
 	// start twitch eventsub
 	twitcheventsub.SetupEventSub(&token)
 
+	// Keep the application running
+	select {}
 }

@@ -19,6 +19,7 @@ require (
 	github.com/go-ble/ble v0.0.0-20240122180141-8c5522f54333 // indirect
 	github.com/konsorten/go-windows-terminal-sequences v1.0.1 // indirect
 	github.com/makeworld-the-better-one/dither/v2 v2.4.0 // indirect
+	github.com/matoous/go-nanoid/v2 v2.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.6 // indirect
 	github.com/mattn/go-isatty v0.0.12 // indirect
 	github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b // indirect

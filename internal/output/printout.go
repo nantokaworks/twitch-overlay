@@ -11,7 +11,9 @@ import (
 
 	"github.com/joeyak/go-twitch-eventsub/v3"
 	"github.com/nantokaworks/twitch-fax/internal/env"
+	"github.com/nantokaworks/twitch-fax/internal/faxmanager"
 	"github.com/nantokaworks/twitch-fax/internal/shared/logger"
+	"github.com/nantokaworks/twitch-fax/internal/webserver"
 	"go.uber.org/zap"
 )
 
@@ -113,65 +115,73 @@ func init() {
 }
 
 func PrintOut(userName string, message []twitch.ChatMessageFragment, timestamp time.Time) error {
-	// Generate color version if debug output is enabled
-	var colorImg image.Image
-	if env.Value.DebugOutput {
-		var err error
-		colorImg, err = MessageToImage(userName, message, true)
-		if err != nil {
-			logger.Error("Failed to create color image", zap.Error(err))
-			colorImg = nil
-		}
+	// Generate color version
+	colorImg, err := MessageToImage(userName, message, true)
+	if err != nil {
+		return fmt.Errorf("failed to create color image: %w", err)
 	}
 
 	// Generate monochrome version for printing
-	img, err := MessageToImage(userName, message, false)
+	monoImg, err := MessageToImage(userName, message, false)
 	if err != nil {
-		return fmt.Errorf("failed to create image: %w", err)
+		return fmt.Errorf("failed to create monochrome image: %w", err)
 	}
 
-	if env.Value.DebugOutput {
-		outputDir := ".output"
-		if err := os.MkdirAll(outputDir, 0755); err != nil {
-			return fmt.Errorf("failed to create output directory: %w", err)
-		}
-
-		// Save color version if available
-		if colorImg != nil {
-			colorPath := filepath.Join(outputDir, fmt.Sprintf("%s_%s_color.png", timestamp.Format("20060102_150405_000"), userName))
-			file, err := os.Create(colorPath)
-			if err != nil {
-				logger.Error("Failed to create color output file", zap.Error(err))
-			} else {
-				if err := png.Encode(file, colorImg); err != nil {
-					logger.Error("Failed to encode color image", zap.Error(err))
-				} else {
-					logger.Info("Color output file saved", zap.String("path", colorPath))
-				}
-				file.Close()
-			}
-		}
-
-		// Save monochrome version
-		monoPath := filepath.Join(outputDir, fmt.Sprintf("%s_%s.png", timestamp.Format("20060102_150405_000"), userName))
-		file, err := os.Create(monoPath)
-		if err != nil {
-			return fmt.Errorf("failed to create output file: %w", err)
-		}
-		defer file.Close()
-		err = png.Encode(file, img)
-		if err != nil {
-			return fmt.Errorf("failed to encode image: %w", err)
-		}
-		if env.Value.DryRunMode {
-			logger.Info("output file saved (DRY-RUN MODE)", zap.String("path", monoPath))
-		} else {
-			logger.Info("output file saved", zap.String("path", monoPath))
-		}
-		return nil
+	// Save fax with faxmanager
+	fax, err := faxmanager.SaveFax(userName, colorImg, monoImg)
+	if err != nil {
+		return fmt.Errorf("failed to save fax: %w", err)
 	}
 
-	printQueue <- img
+	// Save images to disk
+	if err := saveFaxImages(fax, colorImg, monoImg); err != nil {
+		return fmt.Errorf("failed to save fax images: %w", err)
+	}
+
+	// Broadcast to SSE clients
+	webserver.BroadcastFax(fax)
+
+	// Add to print queue
+	printQueue <- monoImg
+	return nil
+}
+
+// saveFaxImages saves the fax images to disk
+func saveFaxImages(fax *faxmanager.Fax, colorImg, monoImg image.Image) error {
+	// Save color image
+	colorFile, err := os.Create(fax.ColorPath)
+	if err != nil {
+		return fmt.Errorf("failed to create color file: %w", err)
+	}
+	defer colorFile.Close()
+
+	if err := png.Encode(colorFile, colorImg); err != nil {
+		return fmt.Errorf("failed to encode color image: %w", err)
+	}
+
+	// Save mono image
+	monoFile, err := os.Create(fax.MonoPath)
+	if err != nil {
+		return fmt.Errorf("failed to create mono file: %w", err)
+	}
+	defer monoFile.Close()
+
+	if err := png.Encode(monoFile, monoImg); err != nil {
+		return fmt.Errorf("failed to encode mono image: %w", err)
+	}
+
+	if env.Value.DryRunMode {
+		logger.Info("Fax images saved (DRY-RUN MODE)",
+			zap.String("id", fax.ID),
+			zap.String("colorPath", fax.ColorPath),
+			zap.String("monoPath", fax.MonoPath))
+	} else {
+		logger.Info("Fax images saved",
+			zap.String("id", fax.ID),
+			zap.String("colorPath", fax.ColorPath),
+			zap.String("monoPath", fax.MonoPath))
+	}
+
 	return nil
 }
 
