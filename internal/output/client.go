@@ -10,6 +10,7 @@ import (
 var latestPrinter *catprinter.Client
 var opts *catprinter.PrinterOptions
 var isConnected bool
+var hasInitialPrintBeenDone bool
 
 func SetupPrinter() (*catprinter.Client, error) {
 	if latestPrinter != nil {
@@ -70,4 +71,19 @@ func Stop() {
 		isConnected = false
 		latestPrinter = nil
 	}
+}
+
+// MarkInitialPrintDone marks that the initial print has been completed
+func MarkInitialPrintDone() {
+	hasInitialPrintBeenDone = true
+}
+
+// IsConnected returns whether the printer is connected
+func IsConnected() bool {
+	return isConnected
+}
+
+// HasInitialPrintBeenDone returns whether the initial print has been done
+func HasInitialPrintBeenDone() bool {
+	return hasInitialPrintBeenDone
 }

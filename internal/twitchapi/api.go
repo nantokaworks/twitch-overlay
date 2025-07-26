@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/nantokaworks/twitch-fax/internal/env"
 	"github.com/nantokaworks/twitch-fax/internal/shared/logger"
@@ -131,4 +132,130 @@ func GetChannelStats() (viewers int, followers int, isLive bool, err error) {
 	}
 
 	return viewers, channelInfo.FollowerCount, isLive, nil
+}
+
+// BitsLeaderboardEntry represents a single entry in the bits leaderboard
+type BitsLeaderboardEntry struct {
+	UserID    string `json:"user_id"`
+	UserLogin string `json:"user_login"`
+	UserName  string `json:"user_name"`
+	Rank      int    `json:"rank"`
+	Score     int    `json:"score"`
+	AvatarURL string // Will be populated separately
+}
+
+// GetBitsLeaderboard retrieves the bits leaderboard for a specific period
+func GetBitsLeaderboard(period string) ([]*BitsLeaderboardEntry, error) {
+	logger.Info("Getting bits leaderboard", zap.String("period", period))
+	token, valid, err := twitchtoken.GetLatestToken()
+	if !valid || err != nil {
+		return nil, fmt.Errorf("failed to get valid token: %w", err)
+	}
+
+	// For "month" period, we need to specify started_at parameter
+	var reqURL string
+	if period == "month" {
+		// Get first day of current month
+		now := time.Now()
+		firstOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
+		startedAt := firstOfMonth.Format(time.RFC3339)
+		reqURL = fmt.Sprintf("https://api.twitch.tv/helix/bits/leaderboard?count=3&period=%s&started_at=%s&broadcaster_id=%s", 
+			url.QueryEscape(period), url.QueryEscape(startedAt), url.QueryEscape(*env.Value.TwitchUserID))
+	} else {
+		reqURL = fmt.Sprintf("https://api.twitch.tv/helix/bits/leaderboard?count=3&period=%s&broadcaster_id=%s", 
+			url.QueryEscape(period), url.QueryEscape(*env.Value.TwitchUserID))
+	}
+	req, err := http.NewRequest("GET", reqURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Client-ID", *env.Value.ClientID)
+	req.Header.Set("Authorization", "Bearer "+token.AccessToken)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API request failed with status: %d", resp.StatusCode)
+	}
+
+	var result struct {
+		Data []BitsLeaderboardEntry `json:"data"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	if len(result.Data) == 0 {
+		return nil, nil // No leaders found
+	}
+
+	// Get avatar only for the first place
+	if len(result.Data) > 0 {
+		avatarURL, err := GetUserAvatar(result.Data[0].UserID)
+		if err != nil {
+			logger.Warn("Failed to get user avatar", zap.Error(err))
+			// Continue without avatar
+		} else {
+			result.Data[0].AvatarURL = avatarURL
+		}
+	}
+
+	// Return slice of leaders
+	leaders := make([]*BitsLeaderboardEntry, len(result.Data))
+	for i := range result.Data {
+		leaders[i] = &result.Data[i]
+	}
+
+	return leaders, nil
+}
+
+// GetUserAvatar retrieves the profile image URL for a user
+func GetUserAvatar(userID string) (string, error) {
+	token, valid, err := twitchtoken.GetLatestToken()
+	if !valid || err != nil {
+		return "", fmt.Errorf("failed to get valid token: %w", err)
+	}
+
+	reqURL := fmt.Sprintf("https://api.twitch.tv/helix/users?id=%s", url.QueryEscape(userID))
+	req, err := http.NewRequest("GET", reqURL, nil)
+	if err != nil {
+		return "", err
+	}
+
+	req.Header.Set("Client-ID", *env.Value.ClientID)
+	req.Header.Set("Authorization", "Bearer "+token.AccessToken)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("API request failed with status: %d", resp.StatusCode)
+	}
+
+	var result struct {
+		Data []struct {
+			ProfileImageURL string `json:"profile_image_url"`
+		} `json:"data"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", err
+	}
+
+	if len(result.Data) == 0 {
+		return "", fmt.Errorf("user not found")
+	}
+
+	return result.Data[0].ProfileImageURL, nil
 }

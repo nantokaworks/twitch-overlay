@@ -69,9 +69,27 @@ func init() {
 					continue
 				}
 			}
+			
+			// Check if initial print hasn't been done yet and we have a connection
+			if !hasInitialPrintBeenDone && isConnected && env.Value.ClockEnabled {
+				logger.Info("Performing initial clock print on first successful connection")
+				go func() {
+					if env.Value.DryRunMode {
+						logger.Info("Printing initial clock and stats (DRY-RUN MODE)")
+					} else {
+						logger.Info("Printing initial clock and stats")
+					}
+					err := PrintInitialClockAndStats()
+					if err != nil {
+						logger.Error("Failed to print initial clock and stats", zap.Error(err))
+					} else {
+						hasInitialPrintBeenDone = true
+					}
+				}()
+			}
 
 			// Check for dry-run mode
-			if *env.Value.PrinterAddress == "dry-run-mode" {
+			if env.Value.DryRunMode {
 				logger.Info("Dry-run mode: skipping actual printing")
 				// Update last print time even in dry-run mode
 				lastPrintMutex.Lock()
@@ -145,7 +163,7 @@ func PrintOut(userName string, message []twitch.ChatMessageFragment, timestamp t
 		if err != nil {
 			return fmt.Errorf("failed to encode image: %w", err)
 		}
-		if *env.Value.PrinterAddress == "dry-run-mode" {
+		if env.Value.DryRunMode {
 			logger.Info("output file saved (DRY-RUN MODE)", zap.String("path", monoPath))
 		} else {
 			logger.Info("output file saved", zap.String("path", monoPath))
@@ -162,6 +180,58 @@ func keepAliveRoutine() {
 	defer ticker.Stop()
 	
 	for range ticker.C {
+		// First check if we need to do initial connection
+		if !isConnected && !hasInitialPrintBeenDone {
+			logger.Info("Keep-alive: attempting initial printer connection")
+			
+			// Lock printer for exclusive access
+			printerMutex.Lock()
+			
+			// Setup printer if needed
+			if latestPrinter == nil {
+				_, err := SetupPrinter()
+				if err != nil {
+					logger.Error("Keep-alive: failed to setup printer for initial connection", zap.Error(err))
+					printerMutex.Unlock()
+					continue
+				}
+			}
+			
+			// Try to connect
+			err := ConnectPrinter(latestPrinter, *env.Value.PrinterAddress)
+			if err != nil {
+				logger.Error("Keep-alive: failed initial connection to printer", zap.Error(err))
+				printerMutex.Unlock()
+				continue
+			}
+			
+			logger.Info("Keep-alive: initial connection established")
+			
+			// Perform initial print if clock is enabled
+			if env.Value.ClockEnabled {
+				logger.Info("Keep-alive: performing initial clock print")
+				if env.Value.DryRunMode {
+					logger.Info("Printing initial clock and stats (DRY-RUN MODE)")
+				} else {
+					logger.Info("Printing initial clock and stats")
+				}
+				err := PrintInitialClockAndStats()
+				if err != nil {
+					logger.Error("Keep-alive: failed to print initial clock and stats", zap.Error(err))
+				} else {
+					hasInitialPrintBeenDone = true
+				}
+			}
+			
+			// Update last print time
+			lastPrintMutex.Lock()
+			lastPrintTime = time.Now()
+			lastPrintMutex.Unlock()
+			
+			printerMutex.Unlock()
+			continue
+		}
+		
 		lastPrintMutex.Lock()
 		timeSinceLastPrint := time.Since(lastPrintTime)
 		lastPrintMutex.Unlock()
@@ -177,10 +247,8 @@ func keepAliveRoutine() {
 			
 			// Disconnect existing client if any
 			if latestPrinter != nil {
-				// Only disconnect if we have a real connection (not in dry-run mode)
-				if *env.Value.PrinterAddress != "dry-run-mode" {
-					latestPrinter.Disconnect()
-				}
+				// Disconnect the printer
+				latestPrinter.Disconnect()
 				isConnected = false
 			}
 			
@@ -200,6 +268,22 @@ func keepAliveRoutine() {
 			}
 			
 			logger.Info("Keep-alive: new connection established")
+			
+			// Check if initial print hasn't been done yet after successful reconnection
+			if !hasInitialPrintBeenDone && isConnected && env.Value.ClockEnabled {
+				logger.Info("Keep-alive: performing initial clock print on first successful connection")
+				if env.Value.DryRunMode {
+					logger.Info("Printing initial clock and stats (DRY-RUN MODE)")
+				} else {
+					logger.Info("Printing initial clock and stats")
+				}
+				err := PrintInitialClockAndStats()
+				if err != nil {
+					logger.Error("Keep-alive: failed to print initial clock and stats", zap.Error(err))
+				} else {
+					hasInitialPrintBeenDone = true
+				}
+			}
 			
 			// Update last print time
 			lastPrintMutex.Lock()
@@ -303,6 +387,7 @@ func clockRoutine() {
 		}
 	}
 }
+
 
 // PrintInitialClockAndStats prints current time and stats on startup
 func PrintInitialClockAndStats() error {

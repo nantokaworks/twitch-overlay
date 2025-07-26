@@ -37,19 +37,22 @@ func main() {
 	}
 	err = output.ConnectPrinter(c, *env.Value.PrinterAddress)
 	if err != nil {
-		log.Fatal(err)
-	}
-	
-	// Print initial clock and stats on successful connection
-	if env.Value.ClockEnabled {
-		if env.Value.DryRunMode {
-			logger.Info("Printing initial clock and stats (DRY-RUN MODE)")
-		} else {
-			logger.Info("Printing initial clock and stats")
-		}
-		err = output.PrintInitialClockAndStats()
-		if err != nil {
-			logger.Error("Failed to print initial clock and stats", zap.Error(err))
+		logger.Error("Failed to connect to printer at startup", zap.Error(err))
+		logger.Info("Will retry connection when printing")
+	} else {
+		// Print initial clock and stats on successful connection
+		if env.Value.ClockEnabled {
+			if env.Value.DryRunMode {
+				logger.Info("Printing initial clock and stats (DRY-RUN MODE)")
+			} else {
+				logger.Info("Printing initial clock and stats")
+			}
+			err = output.PrintInitialClockAndStats()
+			if err != nil {
+				logger.Error("Failed to print initial clock and stats", zap.Error(err))
+			} else {
+				output.MarkInitialPrintDone()
+			}
 		}
 	}
 
