@@ -2,9 +2,8 @@ import { useEffect, useState } from 'react';
 import { useFaxQueue } from '../hooks/useFaxQueue';
 import FaxDisplay from './FaxDisplay';
 
-const FaxReceiver = () => {
+const FaxReceiver = ({ imageType = 'mono' }) => {
   const [isConnected, setIsConnected] = useState(false);
-  const [imageType, setImageType] = useState('mono');
   const { currentFax, addToQueue, onDisplayComplete } = useFaxQueue();
 
   useEffect(() => {
@@ -63,24 +62,13 @@ const FaxReceiver = () => {
     <div className="h-screen text-white relative overflow-hidden" style={{ backgroundColor: 'transparent' }}>
       {/* コントロールパネル */}
       <div className="absolute top-4 right-4 bg-gray-800 rounded-lg p-4 shadow-lg z-10">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
           <div
             className={`w-3 h-3 rounded-full ${
               isConnected ? 'bg-green-500' : 'bg-red-500'
             }`}
           />
-          
-          <div className="flex items-center gap-2">
-            <label className="text-sm">画像タイプ:</label>
-            <select
-              value={imageType}
-              onChange={(e) => setImageType(e.target.value)}
-              className="bg-gray-700 text-white rounded px-2 py-1 text-sm"
-            >
-              <option value="mono">モノクロ</option>
-              <option value="color">カラー</option>
-            </select>
-          </div>
+          <span className="text-sm">FAX</span>
         </div>
       </div>
 
