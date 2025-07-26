@@ -1,26 +1,44 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate, onAnimationStateChange }) => {
+const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate, onAnimationStateChange, onStateChange }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageHeight, setImageHeight] = useState(0);
   const [animationComplete, setAnimationComplete] = useState(false);
   const [imagePosition, setImagePosition] = useState(-1); // -1 means use 100% (初期位置)
   const [containerPosition, setContainerPosition] = useState(0); // コンテナ全体の位置
+  const [displayState, setDisplayState] = useState('loading'); // 'loading', 'waiting', 'scrolling', 'displaying', 'sliding', 'complete'
+  const [scrollProgress, setScrollProgress] = useState(0); // 0-100%
   const containerRef = useRef(null);
   const animationRef = useRef(null);
+  
+  // 状態変更を通知
+  useEffect(() => {
+    if (onStateChange) {
+      onStateChange({
+        state: displayState,
+        progress: scrollProgress
+      });
+    }
+  }, [displayState, scrollProgress, onStateChange]);
 
   useEffect(() => {
     if (!faxData) return;
 
+    setDisplayState('loading');
     // 画像のプリロード
     const img = new Image();
     img.onload = () => {
-      setImageLoaded(true);
       // 画像の実際の高さを取得（最大幅250pxでの高さを計算）
       const aspectRatio = img.height / img.width;
       const displayWidth = Math.min(250, window.innerWidth);
       const displayHeight = displayWidth * aspectRatio;
       setImageHeight(displayHeight);
+      
+      setDisplayState('waiting');
+      // 2秒間の待機
+      setTimeout(() => {
+        setImageLoaded(true);
+      }, 2000);
     };
     img.src = `/fax/${faxData.id}/${imageType}`;
 
@@ -30,6 +48,7 @@ const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate, onA
   useEffect(() => {
     if (!imageLoaded || !imageHeight) return;
 
+    setDisplayState('scrolling');
     // アニメーション開始を通知
     if (onAnimationStateChange) {
       onAnimationStateChange(true);
@@ -46,6 +65,10 @@ const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate, onA
       // 画像位置を更新
       setImagePosition(currentImagePosition);
       
+      // スクロール進捗を計算（0-100%）
+      const progress = Math.min(100, Math.max(0, ((currentImagePosition + imageHeight) / imageHeight) * 100));
+      setScrollProgress(progress);
+      
       // ラベル位置の計算
       // 画像と同じスピードで動くが、最大250pxまで
       const labelPosition = Math.min(Math.max(0, currentImagePosition + imageHeight), 250);
@@ -60,7 +83,10 @@ const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate, onA
       } else {
         // アニメーション完了、5秒待機
         setImagePosition(0); // 最終位置に固定
+        setScrollProgress(100);
+        setDisplayState('displaying');
         setTimeout(() => {
+          setDisplayState('sliding');
           // アニメーション終了を通知（トランジションを有効にする）
           if (onAnimationStateChange) {
             onAnimationStateChange(false);
@@ -75,6 +101,7 @@ const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate, onA
             }
             setTimeout(() => {
               setAnimationComplete(true);
+              setDisplayState('complete');
               onComplete();
             }, 500); // スライドアップ完了後に終了
           }, 50); // トランジション切り替えの遅延
@@ -100,7 +127,7 @@ const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate, onA
         animationComplete ? 'opacity-0' : 'opacity-100'
       }`}
       style={{
-        left: '20px',
+        left: '0px',
         top: `${containerPosition}px`,
         transition: containerPosition !== 0 ? 'top 0.5s ease-out, opacity 0.5s' : 'opacity 0.5s',
       }}

@@ -6,17 +6,36 @@ const FaxReceiver = ({ imageType = 'mono' }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [labelPosition, setLabelPosition] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [faxState, setFaxState] = useState(null);
+  const [isShaking, setIsShaking] = useState(false);
   const { currentFax, addToQueue, onDisplayComplete } = useFaxQueue();
   
   // ラベル位置をリセット
   useEffect(() => {
     if (!currentFax) {
       setLabelPosition(0);
+      setFaxState(null);
     }
   }, [currentFax]);
   
   // デバッグモードの判定（URLパラメータまたは環境変数）
   const isDebug = new URLSearchParams(window.location.search).get('debug') === 'true';
+  
+  // デバッグ情報をコンソールに出力
+  useEffect(() => {
+    if (isDebug && faxState) {
+      console.log('FAX State:', faxState.state, 'Progress:', faxState.progress + '%');
+    }
+  }, [faxState, isDebug]);
+  
+  // 震え制御
+  useEffect(() => {
+    if (faxState) {
+      setIsShaking(faxState.state === 'waiting' || faxState.state === 'scrolling');
+    } else {
+      setIsShaking(false);
+    }
+  }, [faxState]);
 
   useEffect(() => {
     let reconnectTimeout;
@@ -76,7 +95,7 @@ const FaxReceiver = ({ imageType = 'mono' }) => {
       <div 
         className="fixed z-10" 
         style={{ 
-          left: '20px', 
+          left: '0px', 
           width: '250px', 
           height: '40px',
           top: `${labelPosition}px`,
@@ -95,7 +114,15 @@ const FaxReceiver = ({ imageType = 'mono' }) => {
           >
             ◆
           </span>
-          <span className="text-outline" style={{ fontSize: '24px' }}>FAX</span>
+          <span 
+            className="text-outline" 
+            style={{ 
+              fontSize: '24px',
+              animation: isShaking ? 'shake 0.2s infinite' : 'none'
+            }}
+          >
+            FAX
+          </span>
         </div>
       </div>
 
@@ -107,6 +134,7 @@ const FaxReceiver = ({ imageType = 'mono' }) => {
           imageType={imageType}
           onLabelPositionUpdate={setLabelPosition}
           onAnimationStateChange={setIsAnimating}
+          onStateChange={setFaxState}
         />
       )}
 
