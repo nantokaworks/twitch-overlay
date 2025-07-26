@@ -66,17 +66,17 @@ const FaxReceiver = ({ imageType = 'mono' }) => {
       {/* コントロールパネル */}
       <div className="fixed top-0 z-10" style={{ left: '20px', width: '250px', height: '40px' }}>
         <div className="flex items-center h-full px-2">
-          <div
-            className={`led-dot ${
-              isConnected ? 'bg-green-500' : 'bg-red-500'
+          <span
+            className={`text-outline ${
+              isConnected ? 'text-green-500' : 'text-red-500'
             }`}
             style={{
-              width: '4px',
-              height: '20px',
-              marginTop: '4px',
+              fontSize: '24px',
               marginRight: '12px'
             }}
-          />
+          >
+            ◆
+          </span>
           <span className="text-outline" style={{ fontSize: '24px' }}>FAX</span>
         </div>
       </div>
