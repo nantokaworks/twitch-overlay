@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useFaxQueue } from '../hooks/useFaxQueue';
 import FaxDisplay from './FaxDisplay';
+import DebugPanel from './DebugPanel';
 import { LAYOUT } from '../constants/layout';
 import type { FaxReceiverProps, FaxData, FaxState, ServerStatus, DynamicStyles } from '../types';
 
@@ -178,6 +179,11 @@ const FaxReceiver = ({ imageType = 'mono' }: FaxReceiverProps) => {
           onAnimationStateChange={setIsAnimating}
           onStateChange={setFaxState}
         />
+      )}
+
+      {/* デバッグパネル（デバッグモード時のみ表示） */}
+      {isDebug && (
+        <DebugPanel onSendFax={addToQueue} />
       )}
 
     </div>
