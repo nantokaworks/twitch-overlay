@@ -42,7 +42,7 @@ func main() {
 		logger.Info("Will retry connection when printing")
 	} else {
 		// Print initial clock and stats on successful connection
-		if env.Value.ClockEnabled {
+		if env.Value.InitialPrintEnabled && env.Value.ClockEnabled {
 			if env.Value.DryRunMode {
 				logger.Info("Printing initial clock and stats (DRY-RUN MODE)")
 			} else {
@@ -54,6 +54,9 @@ func main() {
 			} else {
 				output.MarkInitialPrintDone()
 			}
+		} else {
+			logger.Info("Skipping initial print (InitialPrintEnabled=false or ClockEnabled=false)")
+			output.MarkInitialPrintDone()
 		}
 	}
 
