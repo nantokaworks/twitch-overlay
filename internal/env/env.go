@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/joho/godotenv"
@@ -27,6 +28,7 @@ type EnvValue struct {
 	DryRunMode            bool
 	RotatePrint           bool
 	InitialPrintEnabled   bool
+	ServerPort            int
 }
 
 var Value EnvValue
@@ -34,8 +36,42 @@ var Value EnvValue
 func init() {
 
 	// Load environment variables from .env file
-	if err := godotenv.Load(); err != nil {
-		log.Fatal("Error loading .env file")
+	// Get executable directory
+	execPath, err := os.Executable()
+	if err != nil {
+		fmt.Printf("Warning: Could not get executable path: %v\n", err)
+		execPath = ""
+	}
+	
+	execDir := filepath.Dir(execPath)
+	
+	// Try multiple paths
+	possiblePaths := []string{}
+	
+	// First, try the executable directory
+	if execPath != "" {
+		possiblePaths = append(possiblePaths, filepath.Join(execDir, ".env"))
+	}
+	
+	// Then try other common locations
+	possiblePaths = append(possiblePaths,
+		".env",           // Current directory
+		"../.env",        // Parent directory
+		"../../.env",     // Two levels up (for cmd/twitch-fax)
+	)
+	
+	loaded := false
+	for _, path := range possiblePaths {
+		if err := godotenv.Load(path); err == nil {
+			fmt.Printf("Loaded .env from: %s\n", path)
+			loaded = true
+			break
+		}
+	}
+	
+	if !loaded {
+		// Try to load from environment without file
+		fmt.Println("Warning: .env file not found, using system environment variables")
 	}
 
 	clientID, err := getEnv("CLIENT_ID")
@@ -90,6 +126,7 @@ func init() {
 	dryRunMode := getEnvOrDefault("DRY_RUN_MODE", "false")
 	rotatePrint := getEnvOrDefault("ROTATE_PRINT", "false")
 	initialPrintEnabled := getEnvOrDefault("INITIAL_PRINT_ENABLED", "false")
+	serverPort := getEnvOrDefault("SERVER_PORT", "8080")
 
 	// Initialize the Env struct with environment variables
 	Value = EnvValue{
@@ -110,6 +147,7 @@ func init() {
 		DryRunMode:            *dryRunMode == "true",
 		RotatePrint:           *rotatePrint == "true",
 		InitialPrintEnabled:   *initialPrintEnabled == "true",
+		ServerPort:            parseInt(serverPort),
 	}
 
 	fmt.Printf("Loaded environment variables: %+v\n", Value)

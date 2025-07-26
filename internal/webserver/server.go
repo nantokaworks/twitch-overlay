@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -49,9 +50,53 @@ func StartWebServer(port int) {
 	// Register SSE server as the global broadcaster
 	broadcast.SetBroadcaster(sseServer)
 
-	// Serve static files from web/dist
-	fs := http.FileServer(http.Dir("./web/dist"))
-	http.Handle("/", fs)
+	// Serve static files - try multiple paths
+	var staticDir string
+	possiblePaths := []string{
+		"./public",      // Production: same directory as executable
+		"./dist/public", // Development: built files
+		"./web/dist",    // Fallback: frontend build directory
+	}
+	
+	for _, path := range possiblePaths {
+		if _, err := os.Stat(path); err == nil {
+			staticDir = path
+			logger.Info("Using static files directory", zap.String("path", staticDir))
+			break
+		}
+	}
+	
+	if staticDir == "" {
+		logger.Warn("No static files directory found, using default")
+		staticDir = "./web/dist"
+	}
+	
+	// Create a custom file server that handles SPA routing
+	fs := http.FileServer(http.Dir(staticDir))
+	
+	// Handle all routes
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		// Check if this is an API route
+		if strings.HasPrefix(r.URL.Path, "/events") || 
+		   strings.HasPrefix(r.URL.Path, "/fax/") || 
+		   strings.HasPrefix(r.URL.Path, "/status") || 
+		   strings.HasPrefix(r.URL.Path, "/debug/") {
+			// Let the API handlers handle these
+			http.NotFound(w, r)
+			return
+		}
+		
+		// Try to serve the file
+		filePath := filepath.Join(staticDir, r.URL.Path)
+		if _, err := os.Stat(filePath); err == nil && !strings.HasSuffix(r.URL.Path, "/") {
+			// File exists, serve it
+			fs.ServeHTTP(w, r)
+			return
+		}
+		
+		// For all other routes, serve index.html (SPA fallback)
+		http.ServeFile(w, r, filepath.Join(staticDir, "index.html"))
+	})
 
 	// SSE endpoint
 	http.HandleFunc("/events", handleSSE)
@@ -67,6 +112,23 @@ func StartWebServer(port int) {
 	http.HandleFunc("/debug/channel-points", handleDebugChannelPoints)
 
 	addr := fmt.Sprintf(":%d", port)
+	
+	// 起動メッセージを表示（logger出力の前に）
+	fmt.Println("")
+	fmt.Println("====================================================")
+	fmt.Printf("🚀 Webサーバーが起動しました\n")
+	fmt.Printf("📡 アクセスURL:\n")
+	fmt.Printf("   モノクロ表示: http://localhost:%d\n", port)
+	fmt.Printf("   カラー表示:   http://localhost:%d/color\n", port)
+	fmt.Printf("\n")
+	fmt.Printf("🐛 デバッグモード:\n")
+	fmt.Printf("   モノクロ表示: http://localhost:%d?debug=true\n", port)
+	fmt.Printf("   カラー表示:   http://localhost:%d/color?debug=true\n", port)
+	fmt.Printf("\n")
+	fmt.Printf("🔧 環境変数 SERVER_PORT で変更可能\n")
+	fmt.Println("====================================================")
+	fmt.Println("")
+	
 	logger.Info("Starting web server", zap.String("address", addr))
 
 	go func() {

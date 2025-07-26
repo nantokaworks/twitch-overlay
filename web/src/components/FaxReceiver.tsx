@@ -3,6 +3,7 @@ import { useFaxQueue } from '../hooks/useFaxQueue';
 import FaxDisplay from './FaxDisplay';
 import DebugPanel from './DebugPanel';
 import { LAYOUT } from '../constants/layout';
+import { buildApiUrl } from '../utils/api';
 import type { FaxReceiverProps, FaxData, FaxState, ServerStatus, DynamicStyles } from '../types';
 
 const FaxReceiver = ({ imageType = 'mono' }: FaxReceiverProps) => {
@@ -45,7 +46,7 @@ const FaxReceiver = ({ imageType = 'mono' }: FaxReceiverProps) => {
   useEffect(() => {
     const checkPrinterStatus = async () => {
       try {
-        const response = await fetch('/status');
+        const response = await fetch(buildApiUrl('/status'));
         if (response.ok) {
           const data: ServerStatus = await response.json();
           setIsPrinterConnected(data.printerConnected);
@@ -69,7 +70,7 @@ const FaxReceiver = ({ imageType = 'mono' }: FaxReceiverProps) => {
     let eventSource: EventSource | null = null;
 
     const connect = () => {
-      eventSource = new EventSource('/events');
+      eventSource = new EventSource(buildApiUrl('/events'));
 
       eventSource.onopen = () => {
         setIsConnected(true);

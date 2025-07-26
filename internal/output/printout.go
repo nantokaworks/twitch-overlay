@@ -255,7 +255,7 @@ func keepAliveRoutine() {
 				} else {
 					logger.Info("Printing initial clock")
 				}
-				err := PrintInitialClockAndStats()
+				err := PrintInitialClock()
 				if err != nil {
 					logger.Error("Keep-alive: failed to print initial clock", zap.Error(err))
 				} else {
@@ -314,14 +314,14 @@ func keepAliveRoutine() {
 			logger.Info("Keep-alive: new connection established")
 			
 			// Check if initial print hasn't been done yet after successful reconnection
-			if !hasInitialPrintBeenDone && isConnected && env.Value.ClockEnabled {
+			if !hasInitialPrintBeenDone && isConnected && env.Value.InitialPrintEnabled && env.Value.ClockEnabled {
 				logger.Info("Keep-alive: performing initial clock print on first successful connection")
 				if env.Value.DryRunMode {
 					logger.Info("Printing initial clock (DRY-RUN MODE)")
 				} else {
 					logger.Info("Printing initial clock")
 				}
-				err := PrintInitialClockAndStats()
+				err := PrintInitialClock()
 				if err != nil {
 					logger.Error("Keep-alive: failed to print initial clock", zap.Error(err))
 				} else {
@@ -372,11 +372,11 @@ func clockRoutine() {
 }
 
 
-// PrintInitialClockAndStats prints current time on startup (without stats and without frontend notification)
-func PrintInitialClockAndStats() error {
+// PrintInitialClock prints current time on startup (simple version without stats and without frontend notification)
+func PrintInitialClock() error {
 	now := time.Now()
 	currentTime := now.Format("15:04")
-	logger.Info("Printing initial clock", zap.String("time", currentTime))
+	logger.Info("Printing initial clock (simple)", zap.String("time", currentTime))
 	
 	// Generate simple time-only image
 	img, err := GenerateTimeImageSimple(currentTime)

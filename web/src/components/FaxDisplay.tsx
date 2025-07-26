@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { LAYOUT } from '../constants/layout';
+import { buildApiUrl } from '../utils/api';
 import type { FaxDisplayProps, FaxDisplayState, DynamicStyles } from '../types';
 
 const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate, onAnimationStateChange, onStateChange }: FaxDisplayProps) => {
@@ -44,7 +45,7 @@ const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate, onA
         setImageLoaded(true);
       }, LAYOUT.LAG_DURATION);
     };
-    img.src = `/fax/${faxData.id}/${imageType}`;
+    img.src = buildApiUrl(`/fax/${faxData.id}/${imageType}`);
 
     return () => {};
   }, [faxData, imageType]);
@@ -211,7 +212,7 @@ const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate, onA
         style={displayAreaStyle}
       >
         <img
-          src={`/fax/${faxData.id}/${imageType}`}
+          src={buildApiUrl(`/fax/${faxData.id}/${imageType}`)}
           alt="FAX"
           className="w-full h-auto"
           style={imageStyle}

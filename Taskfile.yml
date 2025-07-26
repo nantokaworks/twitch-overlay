@@ -1,0 +1,86 @@
+version: "3"
+
+tasks:
+  # フロントエンドビルド
+  build:frontend:
+    desc: フロントエンドをビルド
+    dir: web
+    cmds:
+      - echo "フロントエンドをビルド中..."
+      - bun run build
+      - echo "フロントエンドビルド完了 → dist/public/"
+
+  # バックエンドビルド
+  build:backend:
+    desc: バックエンドをビルド
+    dir: cmd/twitch-fax
+    cmds:
+      - echo "バックエンドをビルド中..."
+      - go build -o ../../dist/twitch-fax .
+      - echo "バックエンドビルド完了 → dist/twitch-fax"
+      - |
+        if [ -f .env ]; then
+          cp .env ../../dist/.env
+          echo ".envファイルをコピーしました → dist/.env"
+        fi
+
+  # 統合ビルド
+  build:all:
+    desc: フロントエンドとバックエンドを両方ビルド
+    cmds:
+      - task: clean
+      - task: build:frontend
+      - task: build:backend
+      - echo "全ビルド完了！"
+      - echo "実行 → ./dist/twitch-fax"
+
+  # クリーンアップ
+  clean:
+    desc: ビルドファイルをクリーンアップ
+    cmds:
+      - echo "ビルドファイルをクリーンアップ中..."
+      - rm -rf dist
+      - rm -rf web/dist
+      - echo "クリーンアップ完了"
+
+  # 開発サーバー起動（フロントエンド）
+  dev:frontend:
+    desc: フロントエンド開発サーバーを起動
+    dir: web
+    cmds:
+      - bun run dev
+
+  # 開発サーバー起動（バックエンド）
+  dev:backend:
+    desc: バックエンド開発サーバーを起動
+    dir: cmd/twitch-fax
+    cmds:
+      - air
+
+  # テスト実行
+  test:
+    desc: 全テストを実行
+    env:
+      DRY_RUN_MODE: "true"
+    cmds:
+      - echo "テストを実行中..."
+      - go test ./...
+
+  # 配布用パッケージ作成
+  package:
+    desc: 配布用パッケージを作成
+    deps: [build:all]
+    cmds:
+      - echo "配布用パッケージを作成中..."
+      - mkdir -p dist-package
+      - cp -r dist/* dist-package/
+      - cp .env.template dist-package/
+      - |
+        if [ -f .env ]; then
+          cp .env dist-package/.env
+          echo ".envファイルをコピーしました"
+        elif [ -f cmd/twitch-fax/.env ]; then
+          cp cmd/twitch-fax/.env dist-package/.env
+          echo "cmd/twitch-fax/.envファイルをコピーしました"
+        fi
+      - echo "パッケージ作成完了 → dist-package/"

@@ -41,16 +41,16 @@ func main() {
 		logger.Error("Failed to connect to printer at startup", zap.Error(err))
 		logger.Info("Will retry connection when printing")
 	} else {
-		// Print initial clock and stats on successful connection
+		// Print initial clock on successful connection
 		if env.Value.InitialPrintEnabled && env.Value.ClockEnabled {
 			if env.Value.DryRunMode {
-				logger.Info("Printing initial clock and stats (DRY-RUN MODE)")
+				logger.Info("Printing initial clock (DRY-RUN MODE)")
 			} else {
-				logger.Info("Printing initial clock and stats")
+				logger.Info("Printing initial clock")
 			}
-			err = output.PrintInitialClockAndStats()
+			err = output.PrintInitialClock()
 			if err != nil {
-				logger.Error("Failed to print initial clock and stats", zap.Error(err))
+				logger.Error("Failed to print initial clock", zap.Error(err))
 			} else {
 				output.MarkInitialPrintDone()
 			}
@@ -72,25 +72,29 @@ func main() {
 		}
 	}
 
+	// start web server (always start, even without token)
+	webserver.StartWebServer(env.Value.ServerPort)
+
 	// check token and start OAuth callback server
 	if token.AccessToken == "" {
 		twitchtoken.SetupCallbackServer()
 
-		// wait get token or ctrl+c
-		logger.Info("Waiting for token...")
-		for {
-			if token, tokenValid, _ = twitchtoken.GetLatestToken(); tokenValid {
-				break
+		// wait get token or ctrl+c in goroutine
+		go func() {
+			logger.Info("Waiting for token...")
+			for {
+				if token, tokenValid, _ = twitchtoken.GetLatestToken(); tokenValid {
+					logger.Info("Token is valid.")
+					// start twitch eventsub after getting token
+					twitcheventsub.SetupEventSub(&token)
+					break
+				}
 			}
-		}
-		logger.Info("Token is valid.")
+		}()
+	} else {
+		// start twitch eventsub if token is already valid
+		twitcheventsub.SetupEventSub(&token)
 	}
-
-	// start web server
-	webserver.StartWebServer(8080)
-
-	// start twitch eventsub
-	twitcheventsub.SetupEventSub(&token)
 
 	// Keep the application running
 	select {}

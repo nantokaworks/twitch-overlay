@@ -10,15 +10,17 @@ import (
 )
 
 func SetupCallbackServer() {
+	// 独自のServeMuxを作成
+	mux := http.NewServeMux()
 
 	// 認証ページまたはトークン情報の返却
 	authURL := GetAuthURL()
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, authURL, http.StatusFound)
 	})
 
 	// コールバックハンドラ
-	http.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
 		code := r.URL.Query().Get("code")
 		if code == "" {
 			http.Error(w, "code not found", http.StatusBadRequest)
@@ -52,11 +54,11 @@ func SetupCallbackServer() {
 		json.NewEncoder(w).Encode(result)
 	})
 
-	logger.Info("Starting server on port 30303")
+	logger.Info("Starting OAuth callback server on port 30303")
 
 	go func() {
-		if err := http.ListenAndServe(":30303", nil); err != nil {
-			logger.Error("Failed to start server", zap.Error(err))
+		if err := http.ListenAndServe(":30303", mux); err != nil {
+			logger.Error("Failed to start OAuth callback server", zap.Error(err))
 			return
 		}
 	}()
