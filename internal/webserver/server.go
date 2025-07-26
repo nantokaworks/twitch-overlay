@@ -10,11 +10,12 @@ import (
 	"sync"
 	"time"
 
+	twitch "github.com/joeyak/go-twitch-eventsub/v3"
+	"github.com/nantokaworks/twitch-fax/internal/broadcast"
 	"github.com/nantokaworks/twitch-fax/internal/faxmanager"
 	"github.com/nantokaworks/twitch-fax/internal/output"
 	"github.com/nantokaworks/twitch-fax/internal/shared/logger"
 	"github.com/nantokaworks/twitch-fax/internal/status"
-	"github.com/twitch/twitch-api-go"
 	"go.uber.org/zap"
 )
 
@@ -33,18 +34,21 @@ func corsMiddleware(handler http.HandlerFunc) http.HandlerFunc {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-		
+
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
-		
+
 		handler(w, r)
 	}
 }
 
 // StartWebServer starts the HTTP server
 func StartWebServer(port int) {
+	// Register SSE server as the global broadcaster
+	broadcast.SetBroadcaster(sseServer)
+
 	// Serve static files from web/dist
 	fs := http.FileServer(http.Dir("./web/dist"))
 	http.Handle("/", fs)
@@ -58,13 +62,13 @@ func StartWebServer(port int) {
 	// Status endpoint
 	http.HandleFunc("/status", handleStatus)
 
-	// Debug endpoints
-	http.HandleFunc("/debug/fax", corsMiddleware(handleDebugFax)) // Legacy endpoint
-	http.HandleFunc("/debug/channel-points", corsMiddleware(handleDebugChannelPoints))
+	// Debug endpoints - シンプルに直接登録
+	http.HandleFunc("/debug/fax", handleDebugFax)
+	http.HandleFunc("/debug/channel-points", handleDebugChannelPoints)
 
 	addr := fmt.Sprintf(":%d", port)
 	logger.Info("Starting web server", zap.String("address", addr))
-	
+
 	go func() {
 		if err := http.ListenAndServe(addr, nil); err != nil {
 			logger.Fatal("Failed to start web server", zap.Error(err))
@@ -82,7 +86,7 @@ func handleSSE(w http.ResponseWriter, r *http.Request) {
 
 	// Create client channel
 	clientChan := make(chan string)
-	
+
 	// Register client
 	sseServer.mu.Lock()
 	sseServer.clients[clientChan] = true
@@ -157,18 +161,21 @@ func handleFaxImage(w http.ResponseWriter, r *http.Request) {
 	// Set content type
 	w.Header().Set("Content-Type", "image/png")
 	w.Header().Set("Cache-Control", "public, max-age=600") // Cache for 10 minutes
-	
+
 	// Serve the file
 	http.ServeFile(w, r, imagePath)
 }
 
 // BroadcastFax sends a fax notification to all connected SSE clients
-func BroadcastFax(fax *faxmanager.Fax) {
+func (s *SSEServer) BroadcastFax(fax *faxmanager.Fax) {
 	msg := map[string]interface{}{
-		"type":      "fax",
-		"id":        fax.ID,
-		"timestamp": fax.Timestamp.Format("2006-01-02T15:04:05Z"),
-		"userName":  fax.UserName,
+		"type":        "fax",
+		"id":          fax.ID,
+		"timestamp":   fax.Timestamp.Unix() * 1000, // JavaScriptのミリ秒に変換
+		"username":    fax.UserName,
+		"displayName": fax.UserName, // 表示名も同じにする
+		"message":     fax.Message,
+		"imageUrl":    fmt.Sprintf("/fax/%s/color", fax.ID), // カラー画像のURLを生成
 	}
 
 	jsonData, err := json.Marshal(msg)
@@ -177,10 +184,10 @@ func BroadcastFax(fax *faxmanager.Fax) {
 		return
 	}
 
-	sseServer.mu.RLock()
-	defer sseServer.mu.RUnlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 
-	for client := range sseServer.clients {
+	for client := range s.clients {
 		select {
 		case client <- string(jsonData):
 		default:
@@ -188,9 +195,9 @@ func BroadcastFax(fax *faxmanager.Fax) {
 		}
 	}
 
-	logger.Info("Broadcasted fax to SSE clients", 
+	logger.Info("Broadcasted fax to SSE clients",
 		zap.String("id", fax.ID),
-		zap.Int("clients", len(sseServer.clients)))
+		zap.Int("clients", len(s.clients)))
 }
 
 // handleStatus returns the current system status
@@ -215,10 +222,10 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 
 // DebugFaxRequest represents a debug fax request
 type DebugFaxRequest struct {
-	Username string `json:"username"`
+	Username    string `json:"username"`
 	DisplayName string `json:"displayName"`
-	Message string `json:"message"`
-	ImageURL string `json:"imageUrl,omitempty"`
+	Message     string `json:"message"`
+	ImageURL    string `json:"imageUrl,omitempty"`
 }
 
 // handleDebugFax handles debug fax submissions
@@ -271,7 +278,7 @@ func handleDebugFax(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Process the fax
-	logger.Info("Processing debug fax", 
+	logger.Info("Processing debug fax",
 		zap.String("username", req.Username),
 		zap.String("message", req.Message),
 		zap.String("imageUrl", req.ImageURL))
@@ -288,21 +295,32 @@ func handleDebugFax(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	json.NewEncoder(w).Encode(map[string]string{
-		"status": "ok",
+		"status":  "ok",
 		"message": "Debug fax queued successfully",
 	})
 }
 
 // DebugChannelPointsRequest represents a debug channel points request
 type DebugChannelPointsRequest struct {
-	Username string `json:"username"`
+	Username    string `json:"username"`
 	DisplayName string `json:"displayName"`
 	RewardTitle string `json:"rewardTitle"`
-	UserInput string `json:"userInput"`
+	UserInput   string `json:"userInput"`
 }
 
 // handleDebugChannelPoints handles debug channel points redemption
 func handleDebugChannelPoints(w http.ResponseWriter, r *http.Request) {
+	// CORS headers
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	// Handle OPTIONS
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
 	// Only accept POST
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -324,8 +342,8 @@ func handleDebugChannelPoints(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate required fields
-	if req.Username == "" || req.RewardTitle == "" || req.UserInput == "" {
-		http.Error(w, "Username, rewardTitle, and userInput are required", http.StatusBadRequest)
+	if req.Username == "" || req.UserInput == "" {
+		http.Error(w, "Username and userInput are required", http.StatusBadRequest)
 		return
 	}
 
@@ -338,14 +356,13 @@ func handleDebugChannelPoints(w http.ResponseWriter, r *http.Request) {
 	fragments := []twitch.ChatMessageFragment{
 		{
 			Type: "text",
-			Text: fmt.Sprintf("🎉チャネポ %s %s", req.RewardTitle, req.UserInput),
+			Text: req.UserInput,
 		},
 	}
 
 	// Process the fax - exactly like HandleChannelPointsCustomRedemptionAdd
-	logger.Info("Processing debug channel points redemption", 
+	logger.Info("Processing debug channel points redemption",
 		zap.String("username", req.Username),
-		zap.String("rewardTitle", req.RewardTitle),
 		zap.String("userInput", req.UserInput))
 
 	// Call PrintOut directly (same as channel points handling)
@@ -359,7 +376,7 @@ func handleDebugChannelPoints(w http.ResponseWriter, r *http.Request) {
 	// Return success
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
-		"status": "ok",
+		"status":  "ok",
 		"message": "Debug channel points redemption processed successfully",
 	})
 }

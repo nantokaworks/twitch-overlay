@@ -8,7 +8,6 @@ interface DebugPanelProps {
 const DebugPanel = ({ onSendFax }: DebugPanelProps) => {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [username, setUsername] = useState<string>('DebugUser');
-  const [rewardTitle, setRewardTitle] = useState<string>('FAX送信');
   const [userInput, setUserInput] = useState<string>('');
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
 
@@ -30,7 +29,6 @@ const DebugPanel = ({ onSendFax }: DebugPanelProps) => {
         body: JSON.stringify({
           username: username.toLowerCase(),
           displayName: username,
-          rewardTitle: rewardTitle.trim(),
           userInput: userInput.trim(),
         }),
       });
@@ -93,22 +91,7 @@ const DebugPanel = ({ onSendFax }: DebugPanelProps) => {
             
             <div>
               <label className="block text-gray-300 text-sm mb-1">
-                リワードタイトル
-              </label>
-              <input
-                type="text"
-                value={rewardTitle}
-                onChange={(e) => setRewardTitle(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-700 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
-                style={{ fontSize: '14px' }}
-                placeholder="FAX送信"
-                required
-              />
-            </div>
-            
-            <div>
-              <label className="block text-gray-300 text-sm mb-1">
-                ユーザー入力 <span className="text-gray-500">(必須)</span>
+                メッセージ
               </label>
               <textarea
                 value={userInput}
@@ -139,9 +122,6 @@ const DebugPanel = ({ onSendFax }: DebugPanelProps) => {
             <p className="text-gray-400 text-xs">
               TRIGGER_CUSTOM_REWORD_IDで設定された<br />
               チャンネルポイント報酬をエミュレート<br />
-              <br />
-              メッセージ形式：<br />
-              「🎉チャネポ [リワードタイトル] [ユーザー入力]」<br />
               <br />
               ※バックエンドでoutput.PrintOutが実行されます
             </p>

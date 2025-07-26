@@ -14,7 +14,7 @@ import (
 	"github.com/nantokaworks/twitch-fax/internal/faxmanager"
 	"github.com/nantokaworks/twitch-fax/internal/shared/logger"
 	"github.com/nantokaworks/twitch-fax/internal/status"
-	"github.com/nantokaworks/twitch-fax/internal/webserver"
+	"github.com/nantokaworks/twitch-fax/internal/broadcast"
 	"go.uber.org/zap"
 )
 
@@ -118,7 +118,7 @@ func PrintClock(timeStr string) error {
 	}
 
 	// Save fax with faxmanager (use "System" as username for clock)
-	fax, err := faxmanager.SaveFax("🕐 Clock", colorImg, monoImg)
+	fax, err := faxmanager.SaveFax("🕐 Clock", timeStr, "", colorImg, monoImg)
 	if err != nil {
 		return fmt.Errorf("failed to save clock fax: %w", err)
 	}
@@ -129,7 +129,7 @@ func PrintClock(timeStr string) error {
 	}
 
 	// Broadcast to SSE clients
-	webserver.BroadcastFax(fax)
+	broadcast.BroadcastFax(fax)
 
 	// Add to print queue
 	printQueue <- monoImg
@@ -149,8 +149,16 @@ func PrintOut(userName string, message []twitch.ChatMessageFragment, timestamp t
 		return fmt.Errorf("failed to create monochrome image: %w", err)
 	}
 
+	// Extract message text from fragments
+	messageText := ""
+	for _, fragment := range message {
+		if fragment.Type == "text" {
+			messageText += fragment.Text
+		}
+	}
+
 	// Save fax with faxmanager
-	fax, err := faxmanager.SaveFax(userName, colorImg, monoImg)
+	fax, err := faxmanager.SaveFax(userName, messageText, "", colorImg, monoImg)
 	if err != nil {
 		return fmt.Errorf("failed to save fax: %w", err)
 	}
@@ -161,7 +169,7 @@ func PrintOut(userName string, message []twitch.ChatMessageFragment, timestamp t
 	}
 
 	// Broadcast to SSE clients
-	webserver.BroadcastFax(fax)
+	broadcast.BroadcastFax(fax)
 
 	// Add to print queue
 	printQueue <- monoImg
