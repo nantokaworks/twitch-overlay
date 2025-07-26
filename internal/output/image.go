@@ -208,8 +208,8 @@ func rotate90(src image.Image) image.Image {
 	return dst
 }
 
-// MessageToImageColor creates a color image from the message
-func MessageToImageColor(userName string, msg []twitch.ChatMessageFragment) (image.Image, error) {
+// MessageToImage creates an image from the message with optional color support
+func MessageToImage(userName string, msg []twitch.ChatMessageFragment, useColor bool) (image.Image, error) {
 	// 新しいフォントを作成（拡大文字）
 	fontBytes, err := os.ReadFile("/Users/toka/Library/Fonts/HackGen-Bold.ttf")
 	if err != nil {
@@ -358,12 +358,17 @@ func MessageToImageColor(userName string, msg []twitch.ChatMessageFragment) (ima
 				if err != nil {
 					continue
 				}
-				// 正方形(cellW×cellW)にリサイズ - カラーのまま
+				// 正方形(cellW×cellW)にリサイズ
 				dst := image.NewRGBA(image.Rect(0, 0, cellW, cellW))
 				xdraw.ApproxBiLinear.Scale(dst, dst.Bounds(), eimg, eimg.Bounds(), xdraw.Over, nil)
+				// カラーモードでない場合はグレースケール変換
+				var drawImg image.Image = dst
+				if !useColor {
+					drawImg = convertToGrayscaleWithDithering(dst)
+				}
 				draw.Draw(img,
 					image.Rect(j*cellW, y-ascent, j*cellW+cellW, y-ascent+cellW),
-					dst, image.Point{}, draw.Over)
+					drawImg, image.Point{}, draw.Over)
 			}
 			continue
 		}
@@ -412,10 +417,14 @@ func MessageToImageColor(userName string, msg []twitch.ChatMessageFragment) (ima
 						img0 = rotate90(img0)
 					}
 					img0 = resizeToWidth(img0)
-					// カラーのまま描画
+					// カラーモードでない場合はグレースケール変換
+					var drawImg image.Image = img0
+					if !useColor {
+						drawImg = convertToGrayscaleWithDithering(img0)
+					}
 					draw.Draw(img,
-						image.Rect(0, y-ascent, PaperWidth, y-ascent+img0.Bounds().Dy()),
-						img0, image.Point{}, draw.Over)
+						image.Rect(0, y-ascent, PaperWidth, y-ascent+drawImg.Bounds().Dy()),
+						drawImg, image.Point{}, draw.Over)
 					// QR
 					qrImg, err := generateQR(frag.Text, PaperWidth)
 					if err == nil {
@@ -449,10 +458,14 @@ func MessageToImageColor(userName string, msg []twitch.ChatMessageFragment) (ima
 					continue
 				}
 				eimg = resizeToHeight(eimg, lineHeight)
-				// カラーのまま描画
+				// カラーモードでない場合はグレースケール変換
+				var drawEmote image.Image = eimg
+				if !useColor {
+					drawEmote = convertToGrayscaleWithDithering(eimg)
+				}
 				draw.Draw(img,
-					image.Rect(x, y-ascent, x+eimg.Bounds().Dx(), y-ascent+eimg.Bounds().Dy()),
-					eimg, image.Point{}, draw.Over)
+					image.Rect(x, y-ascent, x+drawEmote.Bounds().Dx(), y-ascent+drawEmote.Bounds().Dy()),
+					drawEmote, image.Point{}, draw.Over)
 				x += eimg.Bounds().Dx()
 				continue
 			}
@@ -484,294 +497,6 @@ func MessageToImageColor(userName string, msg []twitch.ChatMessageFragment) (ima
 				img.Set(x, underlineY+y, color.Black)
 			}
 		}
-	}
-
-	return img, nil
-}
-
-func MessageToImage(userName string, msg []twitch.ChatMessageFragment) (image.Image, error) {
-	// 新しいフォントを作成（拡大文字）
-	fontBytes, err := os.ReadFile("/Users/toka/Library/Fonts/HackGen-Bold.ttf")
-	if err != nil {
-		return nil, err
-	}
-
-	f, err := opentype.Parse(fontBytes)
-	if err != nil {
-		return nil, err
-	}
-
-	face, err := opentype.NewFace(f, &opentype.FaceOptions{
-		Size:    fontSize,
-		DPI:     72,
-		Hinting: font.HintingFull,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	// フォントメトリクス取得
-	ascent := int(face.Metrics().Ascent >> 6)
-	descent := int(face.Metrics().Descent >> 6)
-	lineHeight := int(face.Metrics().Height >> 6)
-
-	// メッセージ改行削除＋URL分割
-	var processed []twitch.ChatMessageFragment
-	urlRe := regexp.MustCompile(`https?://\S+`)
-	for _, frag := range msg {
-		if frag.Emote != nil {
-			processed = append(processed, frag)
-			continue
-		}
-		text := strings.ReplaceAll(frag.Text, "\n", "")
-		idxs := urlRe.FindAllStringIndex(text, -1)
-		prev := 0
-		for _, idx := range idxs {
-			if idx[0] > prev {
-				processed = append(processed, twitch.ChatMessageFragment{Text: text[prev:idx[0]]})
-			}
-			processed = append(processed, twitch.ChatMessageFragment{Text: text[idx[0]:idx[1]]})
-			prev = idx[1]
-		}
-		if prev < len(text) {
-			processed = append(processed, twitch.ChatMessageFragment{Text: text[prev:]})
-		}
-	}
-
-	// 折り返し
-	lines := wrapFragments(processed, face, PaperWidth, lineHeight)
-
-	// 動的な高さ計算：ユーザー名行(アセント+デセント) + 各行
-	currH := ascent + descent
-	for _, line := range lines {
-		// URL-only 行
-		if len(line) == 1 && urlRe.MatchString(line[0].Text) {
-			img0, err := downloadEmote(line[0].Text)
-			if err != nil {
-				currH += PaperWidth
-			} else {
-				if img0.Bounds().Dx() > img0.Bounds().Dy() {
-					img0 = rotate90(img0)
-				}
-				h := img0.Bounds().Dy() * PaperWidth / img0.Bounds().Dx()
-				currH += h + PaperWidth
-			}
-			continue
-		}
-		// Emote-only 行（空白テキスト無 & emote数 ≤8）の場合、高さ cellW を追加
-		var emoteFrags []twitch.ChatMessageFragment
-		hasNonEmptyText := false
-		for _, frag := range line {
-			if frag.Emote != nil {
-				emoteFrags = append(emoteFrags, frag)
-			} else if strings.TrimSpace(frag.Text) != "" {
-				hasNonEmptyText = true
-				break
-			}
-		}
-		if len(lines) == 1 && !hasNonEmptyText && len(emoteFrags) > 0 && len(emoteFrags) <= 8 {
-			cellW := PaperWidth / len(emoteFrags)
-			currH += cellW
-			continue
-		}
-
-		// single-character text-only line: 高さも幅いっぱいに拡大
-		if len(lines) == 1 && len(line) == 1 &&
-			line[0].Emote == nil &&
-			!urlRe.MatchString(line[0].Text) &&
-			len([]rune(strings.TrimSpace(line[0].Text))) == 1 {
-			text := strings.TrimSpace(line[0].Text)
-			origW := int((&font.Drawer{Face: face}).MeasureString(text) >> 6)
-			if origW > 0 {
-				scale := float64(PaperWidth) / float64(origW)
-				newSize := float64(fontSize) * scale
-				// 新フェイスで行高さを取得
-				face2, err := opentype.NewFace(f, &opentype.FaceOptions{
-					Size:    newSize,
-					DPI:     72,
-					Hinting: font.HintingFull,
-				})
-				if err == nil {
-					currH += int(face2.Metrics().Height >> 6)
-					continue
-				}
-			}
-		}
-		currH += lineHeight
-	}
-	imgHeight := currH + UnderlineMargin + UnderlineHeight
-
-	// 画像生成
-	img := image.NewRGBA(image.Rect(0, 0, PaperWidth, imgHeight))
-	draw.Draw(img, img.Bounds(), &image.Uniform{color.White}, image.Point{}, draw.Src)
-
-	// Drawer準備
-	d := &font.Drawer{Dst: img, Src: image.NewUniform(color.Black), Face: face}
-
-	// 1行目: userName
-	d.Dot = fixed.Point26_6{X: fixed.I(0), Y: fixed.I(ascent)}
-	d.DrawString(userName)
-
-	// 2行目以降: 折返し後の行を描画
-	for i, line := range lines {
-		y := (i+1)*lineHeight + ascent
-
-		// 全て Emote または 空白テキストのみ かつ エモート数 ≤ 8 の場合
-		var emoteFrags []twitch.ChatMessageFragment
-		hasNonEmptyText := false
-		for _, frag := range line {
-			if frag.Emote != nil {
-				emoteFrags = append(emoteFrags, frag)
-			} else if strings.TrimSpace(frag.Text) != "" {
-				hasNonEmptyText = true
-				break
-			}
-		}
-		if !hasNonEmptyText && len(emoteFrags) > 0 && len(emoteFrags) <= 8 {
-			cellW := PaperWidth / len(emoteFrags)
-			for j, frag := range emoteFrags {
-				url := fmt.Sprintf(
-					"https://static-cdn.jtvnw.net/emoticons/v2/%s/static/light/3.0",
-					frag.Emote.Id,
-				)
-				eimg, err := downloadEmote(url)
-				if err != nil {
-					continue
-				}
-				// 正方形(cellW×cellW)にリサイズ
-				dst := image.NewRGBA(image.Rect(0, 0, cellW, cellW))
-				xdraw.ApproxBiLinear.Scale(dst, dst.Bounds(), eimg, eimg.Bounds(), xdraw.Over, nil)
-				// Convert to grayscale with dithering
-				grayDst := convertToGrayscaleWithDithering(dst)
-				draw.Draw(img,
-					image.Rect(j*cellW, y-ascent, j*cellW+cellW, y-ascent+cellW),
-					grayDst, image.Point{}, draw.Over)
-			}
-			continue
-		}
-
-		// single-character text-only line: 横幅いっぱいに中央揃え＋フォントサイズ拡大
-		if len(line) == 1 &&
-			line[0].Emote == nil &&
-			!urlRe.MatchString(line[0].Text) &&
-			len([]rune(strings.TrimSpace(line[0].Text))) == 1 {
-			text := strings.TrimSpace(line[0].Text)
-			// 現行フェイスでの幅を取得
-			origW := int(d.MeasureString(text) >> 6)
-			if origW > 0 {
-				// 幅いっぱいに拡大するスケール
-				scale := float64(PaperWidth) / float64(origW)
-				newSize := float64(fontSize) * scale
-				// 新フェイス生成
-				face2, err := opentype.NewFace(f, &opentype.FaceOptions{
-					Size:    newSize,
-					DPI:     72,
-					Hinting: font.HintingFull,
-				})
-				if err == nil {
-					// 新フェイスの ascent を取得
-					ascent2 := int(face2.Metrics().Ascent >> 6)
-					d2 := &font.Drawer{Dst: img, Src: image.NewUniform(color.Black), Face: face2}
-					w2 := int(d2.MeasureString(text) >> 6)
-					x2 := (PaperWidth - w2) / 2
-					// 元の y 位置から元フェイスの ascent を引き、新フェイスの ascent を足す
-					d2.Dot = fixed.Point26_6{
-						X: fixed.I(x2),
-						Y: fixed.I(y - ascent + ascent2),
-					}
-					d2.DrawString(text)
-				} else {
-					// フォールバック
-					x := (PaperWidth - origW) / 2
-					d.Dot = fixed.Point26_6{X: fixed.I(x), Y: fixed.I(y)}
-					d.DrawString(text)
-				}
-			}
-			continue
-		}
-
-		x := 0
-		for _, frag := range line {
-
-			// URL-only 行：画像＋QR
-			if frag.Emote == nil && urlRe.MatchString(frag.Text) {
-				img0, err := downloadEmote(frag.Text)
-				if err == nil {
-					if img0.Bounds().Dx() > img0.Bounds().Dy() {
-						img0 = rotate90(img0)
-					}
-					img0 = resizeToWidth(img0)
-					// Convert to grayscale with dithering
-					img0 = convertToGrayscaleWithDithering(img0)
-					// 画像を描画
-					draw.Draw(img,
-						image.Rect(0, y-ascent, PaperWidth, y-ascent+img0.Bounds().Dy()),
-						img0, image.Point{}, draw.Over)
-					// 画像の下に QR を描画
-					qrImg, err := generateQR(frag.Text, PaperWidth)
-					if err == nil {
-						draw.Draw(img,
-							image.Rect(0, y-ascent+img0.Bounds().Dy(), PaperWidth, y-ascent+img0.Bounds().Dy()+PaperWidth),
-							qrImg, image.Point{}, draw.Over)
-					}
-					x = PaperWidth
-					continue
-				}
-				// 画像取得失敗→QR のみ
-				qrImg, err := generateQR(frag.Text, PaperWidth)
-				if err != nil {
-					continue
-				}
-				draw.Draw(img,
-					image.Rect(0, y-ascent, PaperWidth, y-ascent+PaperWidth),
-					qrImg, image.Point{}, draw.Over)
-				x = PaperWidth
-				continue
-			}
-
-			// Emote
-			if frag.Emote != nil {
-				url := fmt.Sprintf(
-					"https://static-cdn.jtvnw.net/emoticons/v2/%s/static/light/3.0",
-					frag.Emote.Id,
-				)
-				eimg, err := downloadEmote(url)
-				if err != nil {
-					continue
-				}
-				eimg = resizeToHeight(eimg, lineHeight)
-				// Convert to grayscale with dithering
-				eimg = convertToGrayscaleWithDithering(eimg)
-				draw.Draw(img,
-					image.Rect(x, y-ascent, x+eimg.Bounds().Dx(), y-ascent+eimg.Bounds().Dy()),
-					eimg, image.Point{}, draw.Over)
-				x += eimg.Bounds().Dx()
-				continue
-			}
-
-			// 通常テキスト
-			d.Dot = fixed.Point26_6{X: fixed.I(x), Y: fixed.I(y)}
-			d.DrawString(frag.Text)
-			x += int(d.MeasureString(frag.Text) >> 6)
-		}
-	}
-
-	// 下線描画
-	underlineY := currH + UnderlineMargin
-	if UnderlineDashed {
-		for x0 := 0; x0 < PaperWidth; x0 += UnderlineDashLength + UnderlineDashGap {
-			end := x0 + UnderlineDashLength
-			if end > PaperWidth {
-				end = PaperWidth
-			}
-			draw.Draw(img,
-				image.Rect(x0, underlineY, end, underlineY+UnderlineHeight),
-				&image.Uniform{color.Black}, image.Point{}, draw.Src)
-		}
-	} else {
-		draw.Draw(img,
-			image.Rect(0, underlineY, PaperWidth, underlineY+UnderlineHeight),
-			&image.Uniform{color.Black}, image.Point{}, draw.Src)
 	}
 
 	return img, nil

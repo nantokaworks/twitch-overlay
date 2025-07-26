@@ -99,7 +99,7 @@ func PrintOut(userName string, message []twitch.ChatMessageFragment, timestamp t
 	var colorImg image.Image
 	if env.Value.DebugOutput {
 		var err error
-		colorImg, err = MessageToImageColor(userName, message)
+		colorImg, err = MessageToImage(userName, message, true)
 		if err != nil {
 			logger.Error("Failed to create color image", zap.Error(err))
 			colorImg = nil
@@ -107,7 +107,7 @@ func PrintOut(userName string, message []twitch.ChatMessageFragment, timestamp t
 	}
 
 	// Generate monochrome version for printing
-	img, err := MessageToImage(userName, message)
+	img, err := MessageToImage(userName, message, false)
 	if err != nil {
 		return fmt.Errorf("failed to create image: %w", err)
 	}
