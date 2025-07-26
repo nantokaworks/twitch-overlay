@@ -3,7 +3,7 @@ import { useFaxQueue } from '../hooks/useFaxQueue';
 import FaxDisplay from './FaxDisplay';
 import DebugPanel from './DebugPanel';
 import { LAYOUT } from '../constants/layout';
-import { buildApiUrl } from '../utils/api';
+import { buildApiUrl, buildEventSourceUrl } from '../utils/api';
 import type { FaxReceiverProps, FaxData, FaxState, ServerStatus, DynamicStyles } from '../types';
 
 const FaxReceiver = ({ imageType = 'mono' }: FaxReceiverProps) => {
@@ -70,7 +70,7 @@ const FaxReceiver = ({ imageType = 'mono' }: FaxReceiverProps) => {
     let eventSource: EventSource | null = null;
 
     const connect = () => {
-      eventSource = new EventSource(buildApiUrl('/events'));
+      eventSource = new EventSource(buildEventSourceUrl('/events'));
 
       eventSource.onopen = () => {
         setIsConnected(true);

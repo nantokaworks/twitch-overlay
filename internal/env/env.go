@@ -13,7 +13,6 @@ import (
 type EnvValue struct {
 	ClientID              *string
 	ClientSecret          *string
-	RedirectURI           *string
 	TwitchUserID          *string
 	TriggerCustomRewordID *string
 	PrinterAddress        *string
@@ -82,10 +81,6 @@ func init() {
 	if err != nil {
 		log.Fatalf("Error getting CLIENT_SECRET: %v", err)
 	}
-	redirectURI, err := getEnv("REDIRECT_URI")
-	if err != nil {
-		log.Fatalf("Error getting REDIRECT_URI: %v", err)
-	}
 	twitchUserID, err := getEnv("TWITCH_USER_ID")
 	if err != nil {
 		log.Fatalf("Error getting TWITCH_USER_ID: %v", err)
@@ -132,7 +127,6 @@ func init() {
 	Value = EnvValue{
 		ClientID:              clientID,
 		ClientSecret:          clientSecret,
-		RedirectURI:           redirectURI,
 		TwitchUserID:          twitchUserID,
 		TriggerCustomRewordID: triggerCustomRewordID,
 		PrinterAddress:        printerAddress,

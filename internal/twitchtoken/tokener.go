@@ -27,7 +27,11 @@ var scopes = []string{
 func GetTwitchToken(code string) (map[string]interface{}, error) {
 	clientID := os.Getenv("CLIENT_ID")
 	clientSecret := os.Getenv("CLIENT_SECRET")
-	redirectURI := os.Getenv("REDIRECT_URI")
+	serverPort := os.Getenv("SERVER_PORT")
+	if serverPort == "" {
+		serverPort = "8080"
+	}
+	redirectURI := fmt.Sprintf("http://localhost:%s/callback", serverPort)
 
 	resp, err := http.PostForm("https://id.twitch.tv/oauth2/token", url.Values{
 		"client_id":     {clientID},
@@ -113,7 +117,11 @@ func (t *Token) RefreshTwitchToken() error {
 // 変更: 引数なしで環境変数から認証情報を取得し、定数 scopes を使用
 func GetAuthURL() string {
 	clientID := os.Getenv("CLIENT_ID")
-	redirectURI := os.Getenv("REDIRECT_URI")
+	serverPort := os.Getenv("SERVER_PORT")
+	if serverPort == "" {
+		serverPort = "8080"
+	}
+	redirectURI := fmt.Sprintf("http://localhost:%s/callback", serverPort)
 	return fmt.Sprintf(
 		"https://id.twitch.tv/oauth2/authorize?response_type=code&client_id=%s&redirect_uri=%s&scope=%s",
 		url.QueryEscape(clientID),

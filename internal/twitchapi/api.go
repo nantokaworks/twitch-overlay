@@ -149,7 +149,8 @@ func GetBitsLeaderboard(period string) ([]*BitsLeaderboardEntry, error) {
 	logger.Info("Getting bits leaderboard", zap.String("period", period))
 	token, valid, err := twitchtoken.GetLatestToken()
 	if !valid || err != nil {
-		return nil, fmt.Errorf("failed to get valid token: %w", err)
+		logger.Warn("No valid token available, returning empty leaderboard", zap.Error(err))
+		return nil, nil // Return empty result instead of error
 	}
 
 	// For "month" period, we need to specify started_at parameter

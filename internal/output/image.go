@@ -21,8 +21,10 @@ import (
 
 	"github.com/joeyak/go-twitch-eventsub/v3"
 	"github.com/nantokaworks/twitch-fax/internal/env"
+	"github.com/nantokaworks/twitch-fax/internal/shared/logger"
 	"github.com/nantokaworks/twitch-fax/internal/twitchapi"
 	"github.com/skip2/go-qrcode"
+	"go.uber.org/zap"
 	xdraw "golang.org/x/image/draw"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/opentype"
@@ -628,6 +630,19 @@ func GenerateTimeImageWithStats(timeStr string) (image.Image, error) {
 	// Get bits leaders
 	monthLeaders, allTimeLeaders := getBitsLeaders()
 	
+	// Debug output
+	fmt.Printf("=== GenerateTimeImageWithStats Debug ===\n")
+	fmt.Printf("Time: %s\n", timeStr)
+	fmt.Printf("Monthly leaders count: %d\n", len(monthLeaders))
+	fmt.Printf("All-time leaders count: %d\n", len(allTimeLeaders))
+	fmt.Printf("=====================================\n")
+	
+	// Also use logger to ensure output
+	logger.Info("GenerateTimeImageWithStats Debug",
+		zap.String("time", timeStr),
+		zap.Int("monthlyLeaders", len(monthLeaders)),
+		zap.Int("allTimeLeaders", len(allTimeLeaders)))
+	
 	// Load font
 	fontBytes, err := os.ReadFile("/Users/toka/Library/Fonts/HackGen-Bold.ttf")
 	if err != nil {
@@ -1003,6 +1018,13 @@ func GenerateTimeImageSimple(timeStr string) (image.Image, error) {
 func GenerateTimeImageWithStatsColor(timeStr string) (image.Image, error) {
 	// Get bits leaders
 	monthLeaders, allTimeLeaders := getBitsLeaders()
+	
+	// Debug output
+	fmt.Printf("=== GenerateTimeImageWithStatsColor Debug ===\n")
+	fmt.Printf("Time: %s\n", timeStr)
+	fmt.Printf("Monthly leaders count: %d\n", len(monthLeaders))
+	fmt.Printf("All-time leaders count: %d\n", len(allTimeLeaders))
+	fmt.Printf("==========================================\n")
 	
 	// Load font
 	fontBytes, err := os.ReadFile("/Users/toka/Library/Fonts/HackGen-Bold.ttf")

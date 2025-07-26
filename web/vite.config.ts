@@ -1,9 +1,9 @@
-import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vite';
 
 // 環境変数からポートを取得
 const BACKEND_PORT = process.env.VITE_BACKEND_PORT || '8080';
-const FRONTEND_PORT = process.env.VITE_FRONTEND_PORT ? parseInt(process.env.VITE_FRONTEND_PORT) : 5173;
+const FRONTEND_PORT = process.env.VITE_FRONTEND_PORT ? parseInt(process.env.VITE_FRONTEND_PORT) : 5174;
 
 // https://vite.dev/config/
 export default defineConfig({

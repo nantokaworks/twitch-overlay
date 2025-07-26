@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	"time"
 
 	"github.com/nantokaworks/twitch-fax/internal/env"
 	localdb "github.com/nantokaworks/twitch-fax/internal/localdb"
@@ -9,6 +11,7 @@ import (
 	"github.com/nantokaworks/twitch-fax/internal/shared/logger"
 	"github.com/nantokaworks/twitch-fax/internal/twitcheventsub"
 	"github.com/nantokaworks/twitch-fax/internal/twitchtoken"
+	"github.com/nantokaworks/twitch-fax/internal/version"
 	"github.com/nantokaworks/twitch-fax/internal/webserver"
 	"go.uber.org/zap"
 
@@ -18,6 +21,9 @@ import (
 )
 
 func main() {
+	// Display version
+	fmt.Println("🖨️  Twitch FAX " + version.String())
+	fmt.Println()
 
 	// init db
 	db, err := localdb.SetupDB("./local.db")
@@ -75,20 +81,35 @@ func main() {
 	// start web server (always start, even without token)
 	webserver.StartWebServer(env.Value.ServerPort)
 
-	// check token and start OAuth callback server
+	// check token and start monitoring
 	if token.AccessToken == "" {
-		twitchtoken.SetupCallbackServer()
+		// Display authentication URL
+		fmt.Println("")
+		fmt.Println("====================================================")
+		fmt.Println("⚠️  Twitch認証が必要です")
+		fmt.Printf("🔗 以下のURLにアクセスして認証してください:\n")
+		fmt.Printf("   http://localhost:%d/auth\n", env.Value.ServerPort)
+		fmt.Printf("\n")
+		fmt.Printf("📍 Twitchアプリ設定のリダイレクトURLに以下を追加してください:\n")
+		fmt.Printf("   http://localhost:%d/callback\n", env.Value.ServerPort)
+		fmt.Println("====================================================")
+		fmt.Println("")
+		
+		logger.Info("Waiting for Twitch authentication")
 
 		// wait get token or ctrl+c in goroutine
 		go func() {
-			logger.Info("Waiting for token...")
 			for {
 				if token, tokenValid, _ = twitchtoken.GetLatestToken(); tokenValid {
 					logger.Info("Token is valid.")
+					fmt.Println("")
+					fmt.Println("✅ Twitch認証が完了しました！")
+					fmt.Println("")
 					// start twitch eventsub after getting token
 					twitcheventsub.SetupEventSub(&token)
 					break
 				}
+				time.Sleep(1 * time.Second)
 			}
 		}()
 	} else {

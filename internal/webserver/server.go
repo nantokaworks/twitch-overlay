@@ -17,6 +17,7 @@ import (
 	"github.com/nantokaworks/twitch-fax/internal/output"
 	"github.com/nantokaworks/twitch-fax/internal/shared/logger"
 	"github.com/nantokaworks/twitch-fax/internal/status"
+	"github.com/nantokaworks/twitch-fax/internal/twitchtoken"
 	"go.uber.org/zap"
 )
 
@@ -110,6 +111,11 @@ func StartWebServer(port int) {
 	// Debug endpoints - シンプルに直接登録
 	http.HandleFunc("/debug/fax", handleDebugFax)
 	http.HandleFunc("/debug/channel-points", handleDebugChannelPoints)
+	http.HandleFunc("/debug/clock", handleDebugClock)
+	
+	// OAuth endpoints
+	http.HandleFunc("/auth", handleAuth)
+	http.HandleFunc("/callback", handleCallback)
 
 	addr := fmt.Sprintf(":%d", port)
 	
@@ -140,11 +146,21 @@ func StartWebServer(port int) {
 
 // handleSSE handles Server-Sent Events connections
 func handleSSE(w http.ResponseWriter, r *http.Request) {
+	// Set CORS headers first
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	
+	// Handle OPTIONS request
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	
 	// Set headers for SSE
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
 
 	// Create client channel
 	clientChan := make(chan string)
@@ -441,4 +457,164 @@ func handleDebugChannelPoints(w http.ResponseWriter, r *http.Request) {
 		"status":  "ok",
 		"message": "Debug channel points redemption processed successfully",
 	})
+}
+
+// DebugClockRequest represents a debug clock print request
+type DebugClockRequest struct {
+	WithStats bool `json:"withStats"`
+}
+
+// handleDebugClock handles debug clock print requests
+func handleDebugClock(w http.ResponseWriter, r *http.Request) {
+	// CORS headers
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	// Handle OPTIONS
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// Only accept POST
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Parse request body
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read request body", http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	var req DebugClockRequest
+	if err := json.Unmarshal(body, &req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// Get current time
+	now := time.Now()
+	timeStr := now.Format("15:04")
+
+	logger.Info("Processing debug clock print",
+		zap.String("time", timeStr),
+		zap.Bool("withStats", req.WithStats))
+
+	// Call PrintClock directly (same as scheduled clock printing)
+	err = output.PrintClock(timeStr)
+	if err != nil {
+		logger.Error("Failed to print debug clock", zap.Error(err))
+		http.Error(w, "Failed to print clock", http.StatusInternalServerError)
+		return
+	}
+
+	// Return success
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":  "ok",
+		"message": fmt.Sprintf("Clock printed at %s with leaderboard stats", timeStr),
+		"time":    timeStr,
+	})
+}
+
+// handleAuth handles OAuth authentication redirect
+func handleAuth(w http.ResponseWriter, r *http.Request) {
+	authURL := twitchtoken.GetAuthURL()
+	http.Redirect(w, r, authURL, http.StatusFound)
+}
+
+// handleCallback handles OAuth callback
+func handleCallback(w http.ResponseWriter, r *http.Request) {
+	code := r.URL.Query().Get("code")
+	if code == "" {
+		http.Error(w, "code not found", http.StatusBadRequest)
+		return
+	}
+	
+	// Get token from Twitch
+	result, err := twitchtoken.GetTwitchToken(code)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	
+	// Process expires_in
+	expiresInFloat, ok := result["expires_in"].(float64)
+	if !ok {
+		http.Error(w, "invalid expires_in", http.StatusInternalServerError)
+		return
+	}
+	expiresAtNew := time.Now().Unix() + int64(expiresInFloat)
+	newToken := twitchtoken.Token{
+		AccessToken:  result["access_token"].(string),
+		RefreshToken: result["refresh_token"].(string),
+		Scope:        result["scope"].(string),
+		ExpiresAt:    expiresAtNew,
+	}
+	if err := newToken.SaveToken(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Success message
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	fmt.Fprintf(w, `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>認証成功 - Twitch FAX</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #0e0e10;
+            color: #efeff1;
+        }
+        .container {
+            text-align: center;
+            padding: 2rem;
+            background-color: #18181b;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #9147ff;
+            margin-bottom: 1rem;
+        }
+        p {
+            margin-bottom: 1.5rem;
+        }
+        a {
+            color: #9147ff;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border: 2px solid #9147ff;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        a:hover {
+            background-color: #9147ff;
+            color: #ffffff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎉 認証成功！</h1>
+        <p>Twitchアカウントの連携が完了しました。</p>
+        <p>このウィンドウを閉じて、アプリケーションに戻ってください。</p>
+        <a href="/">ホームに戻る</a>
+    </div>
+</body>
+</html>
+`)
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { buildApiUrl } from '../utils/api';
 import type { FaxData } from '../types';
 
 interface DebugPanelProps {
@@ -21,7 +22,7 @@ const DebugPanel = ({ onSendFax }: DebugPanelProps) => {
     try {
       // バックエンドのデバッグエンドポイントに送信
       // HandleChannelPointsCustomRedemptionAddと同じ処理をエミュレート
-      const response = await fetch('/debug/channel-points', {
+      const response = await fetch(buildApiUrl('/debug/channel-points'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -45,6 +46,38 @@ const DebugPanel = ({ onSendFax }: DebugPanelProps) => {
         alert(`デバッグチャンネルポイントの送信に失敗しました:\n${error.message}`);
       } else {
         alert('デバッグチャンネルポイントの送信に失敗しました。サーバーが起動しているか確認してください。');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleClock = async () => {
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch(buildApiUrl('/debug/clock'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          withStats: true,  // リーダーボード情報を含む
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to trigger clock: ${response.statusText} - ${errorText}`);
+      }
+      
+      // 成功時はアラートを表示しない（エラー時のみ表示）
+    } catch (error) {
+      console.error('Failed to trigger clock:', error);
+      if (error instanceof Error) {
+        alert(`時計印刷の実行に失敗しました:\n${error.message}`);
+      } else {
+        alert('時計印刷の実行に失敗しました。サーバーが起動しているか確認してください。');
       }
     } finally {
       setIsSubmitting(false);
@@ -119,6 +152,19 @@ const DebugPanel = ({ onSendFax }: DebugPanelProps) => {
           </form>
           
           <div className="mt-3 pt-3 border-t border-gray-700">
+            <button
+              onClick={handleClock}
+              disabled={isSubmitting}
+              className={`w-full py-2 rounded transition-colors font-medium mb-3 ${
+                isSubmitting 
+                  ? 'bg-gray-600 text-gray-400 cursor-not-allowed' 
+                  : 'bg-purple-600 text-white hover:bg-purple-700'
+              }`}
+              style={{ fontSize: '14px' }}
+            >
+              {isSubmitting ? '実行中...' : '🕐 時計印刷（リーダーボード付き）'}
+            </button>
+            
             <p className="text-gray-400 text-xs">
               TRIGGER_CUSTOM_REWORD_IDで設定された<br />
               チャンネルポイント報酬をエミュレート<br />
