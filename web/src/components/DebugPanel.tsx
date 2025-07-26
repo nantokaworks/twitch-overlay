@@ -50,12 +50,12 @@ const DebugPanel = ({ onSendFax }: DebugPanelProps) => {
         <button
           onClick={() => setIsExpanded(true)}
           className="bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg hover:bg-gray-700 transition-colors"
-          style={{ fontSize: '14px' }}
+          style={{ fontSize: '14px', fontFamily: 'system-ui, -apple-system, sans-serif' }}
         >
           Debug Panel
         </button>
       ) : (
-        <div className="bg-gray-800 rounded-lg shadow-xl p-4" style={{ width: '300px' }}>
+        <div className="bg-gray-800 rounded-lg shadow-xl p-4" style={{ width: '300px', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-white font-bold" style={{ fontSize: '16px' }}>Debug Panel</h3>
             <button
