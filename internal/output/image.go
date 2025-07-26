@@ -942,7 +942,7 @@ func GenerateTimeImageWithStats(timeStr string) (image.Image, error) {
 			// Separator + title
 			extraHeight += 20 + 24 + 10
 			// First place with avatar
-			extraHeight += 64 + 10 + 36 + 36 + lineSpacing
+			extraHeight += 128 + 10 + 36 + 36 + lineSpacing
 			// 2nd and 3rd place without avatar (smaller font)
 			for i := 1; i < len(monthLeaders) && i < 3; i++ {
 				extraHeight += 24 + 24 + lineSpacing
@@ -953,7 +953,7 @@ func GenerateTimeImageWithStats(timeStr string) (image.Image, error) {
 			// Separator + title
 			extraHeight += 20 + 24 + 10
 			// First place with avatar
-			extraHeight += 64 + 10 + 36 + 36 + lineSpacing
+			extraHeight += 128 + 10 + 36 + 36 + lineSpacing
 			// 2nd and 3rd place without avatar (smaller font)
 			for i := 1; i < len(allTimeLeaders) && i < 3; i++ {
 				extraHeight += 24 + 24 + lineSpacing
@@ -1011,7 +1011,7 @@ func GenerateTimeImageWithStats(timeStr string) (image.Image, error) {
 			
 			if i == 0 {
 				// First place with avatar
-				avatarLocalSize := 64
+				avatarLocalSize := 128
 				avatarDrawn := false
 				if leader.AvatarURL != "" {
 					avatarImg, err := downloadAndResizeAvatarGray(leader.AvatarURL, avatarLocalSize)
@@ -1083,7 +1083,7 @@ func GenerateTimeImageWithStats(timeStr string) (image.Image, error) {
 			
 			if i == 0 {
 				// First place with avatar
-				avatarLocalSize := 64
+				avatarLocalSize := 128
 				avatarDrawn := false
 				if leader.AvatarURL != "" {
 					avatarImg, err := downloadAndResizeAvatarGray(leader.AvatarURL, avatarLocalSize)
@@ -1246,7 +1246,7 @@ func GenerateTimeImageWithStatsColor(timeStr string) (image.Image, error) {
 			// Separator + title
 			extraHeight += 20 + 24 + 10
 			// First place with avatar
-			extraHeight += 64 + 10 + 36 + 36 + lineSpacing
+			extraHeight += 128 + 10 + 36 + 36 + lineSpacing
 			// 2nd and 3rd place without avatar (smaller font)
 			for i := 1; i < len(monthLeaders) && i < 3; i++ {
 				extraHeight += 24 + 24 + lineSpacing
@@ -1257,7 +1257,7 @@ func GenerateTimeImageWithStatsColor(timeStr string) (image.Image, error) {
 			// Separator + title
 			extraHeight += 20 + 24 + 10
 			// First place with avatar
-			extraHeight += 64 + 10 + 36 + 36 + lineSpacing
+			extraHeight += 128 + 10 + 36 + 36 + lineSpacing
 			// 2nd and 3rd place without avatar (smaller font)
 			for i := 1; i < len(allTimeLeaders) && i < 3; i++ {
 				extraHeight += 24 + 24 + lineSpacing
@@ -1338,7 +1338,7 @@ func GenerateTimeImageWithStatsColor(timeStr string) (image.Image, error) {
 					if i == 0 {
 						// First place - with avatar and larger font
 						// Draw avatar if available
-						avatarSize := 64
+						avatarSize := 128
 						avatarDrawn := false
 						if leader.AvatarURL != "" {
 							avatarImg, err := downloadAndResizeAvatarColor(leader.AvatarURL, avatarSize)
@@ -1443,7 +1443,7 @@ func GenerateTimeImageWithStatsColor(timeStr string) (image.Image, error) {
 					if i == 0 {
 						// First place - with avatar and larger font
 						// Draw avatar if available
-						avatarSize := 64
+						avatarSize := 128
 						avatarDrawn := false
 						if leader.AvatarURL != "" {
 							avatarImg, err := downloadAndResizeAvatarColor(leader.AvatarURL, avatarSize)
