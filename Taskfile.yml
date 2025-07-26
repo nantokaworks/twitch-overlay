@@ -69,6 +69,12 @@ tasks:
     cmds:
       - air
 
+  # Claude
+  claude:
+    desc: Claude起動
+    cmds:
+      - claude --dangerously-skip-permissions
+
   # ビルド済みアプリケーションを実行
   run:
     desc: ビルド済みのtwitch-faxを実行
