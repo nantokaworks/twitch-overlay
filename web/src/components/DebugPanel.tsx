@@ -9,58 +9,32 @@ interface DebugPanelProps {
 const DebugPanel = ({ onSendFax, useLocalMode = true }: DebugPanelProps) => {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [username, setUsername] = useState<string>('DebugUser');
-  const [message, setMessage] = useState<string>('');
-  const [imageUrl, setImageUrl] = useState<string>('');
+  const [rewardTitle, setRewardTitle] = useState<string>('FAX送信');
+  const [userInput, setUserInput] = useState<string>('');
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
-  const [simulateMode, setSimulateMode] = useState<'customReward' | 'directMessage'>('customReward');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!message.trim() || isSubmitting) return;
+    if (!userInput.trim() || isSubmitting) return;
 
     setIsSubmitting(true);
 
     try {
-      // メッセージから画像URLを抽出する処理（サーバーと同じロジック）
-      let finalImageUrl = imageUrl.trim();
-      if (!finalImageUrl) {
-        // URLパターンを検索（http/https画像URL）
-        const urlPattern = /(https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp)(\?[^\s]*)?)/gi;
-        const matches = message.match(urlPattern);
-        if (matches && matches.length > 0) {
-          finalImageUrl = matches[0];
-        }
-      }
-
       if (useLocalMode) {
-        // ローカルモード：直接FAXキューに追加
-        if (simulateMode === 'customReward') {
-          // カスタムリワード（TRIGGER_CUSTOM_REWORD_ID）のエミュレート
-          // 実際のバックエンドと同じように、メッセージと画像URLを処理
-          const faxData: FaxData = {
-            id: `debug-reward-${Date.now()}`,
-            type: 'fax',
-            timestamp: Date.now(),
-            username: username.toLowerCase(),
-            displayName: username,
-            message: message.trim(),
-            imageUrl: finalImageUrl || undefined,
-          };
-          onSendFax(faxData);
-        } else {
-          // 通常のメッセージ送信（将来の拡張用）
-          const faxData: FaxData = {
-            id: `debug-message-${Date.now()}`,
-            type: 'fax',
-            timestamp: Date.now(),
-            username: username.toLowerCase(),
-            displayName: username,
-            message: message.trim(),
-            imageUrl: finalImageUrl || undefined,
-          };
-          onSendFax(faxData);
-        }
+        // ローカルモード：HandleChannelPointsCustomRedemptionAddと同じ処理
+        const message = `🎉チャネポ ${rewardTitle} ${userInput.trim()}`;
+        
+        const faxData: FaxData = {
+          id: `debug-reward-${Date.now()}`,
+          type: 'fax',
+          timestamp: Date.now(),
+          username: username.toLowerCase(),
+          displayName: username,
+          message: message,
+          imageUrl: undefined, // チャンネルポイントリワードでは画像URLは使用しない
+        };
+        onSendFax(faxData);
       } else {
         // バックエンドモード：デバッグエンドポイントに送信
         const response = await fetch('/debug/fax', {
@@ -71,8 +45,8 @@ const DebugPanel = ({ onSendFax, useLocalMode = true }: DebugPanelProps) => {
           body: JSON.stringify({
             username: username.toLowerCase(),
             displayName: username,
-            message: message.trim(),
-            imageUrl: finalImageUrl || undefined,
+            message: `🎉チャネポ ${rewardTitle} ${userInput.trim()}`,
+            imageUrl: undefined,
           }),
         });
 
@@ -81,8 +55,7 @@ const DebugPanel = ({ onSendFax, useLocalMode = true }: DebugPanelProps) => {
         }
       }
       // フォームをリセット
-      setMessage('');
-      setImageUrl('');
+      setUserInput('');
     } catch (error) {
       console.error('Failed to send debug fax:', error);
       if (!useLocalMode) {
@@ -119,21 +92,6 @@ const DebugPanel = ({ onSendFax, useLocalMode = true }: DebugPanelProps) => {
           <form onSubmit={handleSubmit} className="space-y-3">
             <div>
               <label className="block text-gray-300 text-sm mb-1">
-                シミュレーションモード
-              </label>
-              <select
-                value={simulateMode}
-                onChange={(e) => setSimulateMode(e.target.value as 'customReward' | 'directMessage')}
-                className="w-full px-3 py-2 bg-gray-700 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
-                style={{ fontSize: '14px' }}
-              >
-                <option value="customReward">カスタムリワード (TRIGGER_CUSTOM_REWORD_ID)</option>
-                <option value="directMessage" disabled>通常メッセージ (未実装)</option>
-              </select>
-            </div>
-            
-            <div>
-              <label className="block text-gray-300 text-sm mb-1">
                 ユーザー名
               </label>
               <input
@@ -148,30 +106,31 @@ const DebugPanel = ({ onSendFax, useLocalMode = true }: DebugPanelProps) => {
             
             <div>
               <label className="block text-gray-300 text-sm mb-1">
-                メッセージ <span className="text-gray-500">(必須)</span>
+                リワードタイトル
               </label>
-              <textarea
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-700 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none resize-none"
+              <input
+                type="text"
+                value={rewardTitle}
+                onChange={(e) => setRewardTitle(e.target.value)}
+                className="w-full px-3 py-2 bg-gray-700 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
                 style={{ fontSize: '14px' }}
-                rows={3}
-                placeholder="FAXメッセージを入力..."
+                placeholder="FAX送信"
                 required
               />
             </div>
             
             <div>
               <label className="block text-gray-300 text-sm mb-1">
-                画像URL <span className="text-gray-500">(オプション)</span>
+                ユーザー入力 <span className="text-gray-500">(必須)</span>
               </label>
-              <input
-                type="url"
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-700 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+              <textarea
+                value={userInput}
+                onChange={(e) => setUserInput(e.target.value)}
+                className="w-full px-3 py-2 bg-gray-700 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none resize-none"
                 style={{ fontSize: '14px' }}
-                placeholder="https://example.com/image.jpg"
+                rows={3}
+                placeholder="FAXに送信するメッセージ..."
+                required
               />
             </div>
             
@@ -185,25 +144,18 @@ const DebugPanel = ({ onSendFax, useLocalMode = true }: DebugPanelProps) => {
               }`}
               style={{ fontSize: '14px' }}
             >
-              {isSubmitting ? '送信中...' : 
-                simulateMode === 'customReward' ? 'チャンネルポイントを使用' : 'FAX送信'}
+              {isSubmitting ? '送信中...' : 'チャンネルポイントを使用'}
             </button>
           </form>
           
           <div className="mt-3 pt-3 border-t border-gray-700">
             <p className="text-gray-400 text-xs">
-              {simulateMode === 'customReward' ? (
-                <>
-                  TRIGGER_CUSTOM_REWORD_IDで設定された<br />
-                  チャンネルポイント報酬をエミュレート<br />
-                </>
-              ) : (
-                <>
-                  通常のチャットメッセージをエミュレート<br />
-                </>
-              )}
+              TRIGGER_CUSTOM_REWORD_IDで設定された<br />
+              チャンネルポイント報酬をエミュレート<br />
               <br />
-              ※メッセージ内の画像URLは自動検出されます<br />
+              メッセージ形式：<br />
+              「🎉チャネポ [リワードタイトル] [ユーザー入力]」<br />
+              <br />
               ※ローカルモードで動作中（印刷なし）
             </p>
           </div>
