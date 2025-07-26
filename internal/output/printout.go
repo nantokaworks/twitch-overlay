@@ -238,8 +238,8 @@ func keepAliveRoutine() {
 			
 			logger.Info("Keep-alive: initial connection established")
 			
-			// Perform initial print if clock is enabled
-			if env.Value.ClockEnabled {
+			// Perform initial print if enabled
+			if env.Value.InitialPrintEnabled && env.Value.ClockEnabled {
 				logger.Info("Keep-alive: performing initial clock print")
 				if env.Value.DryRunMode {
 					logger.Info("Printing initial clock (DRY-RUN MODE)")
@@ -252,6 +252,9 @@ func keepAliveRoutine() {
 				} else {
 					hasInitialPrintBeenDone = true
 				}
+			} else {
+				logger.Info("Keep-alive: skipping initial print (InitialPrintEnabled=false)")
+				hasInitialPrintBeenDone = true
 			}
 			
 			// Update last print time

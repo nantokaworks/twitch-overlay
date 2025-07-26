@@ -26,6 +26,7 @@ type EnvValue struct {
 	ClockEnabled          bool
 	DryRunMode            bool
 	RotatePrint           bool
+	InitialPrintEnabled   bool
 }
 
 var Value EnvValue
@@ -88,6 +89,7 @@ func init() {
 	clockEnabled := getEnvOrDefault("CLOCK_ENABLED", "true")
 	dryRunMode := getEnvOrDefault("DRY_RUN_MODE", "false")
 	rotatePrint := getEnvOrDefault("ROTATE_PRINT", "false")
+	initialPrintEnabled := getEnvOrDefault("INITIAL_PRINT_ENABLED", "false")
 
 	// Initialize the Env struct with environment variables
 	Value = EnvValue{
@@ -107,6 +109,7 @@ func init() {
 		ClockEnabled:          *clockEnabled == "true",
 		DryRunMode:            *dryRunMode == "true",
 		RotatePrint:           *rotatePrint == "true",
+		InitialPrintEnabled:   *initialPrintEnabled == "true",
 	}
 
 	fmt.Printf("Loaded environment variables: %+v\n", Value)
