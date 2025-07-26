@@ -28,11 +28,11 @@ export const LAYOUT = {
   // Shake animation
   SHAKE_DURATION: '0.2s',
   
-  // Computed values
-  get TOTAL_HEIGHT() {
+  // Computed values - Getterメソッドを保持
+  get TOTAL_HEIGHT(): number {
     return this.FAX_HEIGHT + this.LABEL_HEIGHT;
   },
-  get SLIDE_UP_DISTANCE() {
+  get SLIDE_UP_DISTANCE(): number {
     return -this.TOTAL_HEIGHT;
   }
-};
+} as const;

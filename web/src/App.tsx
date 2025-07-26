@@ -1,5 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import FaxReceiver from './components/FaxReceiver'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import FaxReceiver from './components/FaxReceiver';
 
 function App() {
   return (
@@ -11,7 +11,7 @@ function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
-  )
+  );
 }
 
-export default App
+export default App;

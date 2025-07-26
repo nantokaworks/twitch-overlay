@@ -1,16 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { LAYOUT } from '../constants/layout';
+import type { FaxDisplayProps, FaxDisplayState, DynamicStyles } from '../types';
 
-const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate, onAnimationStateChange, onStateChange }) => {
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const [imageHeight, setImageHeight] = useState(0);
-  const [animationComplete, setAnimationComplete] = useState(false);
-  const [imagePosition, setImagePosition] = useState(-1); // -1 means use 100% (初期位置)
-  const [containerPosition, setContainerPosition] = useState(0); // コンテナ全体の位置
-  const [displayState, setDisplayState] = useState('loading'); // 'loading', 'waiting', 'scrolling', 'displaying', 'sliding', 'complete'
-  const [scrollProgress, setScrollProgress] = useState(0); // 0-100%
-  const containerRef = useRef(null);
-  const animationRef = useRef(null);
+const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate, onAnimationStateChange, onStateChange }: FaxDisplayProps) => {
+  const [imageLoaded, setImageLoaded] = useState<boolean>(false);
+  const [imageHeight, setImageHeight] = useState<number>(0);
+  const [animationComplete, setAnimationComplete] = useState<boolean>(false);
+  const [imagePosition, setImagePosition] = useState<number>(-1); // -1 means use 100% (初期位置)
+  const [containerPosition, setContainerPosition] = useState<number>(0); // コンテナ全体の位置
+  const [displayState, setDisplayState] = useState<FaxDisplayState>('loading'); // 'loading', 'waiting', 'scrolling', 'displaying', 'sliding', 'complete'
+  const [scrollProgress, setScrollProgress] = useState<number>(0); // 0-100%
+  const containerRef = useRef<HTMLDivElement>(null);
+  const animationRef = useRef<number | null>(null);
   
   // 状態変更を通知
   useEffect(() => {
@@ -68,14 +69,14 @@ const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate, onA
       
       // スクロール進捗を計算（0-100%）
       const progress = Math.min(100, Math.max(0, ((currentImagePosition + imageHeight) / imageHeight) * 100));
-      setScrollProgress(progress);
+      setScrollProgress(Math.round(progress));
       
       // ラベル位置の計算
       // 画像と同じスピードで動くが、最大FAX高さまで
       const labelPosition = Math.min(Math.max(0, currentImagePosition + imageHeight), LAYOUT.FAX_HEIGHT);
       
       if (onLabelPositionUpdate) {
-        onLabelPositionUpdate(labelPosition);
+        onLabelPositionUpdate(Math.round(labelPosition));
       }
       
       // 画像が完全に表示されるまで続行
@@ -121,32 +122,41 @@ const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate, onA
 
   if (!faxData || !imageLoaded) return null;
 
+  // コンテナのスタイル
+  const containerStyle: DynamicStyles = {
+    left: `${LAYOUT.LEFT_MARGIN}px`,
+    top: `${containerPosition}px`,
+    transition: containerPosition !== 0 ? `top ${LAYOUT.FADE_DURATION}ms ease-out, opacity ${LAYOUT.FADE_DURATION}ms` : `opacity ${LAYOUT.FADE_DURATION}ms`,
+  };
+
+  // FAX表示エリアのスタイル
+  const displayAreaStyle: DynamicStyles = {
+    width: `${LAYOUT.FAX_WIDTH}px`,
+    height: `${LAYOUT.FAX_HEIGHT}px`,
+  };
+
+  // 画像のスタイル
+  const imageStyle: DynamicStyles = {
+    transform: `translateY(${imagePosition === -1 ? '-100%' : `${imagePosition}px`})`,
+  };
+
   return (
     <div
       ref={containerRef}
       className={`fixed ${
         animationComplete ? 'opacity-0' : 'opacity-100'
       }`}
-      style={{
-        left: `${LAYOUT.LEFT_MARGIN}px`,
-        top: `${containerPosition}px`,
-        transition: containerPosition !== 0 ? `top ${LAYOUT.FADE_DURATION}ms ease-out, opacity ${LAYOUT.FADE_DURATION}ms` : `opacity ${LAYOUT.FADE_DURATION}ms`,
-      }}
+      style={containerStyle}
     >
       <div
         className="relative overflow-hidden"
-        style={{
-          width: `${LAYOUT.FAX_WIDTH}px`,
-          height: `${LAYOUT.FAX_HEIGHT}px`,
-        }}
+        style={displayAreaStyle}
       >
         <img
           src={`/fax/${faxData.id}/${imageType}`}
           alt="FAX"
           className="w-full h-auto"
-          style={{
-            transform: `translateY(${imagePosition === -1 ? '-100%' : `${imagePosition}px`})`,
-          }}
+          style={imageStyle}
         />
       </div>
     </div>

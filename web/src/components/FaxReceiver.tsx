@@ -2,14 +2,15 @@ import { useEffect, useState } from 'react';
 import { useFaxQueue } from '../hooks/useFaxQueue';
 import FaxDisplay from './FaxDisplay';
 import { LAYOUT } from '../constants/layout';
+import type { FaxReceiverProps, FaxData, FaxState, ServerStatus, DynamicStyles } from '../types';
 
-const FaxReceiver = ({ imageType = 'mono' }) => {
-  const [isConnected, setIsConnected] = useState(false);
-  const [isPrinterConnected, setIsPrinterConnected] = useState(false);
-  const [labelPosition, setLabelPosition] = useState(0);
-  const [isAnimating, setIsAnimating] = useState(false);
-  const [faxState, setFaxState] = useState(null);
-  const [isShaking, setIsShaking] = useState(false);
+const FaxReceiver = ({ imageType = 'mono' }: FaxReceiverProps) => {
+  const [isConnected, setIsConnected] = useState<boolean>(false);
+  const [isPrinterConnected, setIsPrinterConnected] = useState<boolean>(false);
+  const [labelPosition, setLabelPosition] = useState<number>(0);
+  const [isAnimating, setIsAnimating] = useState<boolean>(false);
+  const [faxState, setFaxState] = useState<FaxState | null>(null);
+  const [isShaking, setIsShaking] = useState<boolean>(false);
   const { currentFax, addToQueue, onDisplayComplete } = useFaxQueue();
   
   // ラベル位置をリセット
@@ -45,7 +46,7 @@ const FaxReceiver = ({ imageType = 'mono' }) => {
       try {
         const response = await fetch('/status');
         if (response.ok) {
-          const data = await response.json();
+          const data: ServerStatus = await response.json();
           setIsPrinterConnected(data.printerConnected);
         }
       } catch (error) {
@@ -63,8 +64,8 @@ const FaxReceiver = ({ imageType = 'mono' }) => {
   }, []);
 
   useEffect(() => {
-    let reconnectTimeout;
-    let eventSource;
+    let reconnectTimeout: NodeJS.Timeout | null = null;
+    let eventSource: EventSource | null = null;
 
     const connect = () => {
       eventSource = new EventSource('/events');
@@ -78,9 +79,9 @@ const FaxReceiver = ({ imageType = 'mono' }) => {
         }
       };
 
-      eventSource.onmessage = (event) => {
+      eventSource.onmessage = (event: MessageEvent) => {
         try {
-          const data = JSON.parse(event.data);
+          const data: FaxData = JSON.parse(event.data);
           if (data.type === 'fax') {
             addToQueue(data);
           }
@@ -89,10 +90,10 @@ const FaxReceiver = ({ imageType = 'mono' }) => {
         }
       };
 
-      eventSource.onerror = (error) => {
+      eventSource.onerror = (error: Event) => {
         console.error('SSE connection error:', error);
         setIsConnected(false);
-        eventSource.close();
+        eventSource?.close();
         
         // 再接続を試みる
         reconnectTimeout = setTimeout(() => {
@@ -114,18 +115,38 @@ const FaxReceiver = ({ imageType = 'mono' }) => {
     };
   }, [addToQueue]);
 
+  // 背景スタイル
+  const backgroundStyle: DynamicStyles = { 
+    backgroundColor: isDebug ? '#374151' : 'transparent' 
+  };
+
+  // ラベルのスタイル
+  const labelStyle: DynamicStyles = { 
+    left: `${LAYOUT.LEFT_MARGIN}px`, 
+    width: `${LAYOUT.FAX_WIDTH}px`, 
+    height: `${LAYOUT.LABEL_HEIGHT}px`,
+    top: `${labelPosition}px`,
+    transition: isAnimating ? 'none' : `top ${LAYOUT.FADE_DURATION}ms ease-out`
+  };
+
+  // LED のスタイル
+  const ledStyle: DynamicStyles = {
+    fontSize: `${LAYOUT.FONT_SIZE}px`,
+    marginRight: `${LAYOUT.LED_RIGHT_MARGIN}px`
+  };
+
+  // FAXテキストのスタイル
+  const faxTextStyle: DynamicStyles = { 
+    fontSize: `${LAYOUT.FONT_SIZE}px`,
+    animation: isShaking ? `shake ${LAYOUT.SHAKE_DURATION} infinite` : 'none'
+  };
+
   return (
-    <div className="h-screen text-white relative overflow-hidden" style={{ backgroundColor: isDebug ? '#374151' : 'transparent' }}>
+    <div className="h-screen text-white relative overflow-hidden" style={backgroundStyle}>
       {/* コントロールパネル */}
       <div 
         className="fixed z-10" 
-        style={{ 
-          left: `${LAYOUT.LEFT_MARGIN}px`, 
-          width: `${LAYOUT.FAX_WIDTH}px`, 
-          height: `${LAYOUT.LABEL_HEIGHT}px`,
-          top: `${labelPosition}px`,
-          transition: isAnimating ? 'none' : `top ${LAYOUT.FADE_DURATION}ms ease-out`
-        }}
+        style={labelStyle}
       >
         <div className="flex items-center h-full px-2">
           <span
@@ -134,19 +155,13 @@ const FaxReceiver = ({ imageType = 'mono' }) => {
               !isPrinterConnected ? 'text-yellow-500' : 
               'text-green-500'
             }`}
-            style={{
-              fontSize: `${LAYOUT.FONT_SIZE}px`,
-              marginRight: `${LAYOUT.LED_RIGHT_MARGIN}px`
-            }}
+            style={ledStyle}
           >
             ◆
           </span>
           <span 
             className="text-outline" 
-            style={{ 
-              fontSize: `${LAYOUT.FONT_SIZE}px`,
-              animation: isShaking ? `shake ${LAYOUT.SHAKE_DURATION} infinite` : 'none'
-            }}
+            style={faxTextStyle}
           >
             FAX
           </span>

@@ -21,6 +21,20 @@
 - 例: `go build ./cmd/twitch-fax && rm twitch-fax`
 - リポジトリにバイナリファイルをコミットしない
 
+## フロントエンド開発ガイドライン
+
+### TypeScript化の注意事項
+- フロントエンドはTypeScriptで実装されている
+- アニメーション処理は`requestAnimationFrame`を使用して実装されており、型安全性を保ちながら動作する
+- 定数ファイル（`layout.ts`）には動的なgetterメソッドが含まれている
+- すべての型定義は`src/types/index.ts`に集約されている
+
+### 開発コマンド
+- `bun run dev`: 開発サーバーの起動
+- `bun run build`: プロダクションビルド
+- `bun run tsc --noEmit`: TypeScriptの型チェック
+- `bun run lint`: ESLintの実行
+
 ## Goテストガイドライン
 
 ### テストフレームワーク

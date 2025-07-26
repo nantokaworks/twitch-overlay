@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
+import type { FaxData, UseFaxQueueReturn } from '../types';
 
-export const useFaxQueue = () => {
-  const [queue, setQueue] = useState([]);
-  const [currentFax, setCurrentFax] = useState(null);
-  const [isDisplaying, setIsDisplaying] = useState(false);
+export const useFaxQueue = (): UseFaxQueueReturn => {
+  const [queue, setQueue] = useState<FaxData[]>([]);
+  const [currentFax, setCurrentFax] = useState<FaxData | null>(null);
+  const [isDisplaying, setIsDisplaying] = useState<boolean>(false);
 
   // キューにFAXを追加
-  const addToQueue = useCallback((faxData) => {
+  const addToQueue = useCallback((faxData: FaxData) => {
     setQueue((prev) => [...prev, faxData]);
   }, []);
 
