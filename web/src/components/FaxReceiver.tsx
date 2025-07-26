@@ -127,7 +127,7 @@ const FaxReceiver = ({ imageType = 'mono' }: FaxReceiverProps) => {
     width: `${LAYOUT.FAX_WIDTH}px`, 
     height: `${LAYOUT.LABEL_HEIGHT}px`,
     top: `${labelPosition}px`,
-    transition: isAnimating ? 'none' : `top ${LAYOUT.FADE_DURATION}ms ease-out`
+    transition: 'none' // 常にJavaScriptアニメーションを使用
   };
 
   // LED のスタイル

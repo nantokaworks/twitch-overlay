@@ -1,7 +1,7 @@
 // FAX関連の型定義
 
 // FAXの状態
-export type FaxDisplayState = 'loading' | 'waiting' | 'scrolling' | 'displaying' | 'sliding' | 'complete';
+export type FaxDisplayState = 'loading' | 'waiting' | 'scrolling' | 'displaying' | 'sliding' | 'sliding-up' | 'complete';
 
 // FAXデータ
 export interface FaxData {

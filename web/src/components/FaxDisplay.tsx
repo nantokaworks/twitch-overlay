@@ -8,10 +8,12 @@ const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate, onA
   const [animationComplete, setAnimationComplete] = useState<boolean>(false);
   const [imagePosition, setImagePosition] = useState<number>(-1); // -1 means use 100% (初期位置)
   const [containerPosition, setContainerPosition] = useState<number>(0); // コンテナ全体の位置
-  const [displayState, setDisplayState] = useState<FaxDisplayState>('loading'); // 'loading', 'waiting', 'scrolling', 'displaying', 'sliding', 'complete'
+  const [displayState, setDisplayState] = useState<FaxDisplayState>('loading'); // 'loading', 'waiting', 'scrolling', 'displaying', 'sliding', 'sliding-up', 'complete'
   const [scrollProgress, setScrollProgress] = useState<number>(0); // 0-100%
+  const [currentLabelPosition, setCurrentLabelPosition] = useState<number>(0); // ラベルの現在位置を保持
   const containerRef = useRef<HTMLDivElement>(null);
   const animationRef = useRef<number | null>(null);
+  const slideUpAnimationRef = useRef<number | null>(null);
   
   // 状態変更を通知
   useEffect(() => {
@@ -75,6 +77,7 @@ const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate, onA
       // 画像と同じスピードで動くが、最大FAX高さまで
       const labelPosition = Math.min(Math.max(0, currentImagePosition + imageHeight), LAYOUT.FAX_HEIGHT);
       
+      setCurrentLabelPosition(labelPosition); // 現在位置を保存
       if (onLabelPositionUpdate) {
         onLabelPositionUpdate(Math.round(labelPosition));
       }
@@ -89,24 +92,14 @@ const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate, onA
         setDisplayState('displaying');
         setTimeout(() => {
           setDisplayState('sliding');
-          // アニメーション終了を通知（トランジションを有効にする）
-          if (onAnimationStateChange) {
-            onAnimationStateChange(false);
-          }
-          // 少し待ってからスライドアニメーションを開始
+          // スライドアップアニメーションを開始
           setTimeout(() => {
-            // FAX表示領域を上にスライドさせる
-            setContainerPosition(LAYOUT.SLIDE_UP_DISTANCE);
-            // ラベルも元の位置に戻す
-            if (onLabelPositionUpdate) {
-              onLabelPositionUpdate(0);
-            }
-            setTimeout(() => {
-              setAnimationComplete(true);
-              setDisplayState('complete');
-              onComplete();
-            }, LAYOUT.FADE_DURATION); // スライドアップ完了後に終了
-          }, LAYOUT.TRANSITION_DELAY); // トランジション切り替えの遅延
+            setDisplayState('sliding-up');
+            // この時点でのラベル位置を確実に取得
+            // 高さが低いFAXの場合は実際の画像高さまでしか移動していない
+            const currentLabelPos = Math.min(imageHeight, LAYOUT.FAX_HEIGHT);
+            startSlideUpAnimation(currentLabelPos);
+          }, LAYOUT.TRANSITION_DELAY);
         }, LAYOUT.DISPLAY_DURATION);
       }
     };
@@ -117,8 +110,73 @@ const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate, onA
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
+      if (slideUpAnimationRef.current) {
+        cancelAnimationFrame(slideUpAnimationRef.current);
+      }
     };
   }, [imageLoaded, imageHeight, onComplete, onLabelPositionUpdate, onAnimationStateChange]);
+
+  // ease-out関数（3次ベジェ曲線）
+  const easeOut = (t: number): number => {
+    return 1 - Math.pow(1 - t, 3);
+  };
+
+  // スライドアップアニメーション
+  const startSlideUpAnimation = (startLabelPosition: number) => {
+    // 6px/フレームで移動
+    const pixelsPerFrame = 6; // 6px/frame
+    const targetDistance = LAYOUT.SLIDE_UP_DISTANCE; // -320px
+    const totalDistance = Math.abs(targetDistance); // 320px
+    const frames = totalDistance / pixelsPerFrame; // 約53フレーム
+    const duration = frames * (1000 / 60); // 60fpsで約889ms
+    
+    const startTime = performance.now();
+    const initialLabelPosition = startLabelPosition; // 引数から取得
+    
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      // イージングなしで一定速度
+      const easedProgress = progress;
+      
+      // コンテナとラベルを同時に更新
+      const currentPosition = targetDistance * easedProgress;
+      setContainerPosition(currentPosition);
+      
+      // ラベルはコンテナと同じ速度で移動
+      // 単純に同じピクセル数だけ上に移動
+      const labelPos = initialLabelPosition + currentPosition; // currentPositionは負の値
+      
+      // デバッグ用ログ（最初と最後のフレームのみ）
+      if (progress === 0 || progress >= 0.99) {
+        console.log('SlideUp:', {
+          progress,
+          initialLabelPosition,
+          currentPosition,
+          labelPos,
+          finalLabelPos: Math.round(Math.max(0, labelPos))
+        });
+      }
+      
+      if (onLabelPositionUpdate) {
+        onLabelPositionUpdate(Math.round(Math.max(0, labelPos)));
+      }
+      
+      if (progress < 1) {
+        slideUpAnimationRef.current = requestAnimationFrame(animate);
+      } else {
+        // アニメーション完了
+        if (onAnimationStateChange) {
+          onAnimationStateChange(false);
+        }
+        setAnimationComplete(true);
+        setDisplayState('complete');
+        onComplete();
+      }
+    };
+    
+    slideUpAnimationRef.current = requestAnimationFrame(animate);
+  };
 
   if (!faxData || !imageLoaded) return null;
 
@@ -126,7 +184,7 @@ const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate, onA
   const containerStyle: DynamicStyles = {
     left: `${LAYOUT.LEFT_MARGIN}px`,
     top: `${containerPosition}px`,
-    transition: containerPosition !== 0 ? `top ${LAYOUT.FADE_DURATION}ms ease-out, opacity ${LAYOUT.FADE_DURATION}ms` : `opacity ${LAYOUT.FADE_DURATION}ms`,
+    transition: `opacity ${LAYOUT.FADE_DURATION}ms`,
   };
 
   // FAX表示エリアのスタイル
