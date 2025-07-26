@@ -123,7 +123,7 @@ const FaxReceiver = ({ imageType = 'mono' }: FaxReceiverProps) => {
 
   // ラベルのスタイル
   const labelStyle: DynamicStyles = { 
-    left: `${LAYOUT.LEFT_MARGIN}px`, 
+    left: `${LAYOUT.LABEL_LEFT_MARGIN}px`, 
     width: `${LAYOUT.FAX_WIDTH}px`, 
     height: `${LAYOUT.LABEL_HEIGHT}px`,
     top: `${labelPosition}px`,

@@ -6,7 +6,8 @@ export const LAYOUT = {
   LABEL_HEIGHT: 40,
 
   // Positions
-  LEFT_MARGIN: 0,
+  FAX_LEFT_MARGIN: 10,      // FAX部の左マージン
+  LABEL_LEFT_MARGIN: 0,    // ラベル部の左マージン
   TOP_POSITION: 0,
 
   // Animation

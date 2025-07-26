@@ -182,7 +182,7 @@ const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate, onA
 
   // コンテナのスタイル
   const containerStyle: DynamicStyles = {
-    left: `${LAYOUT.LEFT_MARGIN}px`,
+    left: `${LAYOUT.FAX_LEFT_MARGIN}px`,
     top: `${containerPosition}px`,
     transition: `opacity ${LAYOUT.FADE_DURATION}ms`,
   };
