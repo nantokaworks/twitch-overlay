@@ -21,6 +21,9 @@ type EnvValue struct {
 	BlackPoint            float32
 	AutoRotate            bool
 	DebugOutput           bool
+	KeepAliveInterval     int
+	KeepAliveEnabled      bool
+	ClockEnabled          bool
 }
 
 var Value EnvValue
@@ -76,6 +79,11 @@ func init() {
 	if err != nil {
 		log.Fatalf("Error getting DEBUG_OUTPUT: %v", err)
 	}
+	
+	// Optional environment variables
+	keepAliveInterval := getEnvOrDefault("KEEP_ALIVE_INTERVAL", "60")
+	keepAliveEnabled := getEnvOrDefault("KEEP_ALIVE_ENABLED", "true")
+	clockEnabled := getEnvOrDefault("CLOCK_ENABLED", "true")
 
 	// Initialize the Env struct with environment variables
 	Value = EnvValue{
@@ -90,6 +98,9 @@ func init() {
 		BlackPoint:            parseFloat(blackPoint),
 		AutoRotate:            *autoRotate == "true",
 		DebugOutput:           *debugOutput == "true",
+		KeepAliveInterval:     parseInt(keepAliveInterval),
+		KeepAliveEnabled:      *keepAliveEnabled == "true",
+		ClockEnabled:          *clockEnabled == "true",
 	}
 
 	fmt.Printf("Loaded environment variables: %+v\n", Value)
@@ -109,4 +120,20 @@ func parseFloat(s *string) float32 {
 		log.Fatalf("floatへの変換エラー: %v", err)
 	}
 	return float32(f)
+}
+
+func getEnvOrDefault(key, defaultValue string) *string {
+	value, exists := os.LookupEnv(key)
+	if !exists {
+		return &defaultValue
+	}
+	return &value
+}
+
+func parseInt(s *string) int {
+	i, err := strconv.Atoi(*s)
+	if err != nil {
+		log.Fatalf("intへの変換エラー: %v", err)
+	}
+	return i
 }

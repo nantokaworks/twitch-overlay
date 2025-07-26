@@ -39,6 +39,15 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	
+	// Print initial clock and stats on successful connection
+	if env.Value.ClockEnabled {
+		logger.Info("Printing initial clock and stats")
+		err = output.PrintInitialClockAndStats()
+		if err != nil {
+			logger.Error("Failed to print initial clock and stats", zap.Error(err))
+		}
+	}
 
 	// load token from db
 	var tokenValid bool

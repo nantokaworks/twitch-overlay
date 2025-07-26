@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/joeyak/go-twitch-eventsub/v3"
+	"github.com/nantokaworks/twitch-fax/internal/twitchapi"
 	"github.com/skip2/go-qrcode"
 	xdraw "golang.org/x/image/draw"
 	"golang.org/x/image/font"
@@ -462,4 +463,183 @@ func MessageToImage(userName string, msg []twitch.ChatMessageFragment) (image.Im
 	}
 
 	return img, nil
+}
+
+// generateTimeImage creates an image with the given time string
+func generateTimeImage(timeStr string) (image.Image, error) {
+	// Load font
+	fontBytes, err := os.ReadFile("/Users/toka/Library/Fonts/HackGen-Bold.ttf")
+	if err != nil {
+		return nil, fmt.Errorf("failed to load font: %w", err)
+	}
+	
+	f, err := opentype.Parse(fontBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse font: %w", err)
+	}
+	
+	face, err := opentype.NewFace(f, &opentype.FaceOptions{
+		Size:    48,
+		DPI:     72,
+		Hinting: font.HintingFull,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create font face: %w", err)
+	}
+	defer face.Close()
+	
+	// Measure text
+	d := &font.Drawer{
+		Face: face,
+	}
+	bounds, _ := d.BoundString(timeStr)
+	textWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
+	textHeight := face.Metrics().Height.Round()
+	
+	// Create image with padding
+	padding := 20
+	imgHeight := textHeight + padding*2
+	img := image.NewRGBA(image.Rect(0, 0, PaperWidth, imgHeight))
+	
+	// Fill white background
+	draw.Draw(img, img.Bounds(), &image.Uniform{color.White}, image.Point{}, draw.Src)
+	
+	// Draw time centered
+	d.Dst = img
+	d.Src = image.Black
+	d.Dot = fixed.Point26_6{
+		X: fixed.I((PaperWidth - textWidth) / 2),
+		Y: fixed.I(padding) + face.Metrics().Ascent,
+	}
+	d.DrawString(timeStr)
+	
+	// Draw decorative lines
+	lineY := imgHeight - 10
+	for x := 10; x < PaperWidth-10; x += 2 {
+		img.Set(x, lineY, color.Black)
+	}
+	
+	return img, nil
+}
+
+// generateTimeImageWithStats creates an image with time and Twitch channel statistics
+func generateTimeImageWithStats(timeStr string) (image.Image, error) {
+	// Import twitchapi
+	viewers, followers, isLive, err := getTwitchStats()
+	if err != nil {
+		// If API fails, just print time
+		return generateTimeImage(timeStr)
+	}
+	
+	// Load font
+	fontBytes, err := os.ReadFile("/Users/toka/Library/Fonts/HackGen-Bold.ttf")
+	if err != nil {
+		return nil, fmt.Errorf("failed to load font: %w", err)
+	}
+	
+	f, err := opentype.Parse(fontBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse font: %w", err)
+	}
+	
+	// Large font for time
+	timeFace, err := opentype.NewFace(f, &opentype.FaceOptions{
+		Size:    48,
+		DPI:     72,
+		Hinting: font.HintingFull,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create time font face: %w", err)
+	}
+	defer timeFace.Close()
+	
+	// Medium font for stats
+	statsFace, err := opentype.NewFace(f, &opentype.FaceOptions{
+		Size:    36,
+		DPI:     72,
+		Hinting: font.HintingFull,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create stats font face: %w", err)
+	}
+	defer statsFace.Close()
+	
+	// Prepare text
+	statusText := "オフライン"
+	if isLive {
+		statusText = "配信中"
+	}
+	statsLine1 := fmt.Sprintf("視聴者: %d人", viewers)
+	statsLine2 := fmt.Sprintf("フォロワー: %d人", followers)
+	
+	// Create image
+	padding := 20
+	lineSpacing := 10
+	imgHeight := padding*2 + 48 + lineSpacing*2 + 36*3 + 20
+	img := image.NewRGBA(image.Rect(0, 0, PaperWidth, imgHeight))
+	
+	// Fill white background
+	draw.Draw(img, img.Bounds(), &image.Uniform{color.White}, image.Point{}, draw.Src)
+	
+	// Draw time centered
+	d := &font.Drawer{
+		Face: timeFace,
+		Dst:  img,
+		Src:  image.Black,
+	}
+	
+	bounds, _ := d.BoundString(timeStr)
+	timeWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
+	d.Dot = fixed.Point26_6{
+		X: fixed.I((PaperWidth - timeWidth) / 2),
+		Y: fixed.I(padding) + timeFace.Metrics().Ascent,
+	}
+	d.DrawString(timeStr)
+	
+	// Draw status
+	d.Face = statsFace
+	yPos := padding + 48 + lineSpacing
+	
+	bounds, _ = d.BoundString(statusText)
+	statusWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
+	d.Dot = fixed.Point26_6{
+		X: fixed.I((PaperWidth - statusWidth) / 2),
+		Y: fixed.I(yPos) + statsFace.Metrics().Ascent,
+	}
+	d.DrawString(statusText)
+	
+	// Draw stats line 1
+	yPos += 36 + lineSpacing
+	bounds, _ = d.BoundString(statsLine1)
+	stats1Width := bounds.Max.X.Round() - bounds.Min.X.Round()
+	d.Dot = fixed.Point26_6{
+		X: fixed.I((PaperWidth - stats1Width) / 2),
+		Y: fixed.I(yPos) + statsFace.Metrics().Ascent,
+	}
+	d.DrawString(statsLine1)
+	
+	// Draw stats line 2
+	yPos += 36 + lineSpacing
+	bounds, _ = d.BoundString(statsLine2)
+	stats2Width := bounds.Max.X.Round() - bounds.Min.X.Round()
+	d.Dot = fixed.Point26_6{
+		X: fixed.I((PaperWidth - stats2Width) / 2),
+		Y: fixed.I(yPos) + statsFace.Metrics().Ascent,
+	}
+	d.DrawString(statsLine2)
+	
+	// Draw decorative line
+	lineY := imgHeight - 10
+	for x := 10; x < PaperWidth-10; x += 4 {
+		for y := 0; y < 2; y++ {
+			img.Set(x, lineY+y, color.Black)
+		}
+	}
+	
+	return img, nil
+}
+
+// getTwitchStats is a helper function to get Twitch statistics
+func getTwitchStats() (viewers int, followers int, isLive bool, err error) {
+	return twitchapi.GetChannelStats()
 }

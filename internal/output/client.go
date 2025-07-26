@@ -2,15 +2,19 @@ package output
 
 import (
 	"git.massivebox.net/massivebox/go-catprinter"
+	"github.com/nantokaworks/twitch-fax/internal/shared/logger"
+	"go.uber.org/zap"
 )
 
 var latestPrinter *catprinter.Client
 var opts *catprinter.PrinterOptions
+var isConnected bool
 
 func SetupPrinter() (*catprinter.Client, error) {
 	if latestPrinter != nil {
 		latestPrinter.Disconnect()
 		latestPrinter = nil
+		isConnected = false
 	}
 
 	instance, err := catprinter.NewClient()
@@ -25,11 +29,19 @@ func ConnectPrinter(c *catprinter.Client, address string) error {
 	if c == nil {
 		return nil
 	}
+	
+	// Skip if already connected
+	if isConnected {
+		return nil
+	}
 
+	logger.Info("Connecting to printer", zap.String("address", address))
 	err := c.Connect(address)
 	if err != nil {
 		return err
 	}
+	logger.Info("Successfully connected to printer", zap.String("address", address))
+	isConnected = true
 
 	return nil
 }

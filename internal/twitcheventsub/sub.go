@@ -156,7 +156,7 @@ func SetupEventSub(token *twitchtoken.Token) {
 		}
 	})
 	client.OnKeepAlive(func(message twitch.KeepAliveMessage) {
-		fmt.Printf("KEEPALIVE: %v\n", message)
+		// Suppress keepalive logs
 	})
 	client.OnRevoke(func(message twitch.RevokeMessage) {
 		fmt.Printf("REVOKE: %v\n", message)
