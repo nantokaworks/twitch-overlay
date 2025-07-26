@@ -2,6 +2,7 @@ package output
 
 import (
 	"git.massivebox.net/massivebox/go-catprinter"
+	"github.com/nantokaworks/twitch-fax/internal/env"
 	"github.com/nantokaworks/twitch-fax/internal/shared/logger"
 	"go.uber.org/zap"
 )
@@ -35,6 +36,11 @@ func ConnectPrinter(c *catprinter.Client, address string) error {
 		return nil
 	}
 
+	// DRY-RUNモードでも実際のプリンターに接続
+	if env.Value.DryRunMode {
+		logger.Info("Connecting to printer in DRY-RUN mode", zap.String("address", address))
+	}
+
 	logger.Info("Connecting to printer", zap.String("address", address))
 	err := c.Connect(address)
 	if err != nil {
@@ -55,4 +61,13 @@ func SetupPrinterOptions(bestQuality, dither, autoRotate bool, blackPoint float3
 		SetBlackPoint(float32(blackPoint))
 
 	return nil
+}
+
+// Stop gracefully disconnects the printer if connected
+func Stop() {
+	if latestPrinter != nil && isConnected {
+		latestPrinter.Disconnect()
+		isConnected = false
+		latestPrinter = nil
+	}
 }

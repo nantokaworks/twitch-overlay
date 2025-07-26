@@ -30,7 +30,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer c.Stop()
+	defer output.Stop()
 	err = output.SetupPrinterOptions(env.Value.BestQuality, env.Value.Dither, env.Value.AutoRotate, env.Value.BlackPoint)
 	if err != nil {
 		log.Fatal(err)
@@ -42,7 +42,11 @@ func main() {
 	
 	// Print initial clock and stats on successful connection
 	if env.Value.ClockEnabled {
-		logger.Info("Printing initial clock and stats")
+		if env.Value.DryRunMode {
+			logger.Info("Printing initial clock and stats (DRY-RUN MODE)")
+		} else {
+			logger.Info("Printing initial clock and stats")
+		}
 		err = output.PrintInitialClockAndStats()
 		if err != nil {
 			logger.Error("Failed to print initial clock and stats", zap.Error(err))

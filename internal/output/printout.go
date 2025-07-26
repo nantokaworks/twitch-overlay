@@ -70,13 +70,22 @@ func init() {
 				}
 			}
 
-			if err := latestPrinter.Print(img, opts, false); err != nil {
-				logger.Error("failed to print", zap.Error(err))
-			} else {
-				// Update last print time on successful print
+			// Check for dry-run mode
+			if *env.Value.PrinterAddress == "dry-run-mode" {
+				logger.Info("Dry-run mode: skipping actual printing")
+				// Update last print time even in dry-run mode
 				lastPrintMutex.Lock()
 				lastPrintTime = time.Now()
 				lastPrintMutex.Unlock()
+			} else {
+				if err := latestPrinter.Print(img, opts, false); err != nil {
+					logger.Error("failed to print", zap.Error(err))
+				} else {
+					// Update last print time on successful print
+					lastPrintMutex.Lock()
+					lastPrintTime = time.Now()
+					lastPrintMutex.Unlock()
+				}
 			}
 			
 			// Release printer lock
@@ -86,7 +95,18 @@ func init() {
 }
 
 func PrintOut(userName string, message []twitch.ChatMessageFragment, timestamp time.Time) error {
+	// Generate color version if debug output is enabled
+	var colorImg image.Image
+	if env.Value.DebugOutput {
+		var err error
+		colorImg, err = MessageToImageColor(userName, message)
+		if err != nil {
+			logger.Error("Failed to create color image", zap.Error(err))
+			colorImg = nil
+		}
+	}
 
+	// Generate monochrome version for printing
 	img, err := MessageToImage(userName, message)
 	if err != nil {
 		return fmt.Errorf("failed to create image: %w", err)
@@ -98,9 +118,25 @@ func PrintOut(userName string, message []twitch.ChatMessageFragment, timestamp t
 			return fmt.Errorf("failed to create output directory: %w", err)
 		}
 
-		filepath := filepath.Join(outputDir, fmt.Sprintf("%s_%s.png", timestamp.Format("20060102_150405_000"), userName))
+		// Save color version if available
+		if colorImg != nil {
+			colorPath := filepath.Join(outputDir, fmt.Sprintf("%s_%s_color.png", timestamp.Format("20060102_150405_000"), userName))
+			file, err := os.Create(colorPath)
+			if err != nil {
+				logger.Error("Failed to create color output file", zap.Error(err))
+			} else {
+				if err := png.Encode(file, colorImg); err != nil {
+					logger.Error("Failed to encode color image", zap.Error(err))
+				} else {
+					logger.Info("Color output file saved", zap.String("path", colorPath))
+				}
+				file.Close()
+			}
+		}
 
-		file, err := os.Create(filepath)
+		// Save monochrome version
+		monoPath := filepath.Join(outputDir, fmt.Sprintf("%s_%s.png", timestamp.Format("20060102_150405_000"), userName))
+		file, err := os.Create(monoPath)
 		if err != nil {
 			return fmt.Errorf("failed to create output file: %w", err)
 		}
@@ -109,7 +145,11 @@ func PrintOut(userName string, message []twitch.ChatMessageFragment, timestamp t
 		if err != nil {
 			return fmt.Errorf("failed to encode image: %w", err)
 		}
-		logger.Info("output file saved", zap.String("path", filepath))
+		if *env.Value.PrinterAddress == "dry-run-mode" {
+			logger.Info("output file saved (DRY-RUN MODE)", zap.String("path", monoPath))
+		} else {
+			logger.Info("output file saved", zap.String("path", monoPath))
+		}
 		return nil
 	}
 
@@ -137,7 +177,10 @@ func keepAliveRoutine() {
 			
 			// Disconnect existing client if any
 			if latestPrinter != nil {
-				latestPrinter.Disconnect()
+				// Only disconnect if we have a real connection (not in dry-run mode)
+				if *env.Value.PrinterAddress != "dry-run-mode" {
+					latestPrinter.Disconnect()
+				}
 				isConnected = false
 			}
 			
@@ -187,16 +230,69 @@ func clockRoutine() {
 			if currentTimeStr != lastPrintedTime {
 				lastPrintedTime = currentTimeStr
 				
-				logger.Info("Clock: printing time", zap.String("time", currentTimeStr))
+				logger.Info("Clock: printing time with latest leaderboard data", zap.String("time", currentTimeStr))
 				
 				// Generate time image with channel stats
-				img, err := generateTimeImageWithStats(currentTimeStr)
+				// Note: リーダーボードデータは GenerateTimeImageWithStats 内で毎回最新を取得
+				// First generate color version if debug output is enabled
+				var colorImg image.Image
+				if env.Value.DebugOutput {
+					var err error
+					colorImg, err = GenerateTimeImageWithStatsColor(currentTimeStr)
+					if err != nil {
+						logger.Error("Clock: failed to generate color time image", zap.Error(err))
+						colorImg = nil
+					}
+				}
+				
+				// Generate monochrome version for printing
+				img, err := GenerateTimeImageWithStats(currentTimeStr)
 				if err != nil {
 					logger.Error("Clock: failed to generate time image", zap.Error(err))
 					continue
 				}
 				
-				// Add to print queue
+				// Save images if debug output is enabled
+				if env.Value.DebugOutput {
+					outputDir := ".output"
+					if err := os.MkdirAll(outputDir, 0755); err != nil {
+						logger.Error("Clock: failed to create output directory", zap.Error(err))
+					} else {
+						// Save color version if available
+						if colorImg != nil {
+							colorPath := filepath.Join(outputDir, fmt.Sprintf("%s_clock_color.png", now.Format("20060102_150405")))
+							file, err := os.Create(colorPath)
+							if err != nil {
+								logger.Error("Clock: failed to create color output file", zap.Error(err))
+							} else {
+								if err := png.Encode(file, colorImg); err != nil {
+									logger.Error("Clock: failed to encode color image", zap.Error(err))
+								} else {
+									logger.Info("Clock: color output file saved", zap.String("path", colorPath))
+								}
+								file.Close()
+							}
+						}
+						
+						// Save monochrome version
+						monoPath := filepath.Join(outputDir, fmt.Sprintf("%s_clock.png", now.Format("20060102_150405")))
+						file, err := os.Create(monoPath)
+						if err != nil {
+							logger.Error("Clock: failed to create output file", zap.Error(err))
+						} else {
+							if err := png.Encode(file, img); err != nil {
+								logger.Error("Clock: failed to encode image", zap.Error(err))
+							} else {
+								logger.Info("Clock: output file saved", zap.String("path", monoPath))
+							}
+							file.Close()
+						}
+					}
+					// Skip adding to print queue when debug output is enabled
+					continue
+				}
+				
+				// Add to print queue only when debug output is disabled
 				select {
 				case printQueue <- img:
 					logger.Info("Clock: time added to print queue")
@@ -210,16 +306,67 @@ func clockRoutine() {
 
 // PrintInitialClockAndStats prints current time and stats on startup
 func PrintInitialClockAndStats() error {
-	currentTime := time.Now().Format("15:04")
+	now := time.Now()
+	currentTime := now.Format("15:04")
 	logger.Info("Printing initial clock and stats", zap.String("time", currentTime))
 	
-	// Generate image with stats
-	img, err := generateTimeImageWithStats(currentTime)
+	// Generate color version if debug output is enabled
+	var colorImg image.Image
+	if env.Value.DebugOutput {
+		var err error
+		colorImg, err = GenerateTimeImageWithStatsColor(currentTime)
+		if err != nil {
+			logger.Error("Initial clock: failed to generate color image", zap.Error(err))
+			colorImg = nil
+		}
+	}
+	
+	// Generate monochrome version for printing
+	img, err := GenerateTimeImageWithStats(currentTime)
 	if err != nil {
 		return fmt.Errorf("failed to generate initial clock image: %w", err)
 	}
 	
-	// Add to print queue
+	// Save images if debug output is enabled
+	if env.Value.DebugOutput {
+		outputDir := ".output"
+		if err := os.MkdirAll(outputDir, 0755); err != nil {
+			return fmt.Errorf("failed to create output directory: %w", err)
+		}
+		
+		// Save color version if available
+		if colorImg != nil {
+			colorPath := filepath.Join(outputDir, fmt.Sprintf("%s_initial_clock_color.png", now.Format("20060102_150405")))
+			file, err := os.Create(colorPath)
+			if err != nil {
+				logger.Error("Initial clock: failed to create color output file", zap.Error(err))
+			} else {
+				if err := png.Encode(file, colorImg); err != nil {
+					logger.Error("Initial clock: failed to encode color image", zap.Error(err))
+				} else {
+					logger.Info("Initial clock: color output file saved", zap.String("path", colorPath))
+				}
+				file.Close()
+			}
+		}
+		
+		// Save monochrome version
+		monoPath := filepath.Join(outputDir, fmt.Sprintf("%s_initial_clock.png", now.Format("20060102_150405")))
+		file, err := os.Create(monoPath)
+		if err != nil {
+			return fmt.Errorf("failed to create output file: %w", err)
+		}
+		defer file.Close()
+		if err := png.Encode(file, img); err != nil {
+			return fmt.Errorf("failed to encode image: %w", err)
+		}
+		logger.Info("Initial clock: output file saved", zap.String("path", monoPath))
+		
+		// Return early when debug output is enabled (skip print queue)
+		return nil
+	}
+	
+	// Add to print queue only when debug output is disabled
 	select {
 	case printQueue <- img:
 		logger.Info("Initial clock and stats added to print queue")

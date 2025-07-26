@@ -24,6 +24,7 @@ type EnvValue struct {
 	KeepAliveInterval     int
 	KeepAliveEnabled      bool
 	ClockEnabled          bool
+	DryRunMode            bool
 }
 
 var Value EnvValue
@@ -84,6 +85,7 @@ func init() {
 	keepAliveInterval := getEnvOrDefault("KEEP_ALIVE_INTERVAL", "60")
 	keepAliveEnabled := getEnvOrDefault("KEEP_ALIVE_ENABLED", "true")
 	clockEnabled := getEnvOrDefault("CLOCK_ENABLED", "true")
+	dryRunMode := getEnvOrDefault("DRY_RUN_MODE", "false")
 
 	// Initialize the Env struct with environment variables
 	Value = EnvValue{
@@ -101,6 +103,7 @@ func init() {
 		KeepAliveInterval:     parseInt(keepAliveInterval),
 		KeepAliveEnabled:      *keepAliveEnabled == "true",
 		ClockEnabled:          *clockEnabled == "true",
+		DryRunMode:            *dryRunMode == "true",
 	}
 
 	fmt.Printf("Loaded environment variables: %+v\n", Value)
