@@ -102,6 +102,39 @@ func init() {
 	}()
 }
 
+// PrintClock sends clock output to printer and frontend
+func PrintClock(timeStr string) error {
+	// Generate color version
+	colorImg, err := GenerateTimeImageWithStatsColor(timeStr)
+	if err != nil {
+		return fmt.Errorf("failed to create color clock image: %w", err)
+	}
+
+	// Generate monochrome version for printing
+	monoImg, err := GenerateTimeImageWithStats(timeStr)
+	if err != nil {
+		return fmt.Errorf("failed to create monochrome clock image: %w", err)
+	}
+
+	// Save fax with faxmanager (use "System" as username for clock)
+	fax, err := faxmanager.SaveFax("🕐 Clock", colorImg, monoImg)
+	if err != nil {
+		return fmt.Errorf("failed to save clock fax: %w", err)
+	}
+
+	// Save images to disk
+	if err := saveFaxImages(fax, colorImg, monoImg); err != nil {
+		return fmt.Errorf("failed to save clock fax images: %w", err)
+	}
+
+	// Broadcast to SSE clients
+	webserver.BroadcastFax(fax)
+
+	// Add to print queue
+	printQueue <- monoImg
+	return nil
+}
+
 func PrintOut(userName string, message []twitch.ChatMessageFragment, timestamp time.Time) error {
 	// Generate color version
 	colorImg, err := MessageToImage(userName, message, true)
@@ -304,8 +337,8 @@ func clockRoutine() {
 		now := time.Now()
 		minute := now.Minute()
 		
-		// Check if it's 0 or 30 minutes
-		if minute == 0 || minute == 30 {
+		// Check if it's 0 minutes (on the hour)
+		if minute == 0 {
 			currentTimeStr := now.Format("15:04")
 			
 			// Avoid printing the same time multiple times
@@ -314,72 +347,11 @@ func clockRoutine() {
 				
 				logger.Info("Clock: printing time with latest leaderboard data", zap.String("time", currentTimeStr))
 				
-				// Generate time image with channel stats
-				// Note: リーダーボードデータは GenerateTimeImageWithStats 内で毎回最新を取得
-				// First generate color version if debug output is enabled
-				var colorImg image.Image
-				if env.Value.DebugOutput {
-					var err error
-					colorImg, err = GenerateTimeImageWithStatsColor(currentTimeStr)
-					if err != nil {
-						logger.Error("Clock: failed to generate color time image", zap.Error(err))
-						colorImg = nil
-					}
-				}
-				
-				// Generate monochrome version for printing
-				img, err := GenerateTimeImageWithStats(currentTimeStr)
-				if err != nil {
-					logger.Error("Clock: failed to generate time image", zap.Error(err))
-					continue
-				}
-				
-				// Save images if debug output is enabled
-				if env.Value.DebugOutput {
-					outputDir := ".output"
-					if err := os.MkdirAll(outputDir, 0755); err != nil {
-						logger.Error("Clock: failed to create output directory", zap.Error(err))
-					} else {
-						// Save color version if available
-						if colorImg != nil {
-							colorPath := filepath.Join(outputDir, fmt.Sprintf("%s_clock_color.png", now.Format("20060102_150405")))
-							file, err := os.Create(colorPath)
-							if err != nil {
-								logger.Error("Clock: failed to create color output file", zap.Error(err))
-							} else {
-								if err := png.Encode(file, colorImg); err != nil {
-									logger.Error("Clock: failed to encode color image", zap.Error(err))
-								} else {
-									logger.Info("Clock: color output file saved", zap.String("path", colorPath))
-								}
-								file.Close()
-							}
-						}
-						
-						// Save monochrome version
-						monoPath := filepath.Join(outputDir, fmt.Sprintf("%s_clock.png", now.Format("20060102_150405")))
-						file, err := os.Create(monoPath)
-						if err != nil {
-							logger.Error("Clock: failed to create output file", zap.Error(err))
-						} else {
-							if err := png.Encode(file, img); err != nil {
-								logger.Error("Clock: failed to encode image", zap.Error(err))
-							} else {
-								logger.Info("Clock: output file saved", zap.String("path", monoPath))
-							}
-							file.Close()
-						}
-					}
-					// Skip adding to print queue when debug output is enabled
-					continue
-				}
-				
-				// Add to print queue only when debug output is disabled
-				select {
-				case printQueue <- img:
-					logger.Info("Clock: time added to print queue")
-				default:
-					logger.Warn("Clock: print queue is full, skipping time print")
+				// Use PrintClock to handle everything (generation, saving, broadcasting, and printing)
+				if err := PrintClock(currentTimeStr); err != nil {
+					logger.Error("Clock: failed to print clock", zap.Error(err))
+				} else {
+					logger.Info("Clock: successfully printed and broadcasted")
 				}
 			}
 		}
@@ -387,7 +359,7 @@ func clockRoutine() {
 }
 
 
-// PrintInitialClockAndStats prints current time on startup (without stats)
+// PrintInitialClockAndStats prints current time on startup (without stats and without frontend notification)
 func PrintInitialClockAndStats() error {
 	now := time.Now()
 	currentTime := now.Format("15:04")
@@ -422,10 +394,11 @@ func PrintInitialClockAndStats() error {
 		return nil
 	}
 	
-	// Add to print queue only when debug output is disabled
+	// Directly add to print queue without frontend notification
+	// This is the only output that doesn't notify the frontend
 	select {
 	case printQueue <- img:
-		logger.Info("Initial clock and stats added to print queue")
+		logger.Info("Initial clock added to print queue (no frontend notification)")
 	default:
 		return fmt.Errorf("print queue is full")
 	}
