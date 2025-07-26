@@ -8,31 +8,54 @@ const FaxReceiver = () => {
   const { currentFax, addToQueue, onDisplayComplete } = useFaxQueue();
 
   useEffect(() => {
-    const eventSource = new EventSource('/events');
+    let reconnectTimeout;
+    let eventSource;
 
-    eventSource.onopen = () => {
-      setIsConnected(true);
-      console.log('SSE connection opened');
-    };
+    const connect = () => {
+      eventSource = new EventSource('/events');
 
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === 'fax') {
-          addToQueue(data);
+      eventSource.onopen = () => {
+        setIsConnected(true);
+        console.log('SSE connection opened');
+        if (reconnectTimeout) {
+          clearTimeout(reconnectTimeout);
+          reconnectTimeout = null;
         }
-      } catch (error) {
-        console.error('Failed to parse SSE message:', error);
-      }
+      };
+
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'fax') {
+            addToQueue(data);
+          }
+        } catch (error) {
+          console.error('Failed to parse SSE message:', error);
+        }
+      };
+
+      eventSource.onerror = (error) => {
+        console.error('SSE connection error:', error);
+        setIsConnected(false);
+        eventSource.close();
+        
+        // 再接続を試みる
+        reconnectTimeout = setTimeout(() => {
+          console.log('Attempting to reconnect...');
+          connect();
+        }, 3000);
+      };
     };
 
-    eventSource.onerror = (error) => {
-      console.error('SSE connection error:', error);
-      setIsConnected(false);
-    };
+    connect();
 
     return () => {
-      eventSource.close();
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
+      if (eventSource) {
+        eventSource.close();
+      }
     };
   }, [addToQueue]);
 
@@ -41,16 +64,11 @@ const FaxReceiver = () => {
       {/* コントロールパネル */}
       <div className="absolute top-4 right-4 bg-gray-800 rounded-lg p-4 shadow-lg z-10">
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <div
-              className={`w-3 h-3 rounded-full ${
-                isConnected ? 'bg-green-500' : 'bg-red-500'
-              }`}
-            />
-            <span className="text-sm">
-              {isConnected ? '接続中' : '切断'}
-            </span>
-          </div>
+          <div
+            className={`w-3 h-3 rounded-full ${
+              isConnected ? 'bg-green-500' : 'bg-red-500'
+            }`}
+          />
           
           <div className="flex items-center gap-2">
             <label className="text-sm">画像タイプ:</label>

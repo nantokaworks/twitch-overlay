@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/nantokaworks/twitch-fax/internal/faxmanager"
 	"github.com/nantokaworks/twitch-fax/internal/shared/logger"
@@ -70,11 +71,27 @@ func handleSSE(w http.ResponseWriter, r *http.Request) {
 
 	logger.Info("SSE client connected", zap.String("remote", r.RemoteAddr))
 
+	// Send initial connection message
+	fmt.Fprintf(w, "data: {\"type\":\"connected\"}\n\n")
+	if f, ok := w.(http.Flusher); ok {
+		f.Flush()
+	}
+
+	// Create heartbeat ticker
+	heartbeat := time.NewTicker(30 * time.Second)
+	defer heartbeat.Stop()
+
 	// Send messages to client
 	for {
 		select {
 		case msg := <-clientChan:
 			fmt.Fprintf(w, "data: %s\n\n", msg)
+			if f, ok := w.(http.Flusher); ok {
+				f.Flush()
+			}
+		case <-heartbeat.C:
+			// Send heartbeat
+			fmt.Fprintf(w, ": heartbeat\n\n")
 			if f, ok := w.(http.Flusher); ok {
 				f.Flush()
 			}

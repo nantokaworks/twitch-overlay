@@ -4,6 +4,7 @@
 
 body {
   background-color: transparent;
+  font-family: 'MOTHER PIXEL2', 'Press Start 2P', 'DotGothic16', monospace;
 }
 
 @keyframes fax-image-scroll {
