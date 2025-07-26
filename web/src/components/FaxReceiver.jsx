@@ -5,6 +5,9 @@ import FaxDisplay from './FaxDisplay';
 const FaxReceiver = ({ imageType = 'mono' }) => {
   const [isConnected, setIsConnected] = useState(false);
   const { currentFax, addToQueue, onDisplayComplete } = useFaxQueue();
+  
+  // デバッグモードの判定（URLパラメータまたは環境変数）
+  const isDebug = new URLSearchParams(window.location.search).get('debug') === 'true';
 
   useEffect(() => {
     let reconnectTimeout;
@@ -59,16 +62,22 @@ const FaxReceiver = ({ imageType = 'mono' }) => {
   }, [addToQueue]);
 
   return (
-    <div className="h-screen text-white relative overflow-hidden" style={{ backgroundColor: 'transparent' }}>
+    <div className="h-screen text-white relative overflow-hidden" style={{ backgroundColor: isDebug ? '#374151' : 'transparent' }}>
       {/* コントロールパネル */}
-      <div className="absolute top-4 right-4 bg-gray-800 rounded-lg p-4 shadow-lg z-10">
-        <div className="flex items-center gap-2">
+      <div className="fixed top-0 z-10" style={{ left: '20px', width: '250px', height: '40px' }}>
+        <div className="flex items-center h-full px-2">
           <div
-            className={`w-3 h-3 rounded-full ${
+            className={`led-dot ${
               isConnected ? 'bg-green-500' : 'bg-red-500'
             }`}
+            style={{
+              width: '4px',
+              height: '20px',
+              marginTop: '4px',
+              marginRight: '12px'
+            }}
           />
-          <span className="text-sm">FAX</span>
+          <span className="text-outline" style={{ fontSize: '24px' }}>FAX</span>
         </div>
       </div>
 

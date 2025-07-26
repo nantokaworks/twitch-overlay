@@ -7,6 +7,41 @@ body {
   font-family: 'MOTHER PIXEL2', 'Press Start 2P', 'DotGothic16', monospace;
 }
 
+.text-outline {
+  text-shadow:
+    -4px -4px 0 #000000,
+    -4px -2px 0 #000000,
+    -4px 0px 0 #000000,
+    -4px 2px 0 #000000,
+    -4px 4px 0 #000000,
+    -2px -4px 0 #000000,
+    -2px -2px 0 #000000,
+    -2px 0px 0 #000000,
+    -2px 2px 0 #000000,
+    -2px 4px 0 #000000,
+    0px -4px 0 #000000,
+    0px -2px 0 #000000,
+    0px 2px 0 #000000,
+    0px 4px 0 #000000,
+    2px -4px 0 #000000,
+    2px -2px 0 #000000,
+    2px 0px 0 #000000,
+    2px 2px 0 #000000,
+    2px 4px 0 #000000,
+    4px -4px 0 #000000,
+    4px -2px 0 #000000,
+    4px 0px 0 #000000,
+    4px 2px 0 #000000,
+    4px 4px 0 #000000;
+}
+
+.led-dot {
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  border-radius: 0;
+}
+
 @keyframes fax-image-scroll {
   from {
     transform: translateY(-100%);

@@ -13,9 +13,9 @@ const FaxDisplay = ({ faxData, onComplete, imageType }) => {
     const img = new Image();
     img.onload = () => {
       setImageLoaded(true);
-      // 画像の実際の高さを取得（最大幅200pxでの高さを計算）
+      // 画像の実際の高さを取得（最大幅250pxでの高さを計算）
       const aspectRatio = img.height / img.width;
-      const displayWidth = Math.min(200, window.innerWidth);
+      const displayWidth = Math.min(250, window.innerWidth);
       const displayHeight = displayWidth * aspectRatio;
       setImageHeight(displayHeight);
     };
@@ -47,18 +47,19 @@ const FaxDisplay = ({ faxData, onComplete, imageType }) => {
   return (
     <div
       ref={containerRef}
-      className={`fixed top-0 transition-opacity duration-500 ${
+      className={`fixed transition-opacity duration-500 ${
         animationComplete ? 'opacity-0' : 'opacity-100'
       }`}
       style={{
         left: '20px',
+        top: '0',
       }}
     >
       <div
         className="relative overflow-hidden"
         style={{
-          width: '200px',
-          height: '200px',
+          width: '250px',
+          height: '250px',
         }}
       >
         <img
