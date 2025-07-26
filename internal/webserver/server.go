@@ -42,8 +42,9 @@ func StartWebServer(port int) {
 	// Status endpoint
 	http.HandleFunc("/status", handleStatus)
 
-	// Debug endpoint is always available but will check for debug mode in the handler
-	http.HandleFunc("/debug/fax", handleDebugFax)
+	// Debug endpoints
+	http.HandleFunc("/debug/fax", handleDebugFax) // Legacy endpoint
+	http.HandleFunc("/debug/channel-points", handleDebugChannelPoints)
 
 	addr := fmt.Sprintf(":%d", port)
 	logger.Info("Starting web server", zap.String("address", addr))
@@ -273,5 +274,87 @@ func handleDebugFax(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{
 		"status": "ok",
 		"message": "Debug fax queued successfully",
+	})
+}
+
+// DebugChannelPointsRequest represents a debug channel points request
+type DebugChannelPointsRequest struct {
+	Username string `json:"username"`
+	DisplayName string `json:"displayName"`
+	RewardTitle string `json:"rewardTitle"`
+	UserInput string `json:"userInput"`
+}
+
+// handleDebugChannelPoints handles debug channel points redemption
+func handleDebugChannelPoints(w http.ResponseWriter, r *http.Request) {
+	// Set CORS headers
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	
+	// Handle preflight requests
+	if r.Method == http.MethodOptions {
+		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// Only accept POST
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Parse request body
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read request body", http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	var req DebugChannelPointsRequest
+	if err := json.Unmarshal(body, &req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// Validate required fields
+	if req.Username == "" || req.RewardTitle == "" || req.UserInput == "" {
+		http.Error(w, "Username, rewardTitle, and userInput are required", http.StatusBadRequest)
+		return
+	}
+
+	// If displayName is empty, use username
+	if req.DisplayName == "" {
+		req.DisplayName = req.Username
+	}
+
+	// Create message fragments - exactly like HandleChannelPointsCustomRedemptionAdd
+	fragments := []twitch.ChatMessageFragment{
+		{
+			Type: "text",
+			Text: fmt.Sprintf("🎉チャネポ %s %s", req.RewardTitle, req.UserInput),
+		},
+	}
+
+	// Process the fax - exactly like HandleChannelPointsCustomRedemptionAdd
+	logger.Info("Processing debug channel points redemption", 
+		zap.String("username", req.Username),
+		zap.String("rewardTitle", req.RewardTitle),
+		zap.String("userInput", req.UserInput))
+
+	// Call PrintOut directly (same as channel points handling)
+	err = output.PrintOut(req.Username, fragments, time.Now())
+	if err != nil {
+		logger.Error("Failed to process debug channel points", zap.Error(err))
+		http.Error(w, "Failed to process channel points redemption", http.StatusInternalServerError)
+		return
+	}
+
+	// Return success
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"status": "ok",
+		"message": "Debug channel points redemption processed successfully",
 	})
 }

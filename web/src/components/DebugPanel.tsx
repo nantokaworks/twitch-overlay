@@ -3,10 +3,9 @@ import type { FaxData } from '../types';
 
 interface DebugPanelProps {
   onSendFax: (faxData: FaxData) => void;
-  useLocalMode?: boolean; // バックエンドAPIを使わずローカルでFAXを追加
 }
 
-const DebugPanel = ({ onSendFax, useLocalMode = true }: DebugPanelProps) => {
+const DebugPanel = ({ onSendFax }: DebugPanelProps) => {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [username, setUsername] = useState<string>('DebugUser');
   const [rewardTitle, setRewardTitle] = useState<string>('FAX送信');
@@ -21,46 +20,30 @@ const DebugPanel = ({ onSendFax, useLocalMode = true }: DebugPanelProps) => {
     setIsSubmitting(true);
 
     try {
-      if (useLocalMode) {
-        // ローカルモード：HandleChannelPointsCustomRedemptionAddと同じ処理
-        const message = `🎉チャネポ ${rewardTitle} ${userInput.trim()}`;
-        
-        const faxData: FaxData = {
-          id: `debug-reward-${Date.now()}`,
-          type: 'fax',
-          timestamp: Date.now(),
+      // バックエンドのデバッグエンドポイントに送信
+      // HandleChannelPointsCustomRedemptionAddと同じ処理をエミュレート
+      const response = await fetch('/debug/channel-points', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           username: username.toLowerCase(),
           displayName: username,
-          message: message,
-          imageUrl: undefined, // チャンネルポイントリワードでは画像URLは使用しない
-        };
-        onSendFax(faxData);
-      } else {
-        // バックエンドモード：デバッグエンドポイントに送信
-        const response = await fetch('/debug/fax', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            username: username.toLowerCase(),
-            displayName: username,
-            message: `🎉チャネポ ${rewardTitle} ${userInput.trim()}`,
-            imageUrl: undefined,
-          }),
-        });
+          rewardTitle: rewardTitle.trim(),
+          userInput: userInput.trim(),
+        }),
+      });
 
-        if (!response.ok) {
-          throw new Error(`Failed to send debug fax: ${response.statusText}`);
-        }
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to send debug channel points: ${response.statusText} - ${errorText}`);
       }
       // フォームをリセット
       setUserInput('');
     } catch (error) {
-      console.error('Failed to send debug fax:', error);
-      if (!useLocalMode) {
-        alert('デバッグFAXの送信に失敗しました。サーバーがDEBUG_MODE=trueで起動されているか確認してください。');
-      }
+      console.error('Failed to send debug channel points:', error);
+      alert('デバッグチャンネルポイントの送信に失敗しました。サーバーが起動しているか確認してください。');
     } finally {
       setIsSubmitting(false);
     }
@@ -156,7 +139,7 @@ const DebugPanel = ({ onSendFax, useLocalMode = true }: DebugPanelProps) => {
               メッセージ形式：<br />
               「🎉チャネポ [リワードタイトル] [ユーザー入力]」<br />
               <br />
-              ※ローカルモードで動作中（印刷なし）
+              ※バックエンドでoutput.PrintOutが実行されます
             </p>
           </div>
         </div>
