@@ -42,11 +42,8 @@ func StartWebServer(port int) {
 	// Status endpoint
 	http.HandleFunc("/status", handleStatus)
 
-	// Debug endpoint (only enabled in debug mode)
-	if os.Getenv("DEBUG_MODE") == "true" {
-		http.HandleFunc("/debug/fax", handleDebugFax)
-		logger.Info("Debug mode enabled - /debug/fax endpoint available")
-	}
+	// Debug endpoint is always available but will check for debug mode in the handler
+	http.HandleFunc("/debug/fax", handleDebugFax)
 
 	addr := fmt.Sprintf(":%d", port)
 	logger.Info("Starting web server", zap.String("address", addr))
@@ -209,6 +206,8 @@ type DebugFaxRequest struct {
 
 // handleDebugFax handles debug fax submissions
 func handleDebugFax(w http.ResponseWriter, r *http.Request) {
+	// Note: This endpoint is kept for backwards compatibility
+	// but the frontend now uses local mode by default
 	// Only allow in debug mode
 	if os.Getenv("DEBUG_MODE") != "true" {
 		http.Error(w, "Debug mode not enabled", http.StatusForbidden)

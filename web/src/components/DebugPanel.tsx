@@ -3,9 +3,10 @@ import type { FaxData } from '../types';
 
 interface DebugPanelProps {
   onSendFax: (faxData: FaxData) => void;
+  useLocalMode?: boolean; // バックエンドAPIを使わずローカルでFAXを追加
 }
 
-const DebugPanel = ({ onSendFax }: DebugPanelProps) => {
+const DebugPanel = ({ onSendFax, useLocalMode = true }: DebugPanelProps) => {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [username, setUsername] = useState<string>('DebugUser');
   const [message, setMessage] = useState<string>('');
@@ -31,31 +32,45 @@ const DebugPanel = ({ onSendFax }: DebugPanelProps) => {
         }
       }
 
-      // バックエンドのデバッグエンドポイントに送信
-      const response = await fetch('/debug/fax', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      if (useLocalMode) {
+        // ローカルモード：直接FAXキューに追加
+        const faxData: FaxData = {
+          id: `debug-${Date.now()}`,
+          type: 'fax',
+          timestamp: Date.now(),
           username: username.toLowerCase(),
           displayName: username,
           message: message.trim(),
           imageUrl: finalImageUrl || undefined,
-        }),
-      });
+        };
+        onSendFax(faxData);
+      } else {
+        // バックエンドモード：デバッグエンドポイントに送信
+        const response = await fetch('/debug/fax', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            username: username.toLowerCase(),
+            displayName: username,
+            message: message.trim(),
+            imageUrl: finalImageUrl || undefined,
+          }),
+        });
 
-      if (!response.ok) {
-        throw new Error(`Failed to send debug fax: ${response.statusText}`);
+        if (!response.ok) {
+          throw new Error(`Failed to send debug fax: ${response.statusText}`);
+        }
       }
-
-      // 成功時はSSE経由でFAXデータが届くので、ここでは何もしない
       // フォームをリセット
       setMessage('');
       setImageUrl('');
     } catch (error) {
       console.error('Failed to send debug fax:', error);
-      alert('デバッグFAXの送信に失敗しました。サーバーがDEBUG_MODE=trueで起動されているか確認してください。');
+      if (!useLocalMode) {
+        alert('デバッグFAXの送信に失敗しました。サーバーがDEBUG_MODE=trueで起動されているか確認してください。');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -147,7 +162,8 @@ const DebugPanel = ({ onSendFax }: DebugPanelProps) => {
               このパネルはカスタムリワードIDでの<br />
               FAX送信をエミュレートします。<br />
               <br />
-              ※メッセージ内の画像URLは自動検出されます
+              ※メッセージ内の画像URLは自動検出されます<br />
+              ※ローカルモードで動作中（印刷なし）
             </p>
           </div>
         </div>
