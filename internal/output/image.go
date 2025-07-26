@@ -45,6 +45,24 @@ const avatarSize = 100
 
 // Common drawing functions
 
+// rotateImage180 rotates an image 180 degrees
+func rotateImage180(src image.Image) image.Image {
+	bounds := src.Bounds()
+	dst := image.NewRGBA(bounds)
+	
+	// Rotate 180 degrees by flipping both horizontally and vertically
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			// Calculate the rotated position
+			newX := bounds.Max.X - 1 - x + bounds.Min.X
+			newY := bounds.Max.Y - 1 - y + bounds.Min.Y
+			dst.Set(newX, newY, src.At(x, y))
+		}
+	}
+	
+	return dst
+}
+
 // drawHorizontalLine draws a horizontal line with optional margins
 func drawHorizontalLine(img *image.RGBA, y, leftMargin, rightMargin, thickness int, c color.Color) {
 	for lineY := 0; lineY < thickness; lineY++ {
@@ -919,6 +937,67 @@ func downloadAndResizeAvatarColor(url string, size int) (image.Image, error) {
 	return resized, nil
 }
 
+
+// GenerateTimeImageSimple creates a simple monochrome image with date and time
+func GenerateTimeImageSimple(timeStr string) (image.Image, error) {
+	// Load font
+	fontBytes, err := os.ReadFile("/Users/toka/Library/Fonts/HackGen-Bold.ttf")
+	if err != nil {
+		return nil, fmt.Errorf("failed to load font: %w", err)
+	}
+	
+	parsedFont, err := opentype.Parse(fontBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse font: %w", err)
+	}
+	
+	// Create font face for date/time (smaller than stats version)
+	timeFace, err := opentype.NewFace(parsedFont, &opentype.FaceOptions{
+		Size: 60,
+		DPI:  72,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create time font face: %w", err)
+	}
+	
+	// Calculate image height (enough for date and time)
+	img := image.NewGray(image.Rect(0, 0, PaperWidth, 200))
+	
+	// Fill with white
+	draw.Draw(img, img.Bounds(), image.White, image.Point{}, draw.Src)
+	
+	// Draw date and time
+	d := &font.Drawer{
+		Dst:  img,
+		Src:  image.Black,
+		Face: timeFace,
+	}
+	
+	// Split date and time
+	now := time.Now()
+	dateStr := now.Format("2006/01/02")
+	timeStr = now.Format("15:04")
+	
+	// Draw date
+	bounds, _ := d.BoundString(dateStr)
+	dateWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
+	d.Dot = fixed.Point26_6{
+		X: fixed.I((PaperWidth - dateWidth) / 2),
+		Y: fixed.I(60),
+	}
+	d.DrawString(dateStr)
+	
+	// Draw time
+	bounds, _ = d.BoundString(timeStr)
+	timeWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
+	d.Dot = fixed.Point26_6{
+		X: fixed.I((PaperWidth - timeWidth) / 2),
+		Y: fixed.I(130),
+	}
+	d.DrawString(timeStr)
+	
+	return img, nil
+}
 
 // GenerateTimeImageWithStatsColor creates a color image with time and Twitch channel statistics
 func GenerateTimeImageWithStatsColor(timeStr string) (image.Image, error) {

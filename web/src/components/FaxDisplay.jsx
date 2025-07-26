@@ -127,7 +127,7 @@ const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate, onA
         animationComplete ? 'opacity-0' : 'opacity-100'
       }`}
       style={{
-        left: '0px',
+        left: '10px',
         top: `${containerPosition}px`,
         transition: containerPosition !== 0 ? 'top 0.5s ease-out, opacity 0.5s' : 'opacity 0.5s',
       }}

@@ -72,24 +72,6 @@ func init() {
 				}
 			}
 			
-			// Check if initial print hasn't been done yet and we have a connection
-			if !hasInitialPrintBeenDone && isConnected && env.Value.ClockEnabled {
-				logger.Info("Performing initial clock print on first successful connection")
-				go func() {
-					if env.Value.DryRunMode {
-						logger.Info("Printing initial clock and stats (DRY-RUN MODE)")
-					} else {
-						logger.Info("Printing initial clock and stats")
-					}
-					err := PrintInitialClockAndStats()
-					if err != nil {
-						logger.Error("Failed to print initial clock and stats", zap.Error(err))
-					} else {
-						hasInitialPrintBeenDone = true
-					}
-				}()
-			}
-
 			// Check for dry-run mode
 			if env.Value.DryRunMode {
 				logger.Info("Dry-run mode: skipping actual printing")
@@ -98,7 +80,13 @@ func init() {
 				lastPrintTime = time.Now()
 				lastPrintMutex.Unlock()
 			} else {
-				if err := latestPrinter.Print(img, opts, false); err != nil {
+				// Rotate image 180 degrees if ROTATE_PRINT is enabled
+				finalImg := img
+				if env.Value.RotatePrint {
+					finalImg = rotateImage180(img)
+				}
+				
+				if err := latestPrinter.Print(finalImg, opts, false); err != nil {
 					logger.Error("failed to print", zap.Error(err))
 				} else {
 					// Update last print time on successful print
@@ -221,13 +209,13 @@ func keepAliveRoutine() {
 			if env.Value.ClockEnabled {
 				logger.Info("Keep-alive: performing initial clock print")
 				if env.Value.DryRunMode {
-					logger.Info("Printing initial clock and stats (DRY-RUN MODE)")
+					logger.Info("Printing initial clock (DRY-RUN MODE)")
 				} else {
-					logger.Info("Printing initial clock and stats")
+					logger.Info("Printing initial clock")
 				}
 				err := PrintInitialClockAndStats()
 				if err != nil {
-					logger.Error("Keep-alive: failed to print initial clock and stats", zap.Error(err))
+					logger.Error("Keep-alive: failed to print initial clock", zap.Error(err))
 				} else {
 					hasInitialPrintBeenDone = true
 				}
@@ -283,13 +271,13 @@ func keepAliveRoutine() {
 			if !hasInitialPrintBeenDone && isConnected && env.Value.ClockEnabled {
 				logger.Info("Keep-alive: performing initial clock print on first successful connection")
 				if env.Value.DryRunMode {
-					logger.Info("Printing initial clock and stats (DRY-RUN MODE)")
+					logger.Info("Printing initial clock (DRY-RUN MODE)")
 				} else {
-					logger.Info("Printing initial clock and stats")
+					logger.Info("Printing initial clock")
 				}
 				err := PrintInitialClockAndStats()
 				if err != nil {
-					logger.Error("Keep-alive: failed to print initial clock and stats", zap.Error(err))
+					logger.Error("Keep-alive: failed to print initial clock", zap.Error(err))
 				} else {
 					hasInitialPrintBeenDone = true
 				}
@@ -399,53 +387,26 @@ func clockRoutine() {
 }
 
 
-// PrintInitialClockAndStats prints current time and stats on startup
+// PrintInitialClockAndStats prints current time on startup (without stats)
 func PrintInitialClockAndStats() error {
 	now := time.Now()
 	currentTime := now.Format("15:04")
-	logger.Info("Printing initial clock and stats", zap.String("time", currentTime))
+	logger.Info("Printing initial clock", zap.String("time", currentTime))
 	
-	// Generate color version if debug output is enabled
-	var colorImg image.Image
-	if env.Value.DebugOutput {
-		var err error
-		colorImg, err = GenerateTimeImageWithStatsColor(currentTime)
-		if err != nil {
-			logger.Error("Initial clock: failed to generate color image", zap.Error(err))
-			colorImg = nil
-		}
-	}
-	
-	// Generate monochrome version for printing
-	img, err := GenerateTimeImageWithStats(currentTime)
+	// Generate simple time-only image
+	img, err := GenerateTimeImageSimple(currentTime)
 	if err != nil {
 		return fmt.Errorf("failed to generate initial clock image: %w", err)
 	}
 	
-	// Save images if debug output is enabled
+	// Save image if debug output is enabled
 	if env.Value.DebugOutput {
 		outputDir := ".output"
 		if err := os.MkdirAll(outputDir, 0755); err != nil {
 			return fmt.Errorf("failed to create output directory: %w", err)
 		}
 		
-		// Save color version if available
-		if colorImg != nil {
-			colorPath := filepath.Join(outputDir, fmt.Sprintf("%s_initial_clock_color.png", now.Format("20060102_150405")))
-			file, err := os.Create(colorPath)
-			if err != nil {
-				logger.Error("Initial clock: failed to create color output file", zap.Error(err))
-			} else {
-				if err := png.Encode(file, colorImg); err != nil {
-					logger.Error("Initial clock: failed to encode color image", zap.Error(err))
-				} else {
-					logger.Info("Initial clock: color output file saved", zap.String("path", colorPath))
-				}
-				file.Close()
-			}
-		}
-		
-		// Save monochrome version
+		// Save time-only image
 		monoPath := filepath.Join(outputDir, fmt.Sprintf("%s_initial_clock.png", now.Format("20060102_150405")))
 		file, err := os.Create(monoPath)
 		if err != nil {
