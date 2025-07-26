@@ -27,6 +27,22 @@ var sseServer = &SSEServer{
 	clients: make(map[chan string]bool),
 }
 
+// corsMiddleware adds CORS headers to HTTP handlers
+func corsMiddleware(handler http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		
+		handler(w, r)
+	}
+}
+
 // StartWebServer starts the HTTP server
 func StartWebServer(port int) {
 	// Serve static files from web/dist
@@ -43,8 +59,8 @@ func StartWebServer(port int) {
 	http.HandleFunc("/status", handleStatus)
 
 	// Debug endpoints
-	http.HandleFunc("/debug/fax", handleDebugFax) // Legacy endpoint
-	http.HandleFunc("/debug/channel-points", handleDebugChannelPoints)
+	http.HandleFunc("/debug/fax", corsMiddleware(handleDebugFax)) // Legacy endpoint
+	http.HandleFunc("/debug/channel-points", corsMiddleware(handleDebugChannelPoints))
 
 	addr := fmt.Sprintf(":%d", port)
 	logger.Info("Starting web server", zap.String("address", addr))
@@ -287,17 +303,6 @@ type DebugChannelPointsRequest struct {
 
 // handleDebugChannelPoints handles debug channel points redemption
 func handleDebugChannelPoints(w http.ResponseWriter, r *http.Request) {
-	// Set CORS headers
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	
-	// Handle preflight requests
-	if r.Method == http.MethodOptions {
-		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-
 	// Only accept POST
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)

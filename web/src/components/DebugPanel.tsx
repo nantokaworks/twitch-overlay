@@ -43,7 +43,11 @@ const DebugPanel = ({ onSendFax }: DebugPanelProps) => {
       setUserInput('');
     } catch (error) {
       console.error('Failed to send debug channel points:', error);
-      alert('デバッグチャンネルポイントの送信に失敗しました。サーバーが起動しているか確認してください。');
+      if (error instanceof Error) {
+        alert(`デバッグチャンネルポイントの送信に失敗しました:\n${error.message}`);
+      } else {
+        alert('デバッグチャンネルポイントの送信に失敗しました。サーバーが起動しているか確認してください。');
+      }
     } finally {
       setIsSubmitting(false);
     }
