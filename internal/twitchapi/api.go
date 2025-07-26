@@ -160,10 +160,10 @@ func GetBitsLeaderboard(period string) ([]*BitsLeaderboardEntry, error) {
 		now := time.Now()
 		firstOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
 		startedAt := firstOfMonth.Format(time.RFC3339)
-		reqURL = fmt.Sprintf("https://api.twitch.tv/helix/bits/leaderboard?count=3&period=%s&started_at=%s&broadcaster_id=%s", 
+		reqURL = fmt.Sprintf("https://api.twitch.tv/helix/bits/leaderboard?count=5&period=%s&started_at=%s&broadcaster_id=%s", 
 			url.QueryEscape(period), url.QueryEscape(startedAt), url.QueryEscape(*env.Value.TwitchUserID))
 	} else {
-		reqURL = fmt.Sprintf("https://api.twitch.tv/helix/bits/leaderboard?count=3&period=%s&broadcaster_id=%s", 
+		reqURL = fmt.Sprintf("https://api.twitch.tv/helix/bits/leaderboard?count=5&period=%s&broadcaster_id=%s", 
 			url.QueryEscape(period), url.QueryEscape(*env.Value.TwitchUserID))
 	}
 	req, err := http.NewRequest("GET", reqURL, nil)
