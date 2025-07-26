@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 
-const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate }) => {
+const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate, onAnimationStateChange }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageHeight, setImageHeight] = useState(0);
   const [animationComplete, setAnimationComplete] = useState(false);
   const [imagePosition, setImagePosition] = useState(-1); // -1 means use 100% (初期位置)
+  const [containerPosition, setContainerPosition] = useState(0); // コンテナ全体の位置
   const containerRef = useRef(null);
   const animationRef = useRef(null);
 
@@ -29,6 +30,11 @@ const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate }) =
   useEffect(() => {
     if (!imageLoaded || !imageHeight) return;
 
+    // アニメーション開始を通知
+    if (onAnimationStateChange) {
+      onAnimationStateChange(true);
+    }
+    
     // 毎フレームのピクセル移動量を計算
     const pixelsPerFrame = 2; // 毎フレーム2ピクセル移動
     let currentImagePosition = -imageHeight; // 開始位置（画像が完全に上にある状態）
@@ -55,8 +61,23 @@ const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate }) =
         // アニメーション完了、5秒待機
         setImagePosition(0); // 最終位置に固定
         setTimeout(() => {
-          setAnimationComplete(true);
-          setTimeout(onComplete, 500); // フェードアウト後に完了を通知
+          // アニメーション終了を通知（トランジションを有効にする）
+          if (onAnimationStateChange) {
+            onAnimationStateChange(false);
+          }
+          // 少し待ってからスライドアニメーションを開始
+          setTimeout(() => {
+            // FAX表示領域を上にスライドさせる
+            setContainerPosition(-290); // 250px (FAX高さ) + 40px (ラベル高さ)
+            // ラベルも元の位置に戻す
+            if (onLabelPositionUpdate) {
+              onLabelPositionUpdate(0);
+            }
+            setTimeout(() => {
+              setAnimationComplete(true);
+              onComplete();
+            }, 500); // スライドアップ完了後に終了
+          }, 50); // トランジション切り替えの遅延
         }, 5000);
       }
     };
@@ -68,19 +89,20 @@ const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate }) =
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [imageLoaded, imageHeight, onComplete, onLabelPositionUpdate]);
+  }, [imageLoaded, imageHeight, onComplete, onLabelPositionUpdate, onAnimationStateChange]);
 
   if (!faxData || !imageLoaded) return null;
 
   return (
     <div
       ref={containerRef}
-      className={`fixed transition-opacity duration-500 ${
+      className={`fixed ${
         animationComplete ? 'opacity-0' : 'opacity-100'
       }`}
       style={{
         left: '20px',
-        top: '0',
+        top: `${containerPosition}px`,
+        transition: containerPosition !== 0 ? 'top 0.5s ease-out, opacity 0.5s' : 'opacity 0.5s',
       }}
     >
       <div

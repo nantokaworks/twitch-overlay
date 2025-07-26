@@ -5,6 +5,7 @@ import FaxDisplay from './FaxDisplay';
 const FaxReceiver = ({ imageType = 'mono' }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [labelPosition, setLabelPosition] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
   const { currentFax, addToQueue, onDisplayComplete } = useFaxQueue();
   
   // ラベル位置をリセット
@@ -79,7 +80,7 @@ const FaxReceiver = ({ imageType = 'mono' }) => {
           width: '250px', 
           height: '40px',
           top: `${labelPosition}px`,
-          transition: currentFax ? 'none' : 'top 0.5s ease-out'
+          transition: isAnimating ? 'none' : 'top 0.5s ease-out'
         }}
       >
         <div className="flex items-center h-full px-2">
@@ -105,6 +106,7 @@ const FaxReceiver = ({ imageType = 'mono' }) => {
           onComplete={onDisplayComplete}
           imageType={imageType}
           onLabelPositionUpdate={setLabelPosition}
+          onAnimationStateChange={setIsAnimating}
         />
       )}
 
