@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useFaxQueue } from '../hooks/useFaxQueue';
 import FaxDisplay from './FaxDisplay';
+import { LAYOUT } from '../constants/layout';
 
 const FaxReceiver = ({ imageType = 'mono' }) => {
   const [isConnected, setIsConnected] = useState(false);
@@ -95,11 +96,11 @@ const FaxReceiver = ({ imageType = 'mono' }) => {
       <div 
         className="fixed z-10" 
         style={{ 
-          left: '0px', 
-          width: '250px', 
-          height: '40px',
+          left: `${LAYOUT.LEFT_MARGIN}px`, 
+          width: `${LAYOUT.FAX_WIDTH}px`, 
+          height: `${LAYOUT.LABEL_HEIGHT}px`,
           top: `${labelPosition}px`,
-          transition: isAnimating ? 'none' : 'top 0.5s ease-out'
+          transition: isAnimating ? 'none' : `top ${LAYOUT.FADE_DURATION}ms ease-out`
         }}
       >
         <div className="flex items-center h-full px-2">
@@ -108,8 +109,8 @@ const FaxReceiver = ({ imageType = 'mono' }) => {
               isConnected ? 'text-green-500' : 'text-red-500'
             }`}
             style={{
-              fontSize: '24px',
-              marginRight: '12px'
+              fontSize: `${LAYOUT.FONT_SIZE}px`,
+              marginRight: `${LAYOUT.LED_RIGHT_MARGIN}px`
             }}
           >
             ◆
@@ -117,8 +118,8 @@ const FaxReceiver = ({ imageType = 'mono' }) => {
           <span 
             className="text-outline" 
             style={{ 
-              fontSize: '24px',
-              animation: isShaking ? 'shake 0.2s infinite' : 'none'
+              fontSize: `${LAYOUT.FONT_SIZE}px`,
+              animation: isShaking ? `shake ${LAYOUT.SHAKE_DURATION} infinite` : 'none'
             }}
           >
             FAX

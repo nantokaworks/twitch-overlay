@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { LAYOUT } from '../constants/layout';
 
 const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate, onAnimationStateChange, onStateChange }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -28,17 +29,17 @@ const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate, onA
     // 画像のプリロード
     const img = new Image();
     img.onload = () => {
-      // 画像の実際の高さを取得（最大幅250pxでの高さを計算）
+      // 画像の実際の高さを取得（最大幅でのFAX幅での高さを計算）
       const aspectRatio = img.height / img.width;
-      const displayWidth = Math.min(250, window.innerWidth);
+      const displayWidth = Math.min(LAYOUT.FAX_WIDTH, window.innerWidth);
       const displayHeight = displayWidth * aspectRatio;
       setImageHeight(displayHeight);
       
       setDisplayState('waiting');
-      // 2秒間の待機
+      // 待機時間
       setTimeout(() => {
         setImageLoaded(true);
-      }, 2000);
+      }, LAYOUT.LAG_DURATION);
     };
     img.src = `/fax/${faxData.id}/${imageType}`;
 
@@ -55,7 +56,7 @@ const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate, onA
     }
     
     // 毎フレームのピクセル移動量を計算
-    const pixelsPerFrame = 2; // 毎フレーム2ピクセル移動
+    const pixelsPerFrame = LAYOUT.PIXELS_PER_FRAME;
     let currentImagePosition = -imageHeight; // 開始位置（画像が完全に上にある状態）
     
     // アニメーションの進行状況を更新
@@ -70,8 +71,8 @@ const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate, onA
       setScrollProgress(progress);
       
       // ラベル位置の計算
-      // 画像と同じスピードで動くが、最大250pxまで
-      const labelPosition = Math.min(Math.max(0, currentImagePosition + imageHeight), 250);
+      // 画像と同じスピードで動くが、最大FAX高さまで
+      const labelPosition = Math.min(Math.max(0, currentImagePosition + imageHeight), LAYOUT.FAX_HEIGHT);
       
       if (onLabelPositionUpdate) {
         onLabelPositionUpdate(labelPosition);
@@ -81,7 +82,7 @@ const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate, onA
       if (currentImagePosition < 0) {
         animationRef.current = requestAnimationFrame(updateAnimation);
       } else {
-        // アニメーション完了、5秒待機
+        // アニメーション完了、表示時間待機
         setImagePosition(0); // 最終位置に固定
         setScrollProgress(100);
         setDisplayState('displaying');
@@ -94,7 +95,7 @@ const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate, onA
           // 少し待ってからスライドアニメーションを開始
           setTimeout(() => {
             // FAX表示領域を上にスライドさせる
-            setContainerPosition(-290); // 250px (FAX高さ) + 40px (ラベル高さ)
+            setContainerPosition(LAYOUT.SLIDE_UP_DISTANCE);
             // ラベルも元の位置に戻す
             if (onLabelPositionUpdate) {
               onLabelPositionUpdate(0);
@@ -103,9 +104,9 @@ const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate, onA
               setAnimationComplete(true);
               setDisplayState('complete');
               onComplete();
-            }, 500); // スライドアップ完了後に終了
-          }, 50); // トランジション切り替えの遅延
-        }, 5000);
+            }, LAYOUT.FADE_DURATION); // スライドアップ完了後に終了
+          }, LAYOUT.TRANSITION_DELAY); // トランジション切り替えの遅延
+        }, LAYOUT.DISPLAY_DURATION);
       }
     };
     
@@ -127,16 +128,16 @@ const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate, onA
         animationComplete ? 'opacity-0' : 'opacity-100'
       }`}
       style={{
-        left: '10px',
+        left: `${LAYOUT.LEFT_MARGIN}px`,
         top: `${containerPosition}px`,
-        transition: containerPosition !== 0 ? 'top 0.5s ease-out, opacity 0.5s' : 'opacity 0.5s',
+        transition: containerPosition !== 0 ? `top ${LAYOUT.FADE_DURATION}ms ease-out, opacity ${LAYOUT.FADE_DURATION}ms` : `opacity ${LAYOUT.FADE_DURATION}ms`,
       }}
     >
       <div
         className="relative overflow-hidden"
         style={{
-          width: '250px',
-          height: '250px',
+          width: `${LAYOUT.FAX_WIDTH}px`,
+          height: `${LAYOUT.FAX_HEIGHT}px`,
         }}
       >
         <img
