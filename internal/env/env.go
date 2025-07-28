@@ -28,6 +28,7 @@ type EnvValue struct {
 	RotatePrint           bool
 	InitialPrintEnabled   bool
 	ServerPort            int
+	TimeZone              string
 }
 
 var Value EnvValue
@@ -122,6 +123,7 @@ func init() {
 	rotatePrint := getEnvOrDefault("ROTATE_PRINT", "false")
 	initialPrintEnabled := getEnvOrDefault("INITIAL_PRINT_ENABLED", "false")
 	serverPort := getEnvOrDefault("SERVER_PORT", "8080")
+	timeZone := getEnvOrDefault("TIMEZONE", "Asia/Tokyo")
 
 	// Initialize the Env struct with environment variables
 	Value = EnvValue{
@@ -142,6 +144,7 @@ func init() {
 		RotatePrint:           *rotatePrint == "true",
 		InitialPrintEnabled:   *initialPrintEnabled == "true",
 		ServerPort:            parseInt(serverPort),
+		TimeZone:              *timeZone,
 	}
 
 	fmt.Printf("Loaded environment variables: %+v\n", Value)

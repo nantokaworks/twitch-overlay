@@ -144,21 +144,33 @@ type BitsLeaderboardEntry struct {
 	AvatarURL string // Will be populated separately
 }
 
+// BitsLeaderboardResponse represents the full response from the bits leaderboard API
+type BitsLeaderboardResponse struct {
+	Data      []BitsLeaderboardEntry `json:"data"`
+	DateRange struct {
+		StartedAt string `json:"started_at"`
+		EndedAt   string `json:"ended_at"`
+	} `json:"date_range"`
+	Total int `json:"total"`
+}
+
 // GetBitsLeaderboard retrieves the bits leaderboard for a specific period
-func GetBitsLeaderboard(period string) ([]*BitsLeaderboardEntry, error) {
+func GetBitsLeaderboard(period string) ([]*BitsLeaderboardEntry, *BitsLeaderboardResponse, error) {
 	logger.Info("Getting bits leaderboard", zap.String("period", period))
 	token, valid, err := twitchtoken.GetLatestToken()
 	if !valid || err != nil {
 		logger.Warn("No valid token available, returning empty leaderboard", zap.Error(err))
-		return nil, nil // Return empty result instead of error
+		return nil, nil, nil // Return empty result instead of error
 	}
 
 	// For "month" period, we need to specify started_at parameter
 	var reqURL string
 	if period == "month" {
 		// Get first day of current month
+		// Twitch API uses PST timezone, so we need to add 8 hours to UTC to ensure we get the correct month
+		// UTC 08:00:00 = PST 00:00:00
 		now := time.Now()
-		firstOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
+		firstOfMonth := time.Date(now.Year(), now.Month(), 1, 8, 0, 0, 0, time.UTC)
 		startedAt := firstOfMonth.Format(time.RFC3339)
 		reqURL = fmt.Sprintf("https://api.twitch.tv/helix/bits/leaderboard?count=5&period=%s&started_at=%s&broadcaster_id=%s", 
 			url.QueryEscape(period), url.QueryEscape(startedAt), url.QueryEscape(*env.Value.TwitchUserID))
@@ -168,7 +180,7 @@ func GetBitsLeaderboard(period string) ([]*BitsLeaderboardEntry, error) {
 	}
 	req, err := http.NewRequest("GET", reqURL, nil)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	req.Header.Set("Client-ID", *env.Value.ClientID)
@@ -177,24 +189,22 @@ func GetBitsLeaderboard(period string) ([]*BitsLeaderboardEntry, error) {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API request failed with status: %d", resp.StatusCode)
+		return nil, nil, fmt.Errorf("API request failed with status: %d", resp.StatusCode)
 	}
 
-	var result struct {
-		Data []BitsLeaderboardEntry `json:"data"`
-	}
+	var result BitsLeaderboardResponse
 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if len(result.Data) == 0 {
-		return nil, nil // No leaders found
+		return nil, &result, nil // No leaders found but return the response for date_range
 	}
 
 	// Get avatar only for the first place
@@ -214,7 +224,7 @@ func GetBitsLeaderboard(period string) ([]*BitsLeaderboardEntry, error) {
 		leaders[i] = &result.Data[i]
 	}
 
-	return leaders, nil
+	return leaders, &result, nil
 }
 
 // GetUserAvatar retrieves the profile image URL for a user

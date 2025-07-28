@@ -350,10 +350,20 @@ func clockRoutine() {
 	defer ticker.Stop()
 	
 	lastPrintedTime := ""
+	lastMonth := time.Now().Format("2006-01")
 	
 	for range ticker.C {
 		now := time.Now()
 		minute := now.Minute()
+		currentMonth := now.Format("2006-01")
+		
+		// Check if month has changed
+		if currentMonth != lastMonth {
+			logger.Info("Month changed", 
+				zap.String("from", lastMonth), 
+				zap.String("to", currentMonth))
+			lastMonth = currentMonth
+		}
 		
 		// Check if it's 0 minutes (on the hour)
 		if minute == 0 {
@@ -375,6 +385,7 @@ func clockRoutine() {
 		}
 	}
 }
+
 
 
 // PrintInitialClock prints current time on startup (simple version without stats and without frontend notification)

@@ -874,12 +874,49 @@ func getBitsLeaders(forceEmpty bool) (monthLeaders []*twitchapi.BitsLeaderboardE
 		return nil
 	}
 	
-	// Get monthly leaders
-	monthLeaders, err := twitchapi.GetBitsLeaderboard("month")
+	// Get monthly leaders from API
+	monthLeaders, apiResponse, err := twitchapi.GetBitsLeaderboard("month")
 	if err != nil {
 		fmt.Printf("Failed to get monthly bits leaders: %v\n", err)
 		monthLeaders = nil
-	} else if len(monthLeaders) == 0 {
+		return nil
+	}
+
+	// APIレスポンスがある場合は、date_rangeを使って期間を表示
+	if apiResponse != nil && apiResponse.DateRange.EndedAt != "" {
+		// 日付範囲をログ出力
+		startedAt, err := time.Parse(time.RFC3339, apiResponse.DateRange.StartedAt)
+		if err == nil {
+			endedAt, err := time.Parse(time.RFC3339, apiResponse.DateRange.EndedAt)
+			if err == nil {
+				// タイムゾーンの取得
+				loc, err := time.LoadLocation(env.Value.TimeZone)
+				if err != nil {
+					// タイムゾーンのロードに失敗した場合はUTCを使用
+					loc = time.UTC
+					fmt.Printf("Warning: Failed to load timezone %s, using UTC\n", env.Value.TimeZone)
+				}
+				
+				// 日付をローカルタイムゾーンに変換して表示
+				startLocal := startedAt.In(loc)
+				endLocal := endedAt.In(loc)
+				tzName, _ := startLocal.Zone()
+				
+				fmt.Printf("  期間: %s 〜 %s (%s)\n", 
+					startLocal.Format("2006年1月2日 15:04"),
+					endLocal.Format("2006年1月2日 15:04"),
+					tzName)
+				
+				// logger にも出力
+				logger.Info("Bits leaderboard date range",
+					zap.String("start", startLocal.Format("2006-01-02 15:04:05")),
+					zap.String("end", endLocal.Format("2006-01-02 15:04:05")),
+					zap.String("timezone", tzName))
+			}
+		}
+	}
+	
+	if len(monthLeaders) == 0 {
 		fmt.Printf("No monthly bits leaders found\n")
 	} else {
 		fmt.Printf("Clock: Fetched %d monthly bits leaders:\n", len(monthLeaders))
