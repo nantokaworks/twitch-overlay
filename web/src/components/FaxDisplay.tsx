@@ -197,6 +197,9 @@ const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate, onA
   // 画像のスタイル
   const imageStyle: DynamicStyles = {
     transform: `translateY(${imagePosition === -1 ? '-100%' : `${imagePosition}px`})`,
+    padding: '5px',
+    backgroundColor: 'white',
+    boxSizing: 'border-box',
   };
 
   return (
