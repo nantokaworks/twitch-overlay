@@ -65,6 +65,8 @@ export interface DynamicStyles {
   backgroundColor?: string;
   fontSize?: string;
   marginRight?: string;
+  padding?: string;
+  boxSizing?: string;
 }
 
 // 設定関連の型定義

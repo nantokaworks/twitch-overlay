@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { LAYOUT } from '../constants/layout';
+import type { DynamicStyles, FaxDisplayProps, FaxDisplayState } from '../types';
 import { buildApiUrl } from '../utils/api';
-import type { FaxDisplayProps, FaxDisplayState, DynamicStyles } from '../types';
 
 const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate, onAnimationStateChange, onStateChange }: FaxDisplayProps) => {
   const [imageLoaded, setImageLoaded] = useState<boolean>(false);
@@ -75,8 +75,8 @@ const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate, onA
       setScrollProgress(Math.round(progress));
       
       // ラベル位置の計算
-      // 画像と同じスピードで動くが、最大FAX高さまで
-      const labelPosition = Math.min(Math.max(0, currentImagePosition + imageHeight), LAYOUT.FAX_HEIGHT);
+      // 画像と同じスピードで動くが、最大FAX高さまで（FAX文字とコンテンツ間にマージンを確保）
+      const labelPosition = Math.min(Math.max(0, currentImagePosition + imageHeight + LAYOUT.FAX_CONTENT_TOP_MARGIN), LAYOUT.FAX_HEIGHT);
       
       setCurrentLabelPosition(labelPosition); // 現在位置を保存
       if (onLabelPositionUpdate) {
@@ -97,8 +97,8 @@ const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate, onA
           setTimeout(() => {
             setDisplayState('sliding-up');
             // この時点でのラベル位置を確実に取得
-            // 高さが低いFAXの場合は実際の画像高さまでしか移動していない
-            const currentLabelPos = Math.min(imageHeight, LAYOUT.FAX_HEIGHT);
+            // 高さが低いFAXの場合は実際の画像高さまでしか移動していない（マージンを考慮）
+            const currentLabelPos = Math.min(imageHeight + LAYOUT.FAX_CONTENT_TOP_MARGIN, LAYOUT.FAX_HEIGHT);
             startSlideUpAnimation(currentLabelPos);
           }, LAYOUT.TRANSITION_DELAY);
         }, LAYOUT.DISPLAY_DURATION);

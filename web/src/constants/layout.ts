@@ -9,6 +9,7 @@ export const LAYOUT = {
   FAX_LEFT_MARGIN: 10,      // FAX部の左マージン
   LABEL_LEFT_MARGIN: 0,    // ラベル部の左マージン
   TOP_POSITION: 0,
+  FAX_CONTENT_TOP_MARGIN: 5, // FAX文字とコンテンツ間の縦マージン
 
   // Animation
   PIXELS_PER_FRAME: 2,
