@@ -1,7 +1,6 @@
 package fontmanager
 
 import (
-	"database/sql"
 	"errors"
 	"fmt"
 	"io"
@@ -9,7 +8,6 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/nantokaworks/twitch-fax/internal/localdb"
 	"github.com/nantokaworks/twitch-fax/internal/shared/logger"
 	"go.uber.org/zap"
 	"golang.org/x/image/font/opentype"
@@ -18,9 +16,6 @@ import (
 const (
 	// フォントを保存するディレクトリ
 	FontDirectory = "./uploads/fonts"
-	
-	// データベースのキー
-	CustomFontKey = "custom_font_path"
 	
 	// 最大ファイルサイズ (50MB)
 	MaxFileSize = 50 * 1024 * 1024
@@ -175,11 +170,7 @@ func SaveCustomFont(filename string, data io.Reader, size int64) error {
 		}
 	}
 	
-	// データベースに保存
-	if err := saveCustomFontPath(finalPath); err != nil {
-		os.Remove(finalPath)
-		return fmt.Errorf("failed to save to database: %w", err)
-	}
+	// フォントパスを記録
 	
 	// 更新
 	customFontPath = finalPath
@@ -206,10 +197,7 @@ func DeleteCustomFont() error {
 		logger.Error("Failed to delete font file", zap.Error(err))
 	}
 	
-	// データベースから削除
-	if err := deleteCustomFontPath(); err != nil {
-		return fmt.Errorf("failed to delete from database: %w", err)
-	}
+	// フォントパスをクリア
 	
 	// リセット
 	customFontPath = ""
@@ -227,6 +215,7 @@ func GetCurrentFontInfo() map[string]interface{} {
 	
 	info := map[string]interface{}{
 		"hasCustomFont": customFontPath != "",
+		"path":          customFontPath, // main.goの確認用
 	}
 	
 	if customFontPath != "" {
@@ -242,49 +231,25 @@ func GetCurrentFontInfo() map[string]interface{} {
 	return info
 }
 
-// データベース操作関数
-
+// loadCustomFontPath はフォントディレクトリから既存のフォントを探します
 func loadCustomFontPath() (string, error) {
-	db := localdb.GetDB()
-	if db == nil {
-		return "", errors.New("database not initialized")
-	}
-	
-	var value string
-	err := db.QueryRow("SELECT value FROM settings WHERE key = ?", CustomFontKey).Scan(&value)
-	if err == sql.ErrNoRows {
-		return "", nil
-	}
+	// uploads/fontsディレクトリから最初のフォントファイルを探す
+	files, err := os.ReadDir(FontDirectory)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return "", nil
+		}
 		return "", err
 	}
 	
-	return value, nil
-}
-
-func saveCustomFontPath(path string) error {
-	db := localdb.GetDB()
-	if db == nil {
-		return errors.New("database not initialized")
+	for _, file := range files {
+		if !file.IsDir() {
+			ext := filepath.Ext(file.Name())
+			if ext == ".ttf" || ext == ".otf" || ext == ".TTF" || ext == ".OTF" {
+				return filepath.Join(FontDirectory, file.Name()), nil
+			}
+		}
 	}
 	
-	_, err := db.Exec(`
-		INSERT INTO settings (key, value, updated_at) 
-		VALUES (?, ?, CURRENT_TIMESTAMP)
-		ON CONFLICT(key) DO UPDATE SET 
-			value = excluded.value,
-			updated_at = CURRENT_TIMESTAMP
-	`, CustomFontKey, path)
-	
-	return err
-}
-
-func deleteCustomFontPath() error {
-	db := localdb.GetDB()
-	if db == nil {
-		return errors.New("database not initialized")
-	}
-	
-	_, err := db.Exec("DELETE FROM settings WHERE key = ?", CustomFontKey)
-	return err
+	return "", nil
 }

@@ -1,10 +1,12 @@
 package logger
 
 import (
+	"encoding/json"
 	"log"
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -25,12 +27,29 @@ func init() {
 		// 表示するログレベルを設定
 		config.Level = zap.NewAtomicLevelAt(getZapLogLevel())
 
+		// カスタムコアを作成してログバッファに追加
+		encoderConfig := config.EncoderConfig
+		encoder := zapcore.NewJSONEncoder(encoderConfig)
+		
+		// 標準出力用のコア
+		stdoutCore := zapcore.NewCore(
+			encoder,
+			zapcore.AddSync(os.Stdout),
+			config.Level,
+		)
+
+		// バッファ用のコア
+		bufferCore := zapcore.NewCore(
+			encoder,
+			zapcore.AddSync(&bufferWriter{}),
+			config.Level,
+		)
+
+		// 両方のコアを組み合わせる
+		core := zapcore.NewTee(stdoutCore, bufferCore)
+		
 		// ロガーを構築
-		var err error
-		Log, err = config.Build()
-		if err != nil {
-			log.Panic("failed to build logger", err)
-		}
+		Log = zap.New(core, zap.AddStacktrace(zapcore.ErrorLevel))
 
 		// Zap ロガーを標準ロガーとして設定
 		zapLogger := zap.NewStdLog(Log)
@@ -97,4 +116,41 @@ func getZapLogLevel() zapcore.Level {
 	default:
 		return zap.InfoLevel
 	}
+}
+
+// bufferWriter はログをバッファに書き込むためのライター
+type bufferWriter struct{}
+
+func (bw *bufferWriter) Write(p []byte) (n int, err error) {
+	// JSON形式のログをパース
+	var logData map[string]interface{}
+	if err := json.Unmarshal(p, &logData); err == nil {
+		entry := LogEntry{
+			Timestamp: time.Now(),
+		}
+		
+		if level, ok := logData["level"].(string); ok {
+			entry.Level = level
+			delete(logData, "level")
+		}
+		
+		if msg, ok := logData["msg"].(string); ok {
+			entry.Message = msg
+			delete(logData, "msg")
+		}
+		
+		if ts, ok := logData["ts"].(float64); ok {
+			entry.Timestamp = time.Unix(int64(ts), 0)
+			delete(logData, "ts")
+		}
+		
+		// 残りのフィールドを追加
+		if len(logData) > 0 {
+			entry.Fields = logData
+		}
+		
+		GetLogBuffer().Add(entry)
+	}
+	
+	return len(p), nil
 }

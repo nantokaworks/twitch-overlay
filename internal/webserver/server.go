@@ -99,6 +99,12 @@ func StartWebServer(port int) {
 	mux.HandleFunc("/api/printer/test", corsMiddleware(handlePrinterTest))
 	mux.HandleFunc("/api/printer/status", corsMiddleware(handlePrinterStatus))
 
+	// Logs API endpoints
+	mux.HandleFunc("/api/logs", corsMiddleware(handleLogs))
+	mux.HandleFunc("/api/logs/download", corsMiddleware(handleLogsDownload))
+	mux.HandleFunc("/api/logs/stream", handleLogsStream) // WebSocketは独自のUpgrade処理
+	mux.HandleFunc("/api/logs/clear", corsMiddleware(handleLogsClear))
+
 	// SSE endpoint
 	mux.HandleFunc("/events", handleSSE)
 

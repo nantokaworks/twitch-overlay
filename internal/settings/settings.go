@@ -112,6 +112,12 @@ var DefaultSettings = map[string]Setting{
 		Key: "TIMEZONE", Value: "Asia/Tokyo", Type: SettingTypeNormal, Required: false,
 		Description: "Timezone for clock display",
 	},
+	
+	// フォント設定
+	"FONT_FILENAME": {
+		Key: "FONT_FILENAME", Value: "", Type: SettingTypeNormal, Required: false,
+		Description: "Uploaded font file name",
+	},
 }
 
 // 機能の有効性チェック

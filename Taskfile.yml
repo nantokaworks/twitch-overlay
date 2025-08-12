@@ -36,7 +36,10 @@ tasks:
           echo ".envファイルをコピーしました → dist/.env"
         fi
       - |
-        if [ -f local.db ]; then
+        # dist/local.dbが既に存在する場合は上書きしない
+        if [ -f ../../dist/local.db ]; then
+          echo "local.dbファイルは既に存在します → dist/local.db (上書きしません)"
+        elif [ -f local.db ]; then
           cp local.db ../../dist/local.db
           echo "local.dbファイルをコピーしました → dist/local.db"
         fi
@@ -66,8 +69,33 @@ tasks:
     desc: ビルドファイルをクリーンアップ
     cmds:
       - echo "ビルドファイルをクリーンアップ中..."
+      - |
+        # local.dbを一時的に退避
+        if [ -f dist/local.db ]; then
+          echo "local.dbを退避中..."
+          mv dist/local.db /tmp/twitch-fax-local.db.tmp
+        fi
+      - |
+        # .envファイルも退避
+        if [ -f dist/.env ]; then
+          echo ".envを退避中..."
+          mv dist/.env /tmp/twitch-fax-env.tmp
+        fi
       - rm -rf dist
       - rm -rf web/dist
+      - mkdir -p dist
+      - |
+        # local.dbを復元
+        if [ -f /tmp/twitch-fax-local.db.tmp ]; then
+          echo "local.dbを復元中..."
+          mv /tmp/twitch-fax-local.db.tmp dist/local.db
+        fi
+      - |
+        # .envを復元
+        if [ -f /tmp/twitch-fax-env.tmp ]; then
+          echo ".envを復元中..."
+          mv /tmp/twitch-fax-env.tmp dist/.env
+        fi
       - echo "クリーンアップ完了"
 
   # 開発サーバー起動（フロントエンド）
@@ -164,6 +192,41 @@ tasks:
       - sudo rm -f /etc/systemd/system/twitch-fax@{{.USERNAME}}.service
       - sudo systemctl daemon-reload
       - echo "アンインストール完了"
+
+  # サービス再起動
+  service:restart:
+    desc: systemdサービスを再起動
+    vars:
+      USERNAME:
+        sh: echo ${1:-$USER}
+    cmds:
+      - echo "twitch-fax@{{.USERNAME}}.service を再起動します..."
+      - sudo systemctl restart twitch-fax@{{.USERNAME}}.service
+      - echo "再起動完了"
+      - sudo systemctl status twitch-fax@{{.USERNAME}}.service --no-pager
+
+  # サービス起動
+  service:start:
+    desc: systemdサービスを起動
+    vars:
+      USERNAME:
+        sh: echo ${1:-$USER}
+    cmds:
+      - echo "twitch-fax@{{.USERNAME}}.service を起動します..."
+      - sudo systemctl start twitch-fax@{{.USERNAME}}.service
+      - echo "起動完了"
+      - sudo systemctl status twitch-fax@{{.USERNAME}}.service --no-pager
+
+  # サービス停止
+  service:stop:
+    desc: systemdサービスを停止
+    vars:
+      USERNAME:
+        sh: echo ${1:-$USER}
+    cmds:
+      - echo "twitch-fax@{{.USERNAME}}.service を停止します..."
+      - sudo systemctl stop twitch-fax@{{.USERNAME}}.service
+      - echo "停止完了"
 
   # サービスステータス確認
   service:status:

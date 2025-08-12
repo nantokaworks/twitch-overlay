@@ -6,7 +6,8 @@ Wants=bluetooth.service
 [Service]
 Type=simple
 User=%i
-Group=bluetooth
+# bluetoothグループが存在する場合のみ使用
+SupplementaryGroups=bluetooth
 WorkingDirectory=/home/%i/twitch-fax/dist
 ExecStart=/home/%i/twitch-fax/dist/twitch-fax
 Restart=on-failure

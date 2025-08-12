@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/nantokaworks/twitch-fax/internal/fontmanager"
 	"github.com/nantokaworks/twitch-fax/internal/localdb"
+	"github.com/nantokaworks/twitch-fax/internal/output"
 	"github.com/nantokaworks/twitch-fax/internal/settings"
 	"github.com/nantokaworks/twitch-fax/internal/shared/logger"
 	"go.uber.org/zap"
@@ -90,6 +92,32 @@ func handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 		} else {
 			logger.Info("Secret setting updated", zap.String("key", key))
 		}
+	}
+
+	// PRINTER_ADDRESSが変更された場合は再接続を試みる
+	if newAddress, hasPrinterAddress := req["PRINTER_ADDRESS"]; hasPrinterAddress && newAddress != "" {
+		logger.Info("Printer address changed, attempting reconnection", zap.String("new_address", newAddress))
+		
+		// 既存の接続を切断
+		output.Stop()
+		
+		// 新しいアドレスで再接続
+		go func() {
+			time.Sleep(500 * time.Millisecond) // 少し待機
+			
+			c, err := output.SetupPrinter()
+			if err != nil {
+				logger.Error("Failed to setup printer after settings change", zap.Error(err))
+				return
+			}
+			
+			err = output.ConnectPrinter(c, newAddress)
+			if err != nil {
+				logger.Error("Failed to reconnect to printer with new address", zap.String("address", newAddress), zap.Error(err))
+			} else {
+				logger.Info("Successfully reconnected to printer", zap.String("address", newAddress))
+			}
+		}()
 	}
 
 	// 更新後の設定状態を返す

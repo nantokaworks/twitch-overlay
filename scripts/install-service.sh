@@ -50,21 +50,33 @@ if [ ! -d "$TWITCH_FAX_DIR/dist" ]; then
     exit 1
 fi
 
-# bluetoothグループにユーザーを追加するか確認
-print_info "Bluetooth権限の設定方法を選択してください:"
-echo "1) bluetoothグループにユーザーを追加（推奨）"
-echo "2) systemdのCapabilitiesのみを使用"
-echo -n "選択 [1/2]: "
-read -r choice
-
-if [ "$choice" = "1" ] || [ -z "$choice" ]; then
-    print_info "ユーザー '$USERNAME' をbluetoothグループに追加します"
-    if sudo usermod -a -G bluetooth "$USERNAME"; then
-        print_success "bluetoothグループに追加しました"
-        print_warning "変更を反映するには再ログインが必要です"
+# bluetoothグループの確認と作成
+if ! getent group bluetooth >/dev/null 2>&1; then
+    print_info "bluetoothグループが存在しません。作成します..."
+    if sudo groupadd bluetooth; then
+        print_success "bluetoothグループを作成しました"
     else
-        print_error "bluetoothグループへの追加に失敗しました"
+        print_error "bluetoothグループの作成に失敗しました"
+        print_info "systemdのCapabilitiesのみを使用します"
     fi
+fi
+
+# bluetoothグループにユーザーを追加
+if getent group bluetooth >/dev/null 2>&1; then
+    # ユーザーが既にbluetoothグループに所属しているか確認
+    if ! groups "$USERNAME" | grep -q bluetooth; then
+        print_info "ユーザー '$USERNAME' をbluetoothグループに追加します"
+        if sudo usermod -a -G bluetooth "$USERNAME"; then
+            print_success "bluetoothグループに追加しました"
+            print_warning "変更を反映するには再ログインが必要です"
+        else
+            print_error "bluetoothグループへの追加に失敗しました"
+        fi
+    else
+        print_info "ユーザー '$USERNAME' は既にbluetoothグループのメンバーです"
+    fi
+else
+    print_info "bluetoothグループが存在しないため、systemdのCapabilitiesのみを使用します"
 fi
 
 # systemdサービスファイルをコピー
@@ -84,25 +96,19 @@ print_info "systemdデーモンをリロードします"
 sudo systemctl daemon-reload
 print_success "systemdデーモンをリロードしました"
 
-# サービスを有効化するか確認
-echo -n "サービスを自動起動に登録しますか？ [Y/n]: "
-read -r enable_service
-if [ "$enable_service" != "n" ] && [ "$enable_service" != "N" ]; then
-    sudo systemctl enable "twitch-fax@$USERNAME.service"
-    print_success "サービスを自動起動に登録しました"
-fi
+# サービスを有効化（自動起動）
+print_info "サービスを自動起動に登録します"
+sudo systemctl enable "twitch-fax@$USERNAME.service"
+print_success "サービスを自動起動に登録しました"
 
-# サービスを今すぐ起動するか確認
-echo -n "サービスを今すぐ起動しますか？ [Y/n]: "
-read -r start_service
-if [ "$start_service" != "n" ] && [ "$start_service" != "N" ]; then
-    sudo systemctl start "twitch-fax@$USERNAME.service"
-    print_success "サービスを起動しました"
-    
-    # ステータスを表示
-    print_info "サービスの状態:"
-    sudo systemctl status "twitch-fax@$USERNAME.service" --no-pager
-fi
+# サービスを起動
+print_info "サービスを起動します"
+sudo systemctl start "twitch-fax@$USERNAME.service"
+print_success "サービスを起動しました"
+
+# ステータスを表示
+print_info "サービスの状態:"
+sudo systemctl status "twitch-fax@$USERNAME.service" --no-pager
 
 print_success "インストールが完了しました！"
 echo ""

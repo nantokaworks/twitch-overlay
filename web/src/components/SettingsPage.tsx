@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Settings2, Bluetooth, Wifi, Zap, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, Settings2, Bluetooth, Wifi, Zap, Eye, EyeOff, FileText, Upload, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
@@ -9,6 +9,7 @@ import { Label } from './ui/label';
 import { Switch } from './ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Alert, AlertDescription } from './ui/alert';
+import { LogViewer } from './LogViewer';
 import { 
   FeatureStatus, 
   BluetoothDevice, 
@@ -31,7 +32,11 @@ export const SettingsPage: React.FC = () => {
   const [testing, setTesting] = useState(false);
   const [unsavedChanges, setUnsavedChanges] = useState<UpdateSettingsRequest>({});
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
-  const saveTimeoutRef = useRef<NodeJS.Timeout>();
+  const [uploadingFont, setUploadingFont] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string>('');
+  const [previewText, setPreviewText] = useState<string>('サンプルテキスト Sample Text 123\nフォントプレビュー 🎨');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
   // 設定データの取得
   useEffect(() => {
@@ -194,6 +199,105 @@ export const SettingsPage: React.FC = () => {
     }
   };
 
+  const handleFontUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // ファイル形式の確認
+    if (!file.name.endsWith('.ttf') && !file.name.endsWith('.otf')) {
+      toast.error('フォントファイルは.ttfまたは.otf形式である必要があります');
+      return;
+    }
+
+    setUploadingFont(true);
+    const formData = new FormData();
+    formData.append('font', file);
+
+    try {
+      const response = await fetch(buildApiUrl('/api/settings/font'), {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error);
+      }
+
+      const result = await response.json();
+      
+      // フォント情報を取得
+      const fontInfo = result.font;
+      const fontName = fontInfo?.filename || file.name;
+      
+      toast.success(`フォント「${fontName}」をアップロードしました`);
+
+      // 設定を更新
+      if (fontName) {
+        handleSettingChange('FONT_FILENAME', fontName);
+      }
+      
+      // 設定を再取得して画面を更新
+      await fetchAllSettings();
+
+      // ファイル入力をリセット
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (err: any) {
+      toast.error('フォントのアップロードに失敗しました: ' + err.message);
+    } finally {
+      setUploadingFont(false);
+    }
+  };
+
+  const handleDeleteFont = async () => {
+    try {
+      const response = await fetch(buildApiUrl('/api/settings/font'), {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete font');
+      }
+
+      toast.success('フォントを削除しました');
+      
+      // フォント設定をクリア
+      handleSettingChange('FONT_FILENAME', '');
+      
+      // 設定を再取得
+      await fetchAllSettings();
+    } catch (err: any) {
+      toast.error('フォントの削除に失敗しました: ' + err.message);
+    }
+  };
+
+  const handleFontPreview = async () => {
+    try {
+      const response = await fetch(buildApiUrl('/api/settings/font/preview'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          text: previewText 
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate preview');
+      }
+
+      const result = await response.json();
+      if (result.image) {
+        setPreviewImage(result.image);
+        toast.success('プレビューを生成しました');
+      } else {
+        throw new Error('No image data received');
+      }
+    } catch (err: any) {
+      toast.error('プレビューの生成に失敗しました: ' + err.message);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
@@ -264,7 +368,7 @@ export const SettingsPage: React.FC = () => {
 
         {/* タブコンテンツ */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4 mb-6">
+          <TabsList className="grid w-full grid-cols-5 mb-6">
             <TabsTrigger value="general" className="flex items-center space-x-2">
               <Settings2 className="w-4 h-4" />
               <span>一般</span>
@@ -280,6 +384,10 @@ export const SettingsPage: React.FC = () => {
             <TabsTrigger value="behavior" className="flex items-center space-x-2">
               <Zap className="w-4 h-4" />
               <span>動作</span>
+            </TabsTrigger>
+            <TabsTrigger value="logs" className="flex items-center space-x-2">
+              <FileText className="w-4 h-4" />
+              <span>ログ</span>
             </TabsTrigger>
           </TabsList>
 
@@ -337,6 +445,106 @@ export const SettingsPage: React.FC = () => {
                       onCheckedChange={(checked) => handleSettingChange('DEBUG_OUTPUT', checked)}
                     />
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* フォント設定カード */}
+            <Card>
+              <CardHeader>
+                <CardTitle>フォント設定（必須）</CardTitle>
+                <CardDescription>
+                  FAXと時計機能を使用するためにフォントのアップロードが必要です
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {!getSettingValue('FONT_FILENAME') && (
+                  <Alert>
+                    <AlertDescription className="text-yellow-700">
+                      ⚠️ フォントがアップロードされていません。FAXと時計機能を使用するには、フォントファイル（.ttf/.otf）をアップロードしてください。
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>フォントファイルをアップロード</Label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept=".ttf,.otf"
+                          onChange={handleFontUpload}
+                          className="hidden"
+                        />
+                        <Button
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={uploadingFont}
+                          variant="outline"
+                          className="flex items-center gap-2"
+                        >
+                          <Upload className="h-4 w-4" />
+                          {uploadingFont ? 'アップロード中...' : 'フォントをアップロード'}
+                        </Button>
+                        <span className="text-sm text-gray-500">
+                          .ttf または .otf ファイル
+                        </span>
+                      </div>
+                    </div>
+
+                    {getSettingValue('FONT_FILENAME') && (
+                      <>
+                        <div className="space-y-2">
+                          <Label>現在のフォント</Label>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              value={getSettingValue('FONT_FILENAME')}
+                              disabled
+                              className="max-w-xs"
+                            />
+                            <Button
+                              onClick={handleDeleteFont}
+                              variant="outline"
+                              size="sm"
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <X className="h-4 w-4" />
+                              削除
+                            </Button>
+                          </div>
+                        </div>
+                        
+                        {/* フォントプレビュー */}
+                        <div className="space-y-2">
+                          <Label>フォントプレビュー</Label>
+                          <div className="space-y-2">
+                            <textarea
+                              value={previewText}
+                              onChange={(e) => setPreviewText(e.target.value)}
+                              className="w-full p-2 border rounded-md min-h-[80px] font-mono text-sm"
+                              placeholder="プレビューテキストを入力..."
+                            />
+                            <Button
+                              onClick={handleFontPreview}
+                              variant="outline"
+                              disabled={!getSettingValue('FONT_FILENAME')}
+                            >
+                              プレビューを生成
+                            </Button>
+                          </div>
+                          {previewImage && (
+                            <div className="mt-2 p-4 bg-gray-100 rounded">
+                              <img 
+                                src={previewImage} 
+                                alt="Font Preview" 
+                                className="max-w-full h-auto border border-gray-300"
+                                style={{ imageRendering: 'pixelated' }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
                 </div>
               </CardContent>
             </Card>
@@ -640,6 +848,11 @@ export const SettingsPage: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* ログタブ */}
+          <TabsContent value="logs" className="space-y-6">
+            <LogViewer embedded={true} />
           </TabsContent>
         </Tabs>
       </div>

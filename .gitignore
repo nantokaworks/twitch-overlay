@@ -24,3 +24,7 @@ tmp
 .db.sqlite3
 local.db
 
+// Uploaded files
+uploads/
+cmd/twitch-fax/uploads/
+

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/nantokaworks/twitch-fax/internal/env"
+	"github.com/nantokaworks/twitch-fax/internal/fontmanager"
 	localdb "github.com/nantokaworks/twitch-fax/internal/localdb"
 	"github.com/nantokaworks/twitch-fax/internal/output"
 	"github.com/nantokaworks/twitch-fax/internal/shared/logger"
@@ -34,6 +35,43 @@ func main() {
 		log.Fatal(err)
 	}
 	defer db.Close()
+
+	// init font manager
+	if err := fontmanager.Initialize(); err != nil {
+		logger.Error("Failed to initialize font manager", zap.Error(err))
+		log.Fatal("フォントマネージャーの初期化に失敗しました")
+	}
+
+	// フォントが設定されているか確認（必須）
+	if info := fontmanager.GetCurrentFontInfo(); info["path"] == nil || info["path"] == "" {
+		fmt.Println("")
+		fmt.Println("========================================")
+		fmt.Println("❌ エラー: フォントがアップロードされていません")
+		fmt.Println("")
+		fmt.Println("FAXと時計機能を使用するためには、フォントファイル（.ttf/.otf）のアップロードが必須です。")
+		fmt.Println("")
+		fmt.Printf("1. Webサーバーを起動します（ポート %d）\n", env.Value.ServerPort)
+		fmt.Printf("2. ブラウザで http://localhost:%d/settings にアクセスしてください\n", env.Value.ServerPort)
+		fmt.Println("3. 「フォント」タブから .ttf または .otf ファイルをアップロードしてください")
+		fmt.Println("========================================")
+		fmt.Println("")
+		
+		// Webサーバーだけは起動する（フォント設定のため）
+		webserver.StartWebServer(env.Value.ServerPort)
+		
+		// フォントがアップロードされるまで待機
+		fmt.Println("フォントがアップロードされるのを待っています...")
+		fmt.Println("Ctrl+C で終了できます")
+		
+		// シグナル待機
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+		<-sigChan
+		
+		fmt.Println("\n終了します...")
+		webserver.Shutdown()
+		os.Exit(0)
+	}
 
 	// init output
 	c, err := output.SetupPrinter()
