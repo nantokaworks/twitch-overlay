@@ -138,3 +138,47 @@ tasks:
           echo "cmd/twitch-fax/.envファイルをコピーしました"
         fi
       - echo "パッケージ作成完了 → dist-package/"
+
+  # systemdサービスインストール
+  install:service:
+    desc: systemdサービスをインストール（Linux）
+    cmds:
+      - |
+        if [ ! -f scripts/install-service.sh ]; then
+          echo "エラー: scripts/install-service.sh が見つかりません"
+          exit 1
+        fi
+      - echo "systemdサービスをインストールします..."
+      - bash scripts/install-service.sh {{.CLI_ARGS}}
+
+  # systemdサービスアンインストール
+  uninstall:service:
+    desc: systemdサービスをアンインストール（Linux）
+    vars:
+      USERNAME:
+        sh: echo ${1:-$USER}
+    cmds:
+      - echo "systemdサービスをアンインストールします..."
+      - sudo systemctl stop twitch-fax@{{.USERNAME}}.service || true
+      - sudo systemctl disable twitch-fax@{{.USERNAME}}.service || true
+      - sudo rm -f /etc/systemd/system/twitch-fax@{{.USERNAME}}.service
+      - sudo systemctl daemon-reload
+      - echo "アンインストール完了"
+
+  # サービスステータス確認
+  service:status:
+    desc: systemdサービスの状態を確認
+    vars:
+      USERNAME:
+        sh: echo ${1:-$USER}
+    cmds:
+      - sudo systemctl status twitch-fax@{{.USERNAME}}.service --no-pager
+
+  # サービスログ確認
+  service:logs:
+    desc: systemdサービスのログを表示
+    vars:
+      USERNAME:
+        sh: echo ${1:-$USER}
+    cmds:
+      - sudo journalctl -u twitch-fax@{{.USERNAME}}.service -f
