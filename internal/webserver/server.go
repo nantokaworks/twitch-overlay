@@ -567,8 +567,13 @@ func handleDebugClock(w http.ResponseWriter, r *http.Request) {
 	// Call PrintClock with options based on request
 	err = output.PrintClockWithOptions(timeStr, req.EmptyLeaderboard)
 	if err != nil {
-		logger.Error("Failed to print debug clock", zap.Error(err))
-		http.Error(w, "Failed to print clock", http.StatusInternalServerError)
+		logger.Error("Failed to print debug clock", 
+			zap.Error(err),
+			zap.String("time", timeStr),
+			zap.Bool("emptyLeaderboard", req.EmptyLeaderboard))
+		// Return more detailed error message
+		errorMsg := fmt.Sprintf("Failed to print clock: %v", err)
+		http.Error(w, errorMsg, http.StatusInternalServerError)
 		return
 	}
 

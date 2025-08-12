@@ -20,9 +20,12 @@ CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW
 # セキュリティ設定
 NoNewPrivileges=true
 PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=read-only
-ReadWritePaths=/home/%i/twitch-overlay/dist
+# システムファイルへの書き込みを制限しつつ、必要なディレクトリへのアクセスは許可
+ProtectSystem=false
+ProtectHome=false
+
+# 環境変数設定
+Environment="SERVER_PORT=3456"
 
 # 環境変数ファイル（オプション）
 EnvironmentFile=-/home/%i/twitch-overlay/dist/.env

@@ -61,9 +61,9 @@ func ConnectPrinter(c *catprinter.Client, address string) error {
 	// DRY-RUNモードでも実際のプリンターに接続
 	if env.Value.DryRunMode {
 		logger.Info("Connecting to printer in DRY-RUN mode", zap.String("address", address))
+	} else {
+		logger.Info("Connecting to printer", zap.String("address", address))
 	}
-
-	logger.Info("Connecting to printer", zap.String("address", address))
 	err := c.Connect(address)
 	if err != nil {
 		// エラーメッセージに"already exists"が含まれる場合は、プリンタークライアント全体を再作成
@@ -121,14 +121,36 @@ func SetupPrinterOptions(bestQuality, dither, autoRotate bool, blackPoint float3
 
 // Stop gracefully disconnects the printer and releases BLE device
 func Stop() {
+	// nilチェックとパニック対策
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Error("Recovered from panic in Stop()", zap.Any("panic", r))
+		}
+	}()
+	
 	if latestPrinter != nil {
 		if isConnected {
-			latestPrinter.Disconnect()
+			// Disconnectが失敗してもプロセスを続行
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						logger.Warn("Recovered from panic during Disconnect", zap.Any("panic", r))
+					}
+				}()
+				latestPrinter.Disconnect()
+			}()
 			isConnected = false
 			status.SetPrinterConnected(false)
 		}
 		// Stop()を呼ぶとBLEデバイスも解放される
-		latestPrinter.Stop()
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					logger.Warn("Recovered from panic during Stop", zap.Any("panic", r))
+				}
+			}()
+			latestPrinter.Stop()
+		}()
 		latestPrinter = nil
 		logger.Info("Printer client stopped and BLE device released")
 	}

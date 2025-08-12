@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/nantokaworks/twitch-overlay/internal/env"
 	"github.com/nantokaworks/twitch-overlay/internal/fontmanager"
 	"github.com/nantokaworks/twitch-overlay/internal/localdb"
 	"github.com/nantokaworks/twitch-overlay/internal/output"
@@ -94,15 +95,36 @@ func handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// 設定変更後にenv.Valueを再読み込み
+	if err := env.ReloadFromDatabase(); err != nil {
+		logger.Warn("Failed to reload env values from database", zap.Error(err))
+	}
+
 	// PRINTER_ADDRESSが変更された場合は再接続を試みる
 	if newAddress, hasPrinterAddress := req["PRINTER_ADDRESS"]; hasPrinterAddress && newAddress != "" {
 		logger.Info("Printer address changed, attempting reconnection", zap.String("new_address", newAddress))
 		
-		// 既存の接続を切断
-		output.Stop()
-		
-		// 新しいアドレスで再接続
+		// 新しいアドレスで再接続（goroutineで非同期実行）
 		go func() {
+			// パニックからの回復処理
+			defer func() {
+				if r := recover(); r != nil {
+					logger.Error("Panic during printer reconnection", 
+						zap.Any("panic", r),
+						zap.String("address", newAddress))
+				}
+			}()
+			
+			// 既存の接続を安全に切断
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						logger.Warn("Recovered from panic during printer stop", zap.Any("panic", r))
+					}
+				}()
+				output.Stop()
+			}()
+			
 			time.Sleep(500 * time.Millisecond) // 少し待機
 			
 			c, err := output.SetupPrinter()

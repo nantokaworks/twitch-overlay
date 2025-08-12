@@ -308,11 +308,19 @@ func ValidateSetting(key, value string) error {
 			return fmt.Errorf("must be integer between 10 and 3600 seconds")
 		}
 	case "PRINTER_ADDRESS":
-		// MACアドレスの形式チェック
+		// MACアドレスまたはmacOS UUID形式のチェック
 		if value != "" {
-			matched, _ := regexp.MatchString(`^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$`, value)
-			if !matched {
-				return fmt.Errorf("invalid MAC address format")
+			// 標準的なMACアドレス形式 (AA:BB:CC:DD:EE:FF or AA-BB-CC-DD-EE-FF)
+			macMatched, _ := regexp.MatchString(`^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$`, value)
+			
+			// macOS Core Bluetooth UUID形式 (32文字の16進数、ハイフンなし)
+			uuidMatched, _ := regexp.MatchString(`^[0-9A-Fa-f]{32}$`, value)
+			
+			// macOS UUID形式（ハイフンあり: 8-4-4-4-12）
+			uuidWithHyphenMatched, _ := regexp.MatchString(`^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$`, value)
+			
+			if !macMatched && !uuidMatched && !uuidWithHyphenMatched {
+				return fmt.Errorf("invalid address format (expected MAC address or UUID)")
 			}
 		}
 	case "TIMEZONE":

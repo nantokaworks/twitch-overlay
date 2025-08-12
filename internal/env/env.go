@@ -270,6 +270,11 @@ func getEnvOrDefault(key, defaultValue string) *string {
 	return &value
 }
 
+// ReloadFromDatabase reloads settings from database
+func ReloadFromDatabase() error {
+	return loadFromDatabase()
+}
+
 func stringPtr(s string) *string {
 	return &s
 }
