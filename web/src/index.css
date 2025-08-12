@@ -185,7 +185,7 @@ body {
   display: grid;
   grid-template-columns: auto auto;
   column-gap: 20px;
-  row-gap: 10px;
+  row-gap: 14px;
   align-items: center;
   color: #ffffff;
   white-space: nowrap;
