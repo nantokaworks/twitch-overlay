@@ -38,7 +38,7 @@ import (
 func getSystemDefaultFont() ([]byte, error) {
 	var fontPaths []string
 	var triedPaths []string
-	
+
 	switch runtime.GOOS {
 	case "darwin": // macOS
 		fontPaths = []string{
@@ -80,7 +80,7 @@ func getSystemDefaultFont() ([]byte, error) {
 			"/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
 		}
 	}
-	
+
 	// Try each font path
 	for _, path := range fontPaths {
 		triedPaths = append(triedPaths, path)
@@ -89,13 +89,13 @@ func getSystemDefaultFont() ([]byte, error) {
 			return data, nil
 		}
 	}
-	
+
 	// エラー時は試したパスを全て出力
-	logger.Error("No suitable font found on system", 
+	logger.Error("No suitable font found on system",
 		zap.Strings("tried_paths", triedPaths),
 		zap.String("os", runtime.GOOS),
 		zap.String("solution", "Please upload a custom font via the settings page or install system fonts"))
-	
+
 	return nil, fmt.Errorf("no suitable font found on system. Please either: 1) Upload a custom font via the settings page (/settings), or 2) Install system fonts (e.g., 'sudo apt-get install fonts-liberation fonts-dejavu' on Ubuntu/Debian)")
 }
 
@@ -119,7 +119,7 @@ const avatarSize = 100
 func rotateImage180(src image.Image) image.Image {
 	bounds := src.Bounds()
 	dst := image.NewRGBA(bounds)
-	
+
 	// Rotate 180 degrees by flipping both horizontally and vertically
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
@@ -129,7 +129,7 @@ func rotateImage180(src image.Image) image.Image {
 			dst.Set(newX, newY, src.At(x, y))
 		}
 	}
-	
+
 	return dst
 }
 
@@ -304,7 +304,7 @@ func MessageToImage(userName string, msg []twitch.ChatMessageFragment, useColor 
 		logger.Error("Failed to get font", zap.Error(err))
 		return nil, fmt.Errorf("フォントがアップロードされていません。設定ページ(/settings)からフォントファイル(TTF/OTF)をアップロードしてください")
 	}
-	
+
 	// 新しいフォントを作成（拡大文字）
 	f, err := opentype.Parse(fontData)
 	if err != nil {
@@ -592,12 +592,11 @@ func MessageToImage(userName string, msg []twitch.ChatMessageFragment, useColor 
 	return img, nil
 }
 
-
 // convertToGrayscaleWithDithering converts a color image to grayscale with optional dithering
 func convertToGrayscaleWithDithering(src image.Image) image.Image {
 	bounds := src.Bounds()
 	gray := image.NewGray(bounds)
-	
+
 	// First pass: Convert to grayscale with proper luminance weights
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
@@ -607,10 +606,10 @@ func convertToGrayscaleWithDithering(src image.Image) image.Image {
 			gray.SetGray(x, y, color.Gray{lum})
 		}
 	}
-	
+
 	// Use BLACK_POINT setting for threshold (0.0 to 1.0, default 0.5)
 	threshold := uint8(env.Value.BlackPoint * 255)
-	
+
 	// Second pass: Apply dithering or simple threshold based on DITHER setting
 	if env.Value.Dither {
 		// Apply Floyd-Steinberg dithering for better print quality
@@ -622,10 +621,10 @@ func convertToGrayscaleWithDithering(src image.Image) image.Image {
 					newPixel = 255
 				}
 				gray.SetGray(x, y, color.Gray{newPixel})
-			
+
 				// Calculate error
 				err := int(oldPixel) - int(newPixel)
-				
+
 				// Distribute error to neighboring pixels
 				if x+1 < bounds.Max.X {
 					c := gray.GrayAt(x+1, y).Y
@@ -658,7 +657,7 @@ func convertToGrayscaleWithDithering(src image.Image) image.Image {
 			}
 		}
 	}
-	
+
 	return gray
 }
 
@@ -680,17 +679,17 @@ func downloadAndResizeAvatarGray(url string, size int) (image.Image, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	
+
 	// Decode image
 	img, _, err := image.Decode(resp.Body)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Create resized image
 	resized := image.NewRGBA(image.Rect(0, 0, size, size))
 	xdraw.ApproxBiLinear.Scale(resized, resized.Bounds(), img, img.Bounds(), xdraw.Over, nil)
-	
+
 	// Convert to grayscale with dithering
 	return convertToGrayscaleWithDithering(resized), nil
 }
@@ -704,31 +703,31 @@ func GenerateTimeImageWithStats(timeStr string) (image.Image, error) {
 func GenerateTimeImageWithStatsOptions(timeStr string, forceEmptyLeaderboard bool) (image.Image, error) {
 	// Get bits leaders
 	monthLeaders := getBitsLeaders(forceEmptyLeaderboard)
-	
+
 	// Debug output
 	fmt.Printf("=== GenerateTimeImageWithStats Debug ===\n")
 	fmt.Printf("Time: %s\n", timeStr)
 	fmt.Printf("Monthly leaders count: %d\n", len(monthLeaders))
 	fmt.Printf("=====================================\n")
-	
+
 	// Also use logger to ensure output
 	logger.Info("GenerateTimeImageWithStats Debug",
 		zap.String("time", timeStr),
 		zap.Int("monthlyLeaders", len(monthLeaders)))
-	
+
 	// フォントマネージャーからフォントデータを取得（カスタムフォント必須）
 	fontData, err := fontmanager.GetFont(nil)
 	if err != nil {
 		logger.Error("Failed to get font", zap.Error(err))
 		return nil, fmt.Errorf("フォントがアップロードされていません。設定ページ(/settings)からフォントファイル(TTF/OTF)をアップロードしてください")
 	}
-	
+
 	// Load font
 	f, err := opentype.Parse(fontData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse font: %w", err)
 	}
-	
+
 	// Large font for time
 	timeFace, err := opentype.NewFace(f, &opentype.FaceOptions{
 		Size:    48,
@@ -739,7 +738,7 @@ func GenerateTimeImageWithStatsOptions(timeStr string, forceEmptyLeaderboard boo
 		return nil, fmt.Errorf("failed to create time font face: %w", err)
 	}
 	defer timeFace.Close()
-	
+
 	// Medium font for stats
 	statsFace, err := opentype.NewFace(f, &opentype.FaceOptions{
 		Size:    36,
@@ -750,7 +749,7 @@ func GenerateTimeImageWithStatsOptions(timeStr string, forceEmptyLeaderboard boo
 		return nil, fmt.Errorf("failed to create stats font face: %w", err)
 	}
 	defer statsFace.Close()
-	
+
 	// Small font for Bits count
 	smallFace, err := opentype.NewFace(f, &opentype.FaceOptions{
 		Size:    24,
@@ -761,7 +760,7 @@ func GenerateTimeImageWithStatsOptions(timeStr string, forceEmptyLeaderboard boo
 		return nil, fmt.Errorf("failed to create small font face: %w", err)
 	}
 	defer smallFace.Close()
-	
+
 	// Extra small font for long messages
 	xsmallFace, err := opentype.NewFace(f, &opentype.FaceOptions{
 		Size:    18,
@@ -772,21 +771,21 @@ func GenerateTimeImageWithStatsOptions(timeStr string, forceEmptyLeaderboard boo
 		return nil, fmt.Errorf("failed to create xsmall font face: %w", err)
 	}
 	defer xsmallFace.Close()
-	
+
 	// Calculate image height (matching color version)
 	padding := 20
 	lineSpacing := 10
 	baseHeight := padding*2 + 48 + 36 + 10 + 20
-	
+
 	// Add height for bits leaders
 	extraHeight := 0
 	// Always add height for leaderboard section header
 	// Separator + title
 	extraHeight += 20 + 24 + 10
-	
+
 	if len(monthLeaders) == 0 {
 		// Empty leaderboard - just add space for the message
-		extraHeight += 50 + 36 + 50 + 18 + 25 + 18 + 30  // Space + "まだ誰もいません" + 空行 + "最初のCheerを..." + 間隔 + "さいふ" + margin
+		extraHeight += 50 + 36 + 50 + 18 + 25 + 18 + 30 // Space + "まだ誰もいません" + 空行 + "最初のCheerを..." + 間隔 + "さいふ" + margin
 	} else {
 		// Normal leaderboard - show 5 places
 		// First place with avatar
@@ -796,60 +795,60 @@ func GenerateTimeImageWithStatsOptions(timeStr string, forceEmptyLeaderboard boo
 			extraHeight += 24 + 24 + lineSpacing
 		}
 	}
-	
+
 	height := baseHeight + extraHeight
-	
+
 	// Create image with white background
 	img := image.NewRGBA(image.Rect(0, 0, PaperWidth, height))
 	draw.Draw(img, img.Bounds(), &image.Uniform{color.White}, image.Point{}, draw.Src)
-	
+
 	// Draw top separator
 	drawHorizontalLine(img, 0, 0, 0, 1, color.Black)
-	
+
 	// Setup drawer
 	d := &font.Drawer{
 		Dst:  img,
 		Src:  image.Black,
 		Face: timeFace,
 	}
-	
+
 	// Draw time centered
 	drawCenteredText(d, timeStr, padding)
-	
+
 	// Draw date
 	yPos := padding + 48 + 10
 	now := time.Now()
 	dateStr := now.Format("2006/01/02")
 	d.Face = statsFace
 	drawCenteredText(d, dateStr, yPos)
-	
+
 	// Calculate starting position for content
 	yPos = baseHeight - 20
-	
+
 	// Always draw monthly bits leaders section
 	// Draw separator line with margins
 	yPos += 10
 	drawHorizontalLine(img, yPos, 20, 20, 2, color.Black)
-	yPos += 15  // Space after separator
-	
+	yPos += 15 // Space after separator
+
 	// Section title
 	d.Face = smallFace
 	titleStr := "今月のトップCheer"
 	drawCenteredText(d, titleStr, yPos)
-	yPos += 24 + 10  // Title height + space
-	
+	yPos += 24 + 10 // Title height + space
+
 	// Check if no leaders exist
 	if len(monthLeaders) == 0 {
 		// Show gentle message for empty leaderboard
-		yPos += 50  // Add some space
+		yPos += 50 // Add some space
 		d.Face = statsFace
 		d.Src = image.NewUniform(color.Gray{150})
 		drawCenteredText(d, "まだ誰もいません", yPos)
-		
-		yPos += 50  // Add empty line
+
+		yPos += 50 // Add empty line
 		d.Face = xsmallFace
 		drawCenteredText(d, "最初のCheerをお待ちしています！", yPos)
-		
+
 		yPos += 25
 		drawCenteredText(d, "収益の一部は「さいふ」に補填されます", yPos)
 	} else {
@@ -859,7 +858,7 @@ func GenerateTimeImageWithStatsOptions(timeStr string, forceEmptyLeaderboard boo
 				// First place with avatar
 				avatarLocalSize := 128
 				avatarDrawn := false
-				
+
 				if i < len(monthLeaders) && monthLeaders[i].AvatarURL != "" {
 					avatarImg, err := downloadAndResizeAvatarGray(monthLeaders[i].AvatarURL, avatarLocalSize)
 					if err == nil {
@@ -870,14 +869,14 @@ func GenerateTimeImageWithStatsOptions(timeStr string, forceEmptyLeaderboard boo
 						avatarDrawn = true
 					}
 				}
-				
+
 				// Leader name or placeholder
 				d.Face = statsFace
 				if !avatarDrawn {
-					yPos += avatarLocalSize  // Add space for missing avatar
+					yPos += avatarLocalSize // Add space for missing avatar
 				}
 				yPos += 10
-				
+
 				if i < len(monthLeaders) {
 					d.Src = image.Black
 					drawCenteredText(d, monthLeaders[i].UserName, yPos)
@@ -885,7 +884,7 @@ func GenerateTimeImageWithStatsOptions(timeStr string, forceEmptyLeaderboard boo
 					d.Src = image.NewUniform(color.Gray{200})
 					drawCenteredText(d, "---", yPos)
 				}
-				
+
 				// Bits count
 				yPos += 36
 				if i < len(monthLeaders) {
@@ -896,11 +895,11 @@ func GenerateTimeImageWithStatsOptions(timeStr string, forceEmptyLeaderboard boo
 					d.Src = image.NewUniform(color.Gray{200})
 					drawCenteredText(d, "--- Bits", yPos)
 				}
-				yPos += 36 + 10  // Bits height + line spacing
+				yPos += 36 + 10 // Bits height + line spacing
 			} else {
 				// 2nd-5th place
 				d.Face = smallFace
-				
+
 				if i < len(monthLeaders) {
 					d.Src = image.NewUniform(color.Gray{128})
 					placeStr := fmt.Sprintf("%d位 %s", i+1, monthLeaders[i].UserName)
@@ -910,7 +909,7 @@ func GenerateTimeImageWithStatsOptions(timeStr string, forceEmptyLeaderboard boo
 					placeStr := fmt.Sprintf("%d位 ---", i+1)
 					drawCenteredText(d, placeStr, yPos)
 				}
-				
+
 				// Bits count
 				yPos += 24
 				if i < len(monthLeaders) {
@@ -921,11 +920,11 @@ func GenerateTimeImageWithStatsOptions(timeStr string, forceEmptyLeaderboard boo
 					d.Src = image.NewUniform(color.Gray{200})
 					drawCenteredText(d, "--- Bits", yPos)
 				}
-				yPos += 24 + 10  // Bits height + line spacing
+				yPos += 24 + 10 // Bits height + line spacing
 			}
 		}
 	}
-	
+
 	// Draw bottom separator (dashed)
 	lineY := height - 10
 	for x := 10; x < PaperWidth-10; x += 4 {
@@ -933,7 +932,7 @@ func GenerateTimeImageWithStatsOptions(timeStr string, forceEmptyLeaderboard boo
 			img.Set(x, lineY+y, color.Black)
 		}
 	}
-	
+
 	return img, nil
 }
 
@@ -944,7 +943,7 @@ func getBitsLeaders(forceEmpty bool) (monthLeaders []*twitchapi.BitsLeaderboardE
 		fmt.Printf("Clock: Empty leaderboard test mode enabled\n")
 		return nil
 	}
-	
+
 	// Get monthly leaders from API
 	monthLeaders, apiResponse, err := twitchapi.GetBitsLeaderboard("month")
 	if err != nil {
@@ -967,17 +966,17 @@ func getBitsLeaders(forceEmpty bool) (monthLeaders []*twitchapi.BitsLeaderboardE
 					loc = time.UTC
 					fmt.Printf("Warning: Failed to load timezone %s, using UTC\n", env.Value.TimeZone)
 				}
-				
+
 				// 日付をローカルタイムゾーンに変換して表示
 				startLocal := startedAt.In(loc)
 				endLocal := endedAt.In(loc)
 				tzName, _ := startLocal.Zone()
-				
-				fmt.Printf("  期間: %s 〜 %s (%s)\n", 
+
+				fmt.Printf("  期間: %s 〜 %s (%s)\n",
 					startLocal.Format("2006年1月2日 15:04"),
 					endLocal.Format("2006年1月2日 15:04"),
 					tzName)
-				
+
 				// logger にも出力
 				logger.Info("Bits leaderboard date range",
 					zap.String("start", startLocal.Format("2006-01-02 15:04:05")),
@@ -986,7 +985,7 @@ func getBitsLeaders(forceEmpty bool) (monthLeaders []*twitchapi.BitsLeaderboardE
 			}
 		}
 	}
-	
+
 	if len(monthLeaders) == 0 {
 		fmt.Printf("No monthly bits leaders found\n")
 	} else {
@@ -995,7 +994,7 @@ func getBitsLeaders(forceEmpty bool) (monthLeaders []*twitchapi.BitsLeaderboardE
 			fmt.Printf("  #%d: %s with %d bits (avatar: %v)\n", i+1, leader.UserName, leader.Score, leader.AvatarURL != "")
 		}
 	}
-	
+
 	return monthLeaders
 }
 
@@ -1007,20 +1006,19 @@ func downloadAndResizeAvatarColor(url string, size int) (image.Image, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	
+
 	// Decode image
 	img, _, err := image.Decode(resp.Body)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Create resized image
 	resized := image.NewRGBA(image.Rect(0, 0, size, size))
 	xdraw.CatmullRom.Scale(resized, resized.Bounds(), img, img.Bounds(), xdraw.Over, nil)
-	
+
 	return resized, nil
 }
-
 
 // GenerateTimeImageSimple creates a simple monochrome image with date and time
 func GenerateTimeImageSimple(timeStr string) (image.Image, error) {
@@ -1030,13 +1028,13 @@ func GenerateTimeImageSimple(timeStr string) (image.Image, error) {
 		logger.Error("Failed to get font", zap.Error(err))
 		return nil, fmt.Errorf("フォントがアップロードされていません。設定ページ(/settings)からフォントファイル(TTF/OTF)をアップロードしてください")
 	}
-	
+
 	// Load font
 	parsedFont, err := opentype.Parse(fontData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse font: %w", err)
 	}
-	
+
 	// Create font face for date/time (smaller than stats version)
 	timeFace, err := opentype.NewFace(parsedFont, &opentype.FaceOptions{
 		Size: 60,
@@ -1045,25 +1043,25 @@ func GenerateTimeImageSimple(timeStr string) (image.Image, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create time font face: %w", err)
 	}
-	
+
 	// Calculate image height (enough for date and time)
 	img := image.NewGray(image.Rect(0, 0, PaperWidth, 200))
-	
+
 	// Fill with white
 	draw.Draw(img, img.Bounds(), image.White, image.Point{}, draw.Src)
-	
+
 	// Draw date and time
 	d := &font.Drawer{
 		Dst:  img,
 		Src:  image.Black,
 		Face: timeFace,
 	}
-	
+
 	// Split date and time
 	now := time.Now()
 	dateStr := now.Format("2006/01/02")
 	timeStr = now.Format("15:04")
-	
+
 	// Draw date
 	bounds, _ := d.BoundString(dateStr)
 	dateWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
@@ -1072,7 +1070,7 @@ func GenerateTimeImageSimple(timeStr string) (image.Image, error) {
 		Y: fixed.I(60),
 	}
 	d.DrawString(dateStr)
-	
+
 	// Draw time
 	bounds, _ = d.BoundString(timeStr)
 	timeWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
@@ -1081,7 +1079,7 @@ func GenerateTimeImageSimple(timeStr string) (image.Image, error) {
 		Y: fixed.I(130),
 	}
 	d.DrawString(timeStr)
-	
+
 	return img, nil
 }
 
@@ -1094,26 +1092,26 @@ func GenerateTimeImageWithStatsColor(timeStr string) (image.Image, error) {
 func GenerateTimeImageWithStatsColorOptions(timeStr string, forceEmptyLeaderboard bool) (image.Image, error) {
 	// Get bits leaders
 	monthLeaders := getBitsLeaders(forceEmptyLeaderboard)
-	
+
 	// Debug output
 	fmt.Printf("=== GenerateTimeImageWithStatsColor Debug ===\n")
 	fmt.Printf("Time: %s\n", timeStr)
 	fmt.Printf("Monthly leaders count: %d\n", len(monthLeaders))
 	fmt.Printf("==========================================\n")
-	
+
 	// フォントマネージャーからフォントデータを取得（カスタムフォント必須）
 	fontData, err := fontmanager.GetFont(nil)
 	if err != nil {
 		logger.Error("Failed to get font", zap.Error(err))
 		return nil, fmt.Errorf("フォントがアップロードされていません。設定ページ(/settings)からフォントファイル(TTF/OTF)をアップロードしてください")
 	}
-	
+
 	// Load font
 	f, err := opentype.Parse(fontData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse font: %w", err)
 	}
-	
+
 	// Large font for time
 	timeFace, err := opentype.NewFace(f, &opentype.FaceOptions{
 		Size:    48,
@@ -1124,7 +1122,7 @@ func GenerateTimeImageWithStatsColorOptions(timeStr string, forceEmptyLeaderboar
 		return nil, fmt.Errorf("failed to create time font face: %w", err)
 	}
 	defer timeFace.Close()
-	
+
 	// Medium font for stats
 	statsFace, err := opentype.NewFace(f, &opentype.FaceOptions{
 		Size:    36,
@@ -1135,21 +1133,21 @@ func GenerateTimeImageWithStatsColorOptions(timeStr string, forceEmptyLeaderboar
 		return nil, fmt.Errorf("failed to create stats font face: %w", err)
 	}
 	defer statsFace.Close()
-	
+
 	// Calculate image height based on content
 	padding := 20
 	lineSpacing := 10
 	baseHeight := padding*2 + 48 + 36 + 10 + 20
-	
+
 	// Add height for bits leaders
 	extraHeight := 0
 	// Always add height for leaderboard section header
 	// Separator + title
 	extraHeight += 20 + 24 + 10
-	
+
 	if len(monthLeaders) == 0 {
 		// Empty leaderboard - just add space for the message
-		extraHeight += 50 + 36 + 50 + 18 + 25 + 18 + 30  // Space + "まだ誰もいません" + 空行 + "最初のCheerを..." + 間隔 + "さいふ" + margin
+		extraHeight += 50 + 36 + 50 + 18 + 25 + 18 + 30 // Space + "まだ誰もいません" + 空行 + "最初のCheerを..." + 間隔 + "さいふ" + margin
 	} else {
 		// Normal leaderboard - show 5 places
 		// First place with avatar
@@ -1159,20 +1157,20 @@ func GenerateTimeImageWithStatsColorOptions(timeStr string, forceEmptyLeaderboar
 			extraHeight += 24 + 24 + lineSpacing
 		}
 	}
-	
+
 	imgHeight := baseHeight + extraHeight
 	img := image.NewRGBA(image.Rect(0, 0, PaperWidth, imgHeight))
-	
+
 	// Fill with white background
 	draw.Draw(img, img.Bounds(), &image.Uniform{color.White}, image.Point{}, draw.Src)
-	
+
 	// Draw time centered in black
 	d := &font.Drawer{
 		Face: timeFace,
 		Dst:  img,
 		Src:  image.Black,
 	}
-	
+
 	bounds, _ := d.BoundString(timeStr)
 	timeWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
 	d.Dot = fixed.Point26_6{
@@ -1180,7 +1178,7 @@ func GenerateTimeImageWithStatsColorOptions(timeStr string, forceEmptyLeaderboar
 		Y: fixed.I(padding) + timeFace.Metrics().Ascent,
 	}
 	d.DrawString(timeStr)
-	
+
 	// Draw date with smaller font in black
 	d.Face = statsFace
 	d.Src = image.Black
@@ -1189,16 +1187,16 @@ func GenerateTimeImageWithStatsColorOptions(timeStr string, forceEmptyLeaderboar
 	dateWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
 	d.Dot = fixed.Point26_6{
 		X: fixed.I((PaperWidth - dateWidth) / 2),
-		Y: fixed.I(padding + 48 + 10) + statsFace.Metrics().Ascent,
+		Y: fixed.I(padding+48+10) + statsFace.Metrics().Ascent,
 	}
 	d.DrawString(dateStr)
-	
+
 	// Always draw bits leaders section
-	yPos := padding + 48 + 10 + 36 + 10  // padding + time + space + date + space
+	yPos := padding + 48 + 10 + 36 + 10 // padding + time + space + date + space
 	// Draw separator line in black
 	yPos += 10
 	drawHorizontalLine(img, yPos, 20, 20, 2, color.Black)
-	
+
 	// Small font for leader sections
 	smallFace, err := opentype.NewFace(f, &opentype.FaceOptions{
 		Size:    24,
@@ -1207,7 +1205,7 @@ func GenerateTimeImageWithStatsColorOptions(timeStr string, forceEmptyLeaderboar
 	})
 	if err == nil {
 		defer smallFace.Close()
-		
+
 		// Extra small font for long messages
 		xsmallFace, err := opentype.NewFace(f, &opentype.FaceOptions{
 			Size:    18,
@@ -1217,11 +1215,11 @@ func GenerateTimeImageWithStatsColorOptions(timeStr string, forceEmptyLeaderboar
 		if err == nil {
 			defer xsmallFace.Close()
 		}
-		
+
 		d.Face = smallFace
-		
+
 		// Monthly leaders
-		yPos += 15  // Space after separator
+		yPos += 15 // Space after separator
 		titleText := "今月のトップCheer"
 		d.Src = image.Black
 		bounds, _ = d.BoundString(titleText)
@@ -1231,12 +1229,12 @@ func GenerateTimeImageWithStatsColorOptions(timeStr string, forceEmptyLeaderboar
 			Y: fixed.I(yPos) + smallFace.Metrics().Ascent,
 		}
 		d.DrawString(titleText)
-		yPos += 24 + 10  // Title height + space
-		
+		yPos += 24 + 10 // Title height + space
+
 		// Check if no leaders exist
 		if len(monthLeaders) == 0 {
 			// Show gentle message for empty leaderboard
-			yPos += 50  // Add some space
+			yPos += 50 // Add some space
 			d.Face = statsFace
 			d.Src = image.NewUniform(color.RGBA{150, 150, 150, 255})
 			messageText := "まだ誰もいません"
@@ -1247,8 +1245,8 @@ func GenerateTimeImageWithStatsColorOptions(timeStr string, forceEmptyLeaderboar
 				Y: fixed.I(yPos) + statsFace.Metrics().Ascent,
 			}
 			d.DrawString(messageText)
-			
-			yPos += 50  // Add empty line
+
+			yPos += 50 // Add empty line
 			if xsmallFace != nil {
 				d.Face = xsmallFace
 			} else {
@@ -1262,7 +1260,7 @@ func GenerateTimeImageWithStatsColorOptions(timeStr string, forceEmptyLeaderboar
 				Y: fixed.I(yPos) + d.Face.Metrics().Ascent,
 			}
 			d.DrawString(waitText)
-			
+
 			yPos += 25
 			saifuText := "収益の一部は「さいふ」に補填されます"
 			bounds, _ = d.BoundString(saifuText)
@@ -1275,131 +1273,131 @@ func GenerateTimeImageWithStatsColorOptions(timeStr string, forceEmptyLeaderboar
 		} else {
 			// Draw 5 places (with or without data)
 			for i := 0; i < 5; i++ {
-					
-			if i == 0 {
-				// First place - with avatar and larger font
-				avatarSize := 128
-				avatarDrawn := false
-				
-				if i < len(monthLeaders) && monthLeaders[i].AvatarURL != "" {
-					avatarImg, err := downloadAndResizeAvatarColor(monthLeaders[i].AvatarURL, avatarSize)
-					if err == nil {
-						avatarX := (PaperWidth - avatarSize) / 2
-						draw.Draw(img, image.Rect(avatarX, yPos, avatarX+avatarSize, yPos+avatarSize),
-							avatarImg, image.Point{}, draw.Over)
-						yPos += avatarSize
-						avatarDrawn = true
+
+				if i == 0 {
+					// First place - with avatar and larger font
+					avatarSize := 128
+					avatarDrawn := false
+
+					if i < len(monthLeaders) && monthLeaders[i].AvatarURL != "" {
+						avatarImg, err := downloadAndResizeAvatarColor(monthLeaders[i].AvatarURL, avatarSize)
+						if err == nil {
+							avatarX := (PaperWidth - avatarSize) / 2
+							draw.Draw(img, image.Rect(avatarX, yPos, avatarX+avatarSize, yPos+avatarSize),
+								avatarImg, image.Point{}, draw.Over)
+							yPos += avatarSize
+							avatarDrawn = true
+						}
 					}
-				}
-				
-				// Leader name or placeholder
-				d.Face = statsFace
-				if !avatarDrawn {
-					yPos += avatarSize  // Add space for missing avatar
-				}
-				yPos += 10
-				
-				if i < len(monthLeaders) {
-					d.Src = image.Black
-					leaderText := monthLeaders[i].UserName
-					bounds, _ = d.BoundString(leaderText)
-					leaderWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
-					d.Dot = fixed.Point26_6{
-						X: fixed.I((PaperWidth - leaderWidth) / 2),
-						Y: fixed.I(yPos) + statsFace.Metrics().Ascent,
+
+					// Leader name or placeholder
+					d.Face = statsFace
+					if !avatarDrawn {
+						yPos += avatarSize // Add space for missing avatar
 					}
-					d.DrawString(leaderText)
+					yPos += 10
+
+					if i < len(monthLeaders) {
+						d.Src = image.Black
+						leaderText := monthLeaders[i].UserName
+						bounds, _ = d.BoundString(leaderText)
+						leaderWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
+						d.Dot = fixed.Point26_6{
+							X: fixed.I((PaperWidth - leaderWidth) / 2),
+							Y: fixed.I(yPos) + statsFace.Metrics().Ascent,
+						}
+						d.DrawString(leaderText)
+					} else {
+						d.Src = image.NewUniform(color.RGBA{200, 200, 200, 255})
+						leaderText := "---"
+						bounds, _ = d.BoundString(leaderText)
+						leaderWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
+						d.Dot = fixed.Point26_6{
+							X: fixed.I((PaperWidth - leaderWidth) / 2),
+							Y: fixed.I(yPos) + statsFace.Metrics().Ascent,
+						}
+						d.DrawString(leaderText)
+					}
+
+					// Bits count
+					yPos += 36
+					if i < len(monthLeaders) {
+						bitsText := fmt.Sprintf("%d Bits", monthLeaders[i].Score)
+						d.Src = image.Black
+						bounds, _ = d.BoundString(bitsText)
+						bitsWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
+						d.Dot = fixed.Point26_6{
+							X: fixed.I((PaperWidth - bitsWidth) / 2),
+							Y: fixed.I(yPos) + statsFace.Metrics().Ascent,
+						}
+						d.DrawString(bitsText)
+					} else {
+						d.Src = image.NewUniform(color.RGBA{200, 200, 200, 255})
+						bitsText := "--- Bits"
+						bounds, _ = d.BoundString(bitsText)
+						bitsWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
+						d.Dot = fixed.Point26_6{
+							X: fixed.I((PaperWidth - bitsWidth) / 2),
+							Y: fixed.I(yPos) + statsFace.Metrics().Ascent,
+						}
+						d.DrawString(bitsText)
+					}
+					yPos += 36 + lineSpacing
 				} else {
-					d.Src = image.NewUniform(color.RGBA{200, 200, 200, 255})
-					leaderText := "---"
-					bounds, _ = d.BoundString(leaderText)
-					leaderWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
-					d.Dot = fixed.Point26_6{
-						X: fixed.I((PaperWidth - leaderWidth) / 2),
-						Y: fixed.I(yPos) + statsFace.Metrics().Ascent,
+					// 2nd-5th place - smaller font, no avatar
+					d.Face = smallFace
+
+					if i < len(monthLeaders) {
+						d.Src = image.NewUniform(color.RGBA{100, 100, 100, 255})
+						placeText := fmt.Sprintf("%d位 %s", i+1, monthLeaders[i].UserName)
+						bounds, _ = d.BoundString(placeText)
+						placeWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
+						d.Dot = fixed.Point26_6{
+							X: fixed.I((PaperWidth - placeWidth) / 2),
+							Y: fixed.I(yPos) + smallFace.Metrics().Ascent,
+						}
+						d.DrawString(placeText)
+					} else {
+						d.Src = image.NewUniform(color.RGBA{200, 200, 200, 255})
+						placeText := fmt.Sprintf("%d位 ---", i+1)
+						bounds, _ = d.BoundString(placeText)
+						placeWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
+						d.Dot = fixed.Point26_6{
+							X: fixed.I((PaperWidth - placeWidth) / 2),
+							Y: fixed.I(yPos) + smallFace.Metrics().Ascent,
+						}
+						d.DrawString(placeText)
 					}
-					d.DrawString(leaderText)
+
+					// Bits count
+					yPos += 24
+					if i < len(monthLeaders) {
+						bitsText := fmt.Sprintf("%d Bits", monthLeaders[i].Score)
+						d.Src = image.NewUniform(color.RGBA{100, 100, 100, 255})
+						bounds, _ = d.BoundString(bitsText)
+						bitsWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
+						d.Dot = fixed.Point26_6{
+							X: fixed.I((PaperWidth - bitsWidth) / 2),
+							Y: fixed.I(yPos) + smallFace.Metrics().Ascent,
+						}
+						d.DrawString(bitsText)
+					} else {
+						d.Src = image.NewUniform(color.RGBA{200, 200, 200, 255})
+						bitsText := "--- Bits"
+						bounds, _ = d.BoundString(bitsText)
+						bitsWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
+						d.Dot = fixed.Point26_6{
+							X: fixed.I((PaperWidth - bitsWidth) / 2),
+							Y: fixed.I(yPos) + smallFace.Metrics().Ascent,
+						}
+						d.DrawString(bitsText)
+					}
+					yPos += 24 + lineSpacing
 				}
-				
-				// Bits count
-				yPos += 36
-				if i < len(monthLeaders) {
-					bitsText := fmt.Sprintf("%d Bits", monthLeaders[i].Score)
-					d.Src = image.Black
-					bounds, _ = d.BoundString(bitsText)
-					bitsWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
-					d.Dot = fixed.Point26_6{
-						X: fixed.I((PaperWidth - bitsWidth) / 2),
-						Y: fixed.I(yPos) + statsFace.Metrics().Ascent,
-					}
-					d.DrawString(bitsText)
-				} else {
-					d.Src = image.NewUniform(color.RGBA{200, 200, 200, 255})
-					bitsText := "--- Bits"
-					bounds, _ = d.BoundString(bitsText)
-					bitsWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
-					d.Dot = fixed.Point26_6{
-						X: fixed.I((PaperWidth - bitsWidth) / 2),
-						Y: fixed.I(yPos) + statsFace.Metrics().Ascent,
-					}
-					d.DrawString(bitsText)
-				}
-				yPos += 36 + lineSpacing
-			} else {
-				// 2nd-5th place - smaller font, no avatar
-				d.Face = smallFace
-				
-				if i < len(monthLeaders) {
-					d.Src = image.NewUniform(color.RGBA{100, 100, 100, 255})
-					placeText := fmt.Sprintf("%d位 %s", i+1, monthLeaders[i].UserName)
-					bounds, _ = d.BoundString(placeText)
-					placeWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
-					d.Dot = fixed.Point26_6{
-						X: fixed.I((PaperWidth - placeWidth) / 2),
-						Y: fixed.I(yPos) + smallFace.Metrics().Ascent,
-					}
-					d.DrawString(placeText)
-				} else {
-					d.Src = image.NewUniform(color.RGBA{200, 200, 200, 255})
-					placeText := fmt.Sprintf("%d位 ---", i+1)
-					bounds, _ = d.BoundString(placeText)
-					placeWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
-					d.Dot = fixed.Point26_6{
-						X: fixed.I((PaperWidth - placeWidth) / 2),
-						Y: fixed.I(yPos) + smallFace.Metrics().Ascent,
-					}
-					d.DrawString(placeText)
-				}
-				
-				// Bits count
-				yPos += 24
-				if i < len(monthLeaders) {
-					bitsText := fmt.Sprintf("%d Bits", monthLeaders[i].Score)
-					d.Src = image.NewUniform(color.RGBA{100, 100, 100, 255})
-					bounds, _ = d.BoundString(bitsText)
-					bitsWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
-					d.Dot = fixed.Point26_6{
-						X: fixed.I((PaperWidth - bitsWidth) / 2),
-						Y: fixed.I(yPos) + smallFace.Metrics().Ascent,
-					}
-					d.DrawString(bitsText)
-				} else {
-					d.Src = image.NewUniform(color.RGBA{200, 200, 200, 255})
-					bitsText := "--- Bits"
-					bounds, _ = d.BoundString(bitsText)
-					bitsWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
-					d.Dot = fixed.Point26_6{
-						X: fixed.I((PaperWidth - bitsWidth) / 2),
-						Y: fixed.I(yPos) + smallFace.Metrics().Ascent,
-					}
-					d.DrawString(bitsText)
-				}
-				yPos += 24 + lineSpacing
 			}
 		}
-		}
 	}
-	
+
 	// Draw decorative line
 	lineY := imgHeight - 10
 	for x := 10; x < PaperWidth-10; x += 4 {
@@ -1407,7 +1405,7 @@ func GenerateTimeImageWithStatsColorOptions(timeStr string, forceEmptyLeaderboar
 			img.Set(x, lineY+y, color.Black)
 		}
 	}
-	
+
 	return img, nil
 }
 
@@ -1418,14 +1416,243 @@ func GeneratePreviewImage(userName string, msg []twitch.ChatMessageFragment) (st
 	if err != nil {
 		return "", err
 	}
-	
+
 	// Convert to PNG
 	var buf bytes.Buffer
 	if err := png.Encode(&buf, img); err != nil {
 		return "", err
 	}
-	
+
 	// Encode to base64
 	encoded := base64.StdEncoding.EncodeToString(buf.Bytes())
 	return "data:image/png;base64," + encoded, nil
+}
+
+// wrapText wraps a single text string to fit within maxWidth
+func wrapText(text string, face font.Face, maxWidth int) []string {
+	if text == "" {
+		return []string{}
+	}
+
+	d := &font.Drawer{Face: face}
+
+	// まず全体の幅をチェック
+	bounds, _ := d.BoundString(text)
+	textWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
+
+	// 幅に収まる場合はそのまま返す
+	if textWidth <= maxWidth {
+		return []string{text}
+	}
+
+	// 文字単位で分割して折り返し（実際の文字列幅で判定）
+	var lines []string
+	var currentLine string
+
+	for _, r := range text {
+		testLine := currentLine + string(r)
+		bounds, _ := d.BoundString(testLine)
+		lineWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
+
+		if lineWidth > maxWidth && currentLine != "" {
+			// 現在の行を確定して新しい行を開始
+			lines = append(lines, currentLine)
+			currentLine = string(r)
+		} else {
+			// 文字を現在の行に追加
+			currentLine = testLine
+		}
+	}
+
+	// 最後の行を追加
+	if currentLine != "" {
+		lines = append(lines, currentLine)
+	}
+
+	return lines
+}
+
+// MessageToImageWithTitle creates an image with title and details layout
+func MessageToImageWithTitle(title, userName, extra, details string, useColor bool) (image.Image, error) {
+	// フォントマネージャーからフォントデータを取得（カスタムフォント必須）
+	fontData, err := fontmanager.GetFont(nil)
+	if err != nil {
+		logger.Error("Failed to get font", zap.Error(err))
+		return nil, fmt.Errorf("フォントがアップロードされていません。設定ページ(/settings)からフォントファイル(TTF/OTF)をアップロードしてください")
+	}
+
+	// フォントを作成
+	f, err := opentype.Parse(fontData)
+	if err != nil {
+		return nil, err
+	}
+
+	// 統一フォント（32px）
+	face, err := opentype.NewFace(f, &opentype.FaceOptions{
+		Size:    32,
+		DPI:     72,
+		Hinting: font.HintingFull,
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer face.Close()
+
+	// テキストを改行処理して高さを動的計算
+	padding := 20
+	lineHeight := int(face.Metrics().Height >> 6)
+	spacing := 15
+
+	// 各テキストを改行処理（余裕を持たせて幅を少し小さくする）
+	textWidth := PaperWidth - 20
+	var titleLines, userLines, extraLines, detailLines []string
+
+	if title != "" {
+		titleLines = wrapText(title, face, textWidth)
+	}
+	if userName != "" {
+		userLines = wrapText(userName, face, textWidth)
+	}
+	if extra != "" {
+		extraLines = wrapText(extra, face, textWidth)
+	}
+	if details != "" {
+		detailLines = wrapText(details, face, textWidth)
+	}
+
+	// 動的な高さ計算
+	imgHeight := padding * 2
+	hasContent := false
+
+	if len(titleLines) > 0 {
+		imgHeight += len(titleLines) * lineHeight
+		hasContent = true
+	}
+	if len(userLines) > 0 {
+		if hasContent {
+			imgHeight += spacing
+		}
+		imgHeight += len(userLines) * lineHeight
+		hasContent = true
+	}
+	if len(extraLines) > 0 {
+		if hasContent {
+			imgHeight += spacing
+		}
+		imgHeight += len(extraLines) * lineHeight
+		hasContent = true
+	}
+	if len(detailLines) > 0 {
+		if hasContent {
+			imgHeight += spacing
+		}
+		imgHeight += len(detailLines) * lineHeight
+	}
+	imgHeight += UnderlineMargin + UnderlineHeight + 20 // 下端の余白
+
+	// 背景色を決定
+	var bgColor color.Color
+	if useColor {
+		bgColor = color.White
+	} else {
+		bgColor = color.White
+	}
+
+	// 画像を作成
+	img := image.NewRGBA(image.Rect(0, 0, PaperWidth, imgHeight))
+	draw.Draw(img, img.Bounds(), &image.Uniform{bgColor}, image.Point{}, draw.Src)
+
+	// ドロワーを作成
+	d := &font.Drawer{
+		Dst:  img,
+		Face: face,
+		Src:  image.Black, // 常に黒色
+	}
+
+	yPos := padding
+
+	// タイトルを描画（中央揃え、複数行対応）
+	for _, line := range titleLines {
+		bounds, _ := d.BoundString(line)
+		lineWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
+
+		d.Dot = fixed.Point26_6{
+			X: fixed.I((PaperWidth - lineWidth) / 2),
+			Y: fixed.I(yPos) + face.Metrics().Ascent,
+		}
+		d.DrawString(line)
+		yPos += lineHeight
+	}
+	if len(titleLines) > 0 && (len(userLines) > 0 || len(detailLines) > 0) {
+		yPos += spacing
+	}
+
+	// ユーザー名を描画（中央揃え、複数行対応）
+	for _, line := range userLines {
+		bounds, _ := d.BoundString(line)
+		lineWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
+
+		d.Dot = fixed.Point26_6{
+			X: fixed.I((PaperWidth - lineWidth) / 2),
+			Y: fixed.I(yPos) + face.Metrics().Ascent,
+		}
+		d.DrawString(line)
+		yPos += lineHeight
+	}
+	if len(userLines) > 0 && (len(extraLines) > 0 || len(detailLines) > 0) {
+		yPos += spacing
+	}
+
+	// extra を描画（中央揃え、複数行対応）
+	for _, line := range extraLines {
+		bounds, _ := d.BoundString(line)
+		lineWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
+
+		d.Dot = fixed.Point26_6{
+			X: fixed.I((PaperWidth - lineWidth) / 2),
+			Y: fixed.I(yPos) + face.Metrics().Ascent,
+		}
+		d.DrawString(line)
+		yPos += lineHeight
+	}
+	if len(extraLines) > 0 && len(detailLines) > 0 {
+		yPos += spacing
+	}
+
+	// 詳細を描画（中央揃え、複数行対応）
+	for _, line := range detailLines {
+		bounds, _ := d.BoundString(line)
+		lineWidth := bounds.Max.X.Round() - bounds.Min.X.Round()
+
+		d.Dot = fixed.Point26_6{
+			X: fixed.I((PaperWidth - lineWidth) / 2),
+			Y: fixed.I(yPos) + face.Metrics().Ascent,
+		}
+		d.DrawString(line)
+		yPos += lineHeight
+	}
+
+	// 下端の線を描画
+	underlineY := imgHeight - UnderlineHeight - 10
+	if UnderlineDashed {
+		for x0 := 0; x0 < PaperWidth; x0 += UnderlineDashLength + UnderlineDashGap {
+			end := x0 + UnderlineDashLength
+			if end > PaperWidth {
+				end = PaperWidth
+			}
+			for y := 0; y < UnderlineHeight; y++ {
+				for x := x0; x < end; x++ {
+					img.Set(x, underlineY+y, color.Black)
+				}
+			}
+		}
+	} else {
+		for y := 0; y < UnderlineHeight; y++ {
+			for x := 0; x < PaperWidth; x++ {
+				img.Set(x, underlineY+y, color.Black)
+			}
+		}
+	}
+
+	return img, nil
 }

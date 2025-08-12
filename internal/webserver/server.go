@@ -19,6 +19,7 @@ import (
 	"github.com/nantokaworks/twitch-fax/internal/output"
 	"github.com/nantokaworks/twitch-fax/internal/shared/logger"
 	"github.com/nantokaworks/twitch-fax/internal/status"
+	"github.com/nantokaworks/twitch-fax/internal/twitcheventsub"
 	"github.com/nantokaworks/twitch-fax/internal/twitchtoken"
 	"go.uber.org/zap"
 )
@@ -118,6 +119,15 @@ func StartWebServer(port int) {
 	mux.HandleFunc("/debug/fax", handleDebugFax)
 	mux.HandleFunc("/debug/channel-points", handleDebugChannelPoints)
 	mux.HandleFunc("/debug/clock", handleDebugClock)
+	mux.HandleFunc("/debug/follow", handleDebugFollow)
+	mux.HandleFunc("/debug/cheer", handleDebugCheer)
+	mux.HandleFunc("/debug/subscribe", handleDebugSubscribe)
+	mux.HandleFunc("/debug/gift-sub", handleDebugGiftSub)
+	mux.HandleFunc("/debug/resub", handleDebugResub)
+	mux.HandleFunc("/debug/raid", handleDebugRaid)
+	mux.HandleFunc("/debug/shoutout", handleDebugShoutout)
+	mux.HandleFunc("/debug/stream-online", handleDebugStreamOnline)
+	mux.HandleFunc("/debug/stream-offline", handleDebugStreamOffline)
 
 	// OAuth endpoints
 	mux.HandleFunc("/auth", handleAuth)
@@ -569,6 +579,383 @@ func handleDebugClock(w http.ResponseWriter, r *http.Request) {
 		"message": fmt.Sprintf("Clock printed at %s with leaderboard stats", timeStr),
 		"time":    timeStr,
 	})
+}
+
+// handleDebugFollow handles debug follow event
+func handleDebugFollow(w http.ResponseWriter, r *http.Request) {
+	// CORS headers
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Username string `json:"username"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	if req.Username == "" {
+		req.Username = "DebugUser"
+	}
+
+	// Call the same handler as real follow events
+	twitcheventsub.HandleChannelFollow(twitch.EventChannelFollow{
+		User: twitch.User{
+			UserID:    "debug-" + req.Username,
+			UserLogin: strings.ToLower(req.Username),
+			UserName:  req.Username,
+		},
+		FollowedAt: time.Now(),
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+// handleDebugCheer handles debug cheer event
+func handleDebugCheer(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Username string `json:"username"`
+		Bits     int    `json:"bits"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	if req.Username == "" {
+		req.Username = "DebugUser"
+	}
+	if req.Bits == 0 {
+		req.Bits = 100
+	}
+
+	twitcheventsub.HandleChannelCheer(twitch.EventChannelCheer{
+		User: twitch.User{
+			UserID:    "debug-" + req.Username,
+			UserLogin: strings.ToLower(req.Username),
+			UserName:  req.Username,
+		},
+		Bits: req.Bits,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+// handleDebugSubscribe handles debug subscribe event
+func handleDebugSubscribe(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Username string `json:"username"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	if req.Username == "" {
+		req.Username = "DebugUser"
+	}
+
+	twitcheventsub.HandleChannelSubscribe(twitch.EventChannelSubscribe{
+		User: twitch.User{
+			UserID:    "debug-" + req.Username,
+			UserLogin: strings.ToLower(req.Username),
+			UserName:  req.Username,
+		},
+		Tier:   "1000",
+		IsGift: false,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+// handleDebugGiftSub handles debug gift sub event
+func handleDebugGiftSub(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Username    string `json:"username"`
+		IsAnonymous bool   `json:"isAnonymous"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	if req.Username == "" {
+		req.Username = "DebugUser"
+	}
+
+	twitcheventsub.HandleChannelSubscriptionGift(twitch.EventChannelSubscriptionGift{
+		User: twitch.User{
+			UserID:    "debug-" + req.Username,
+			UserLogin: strings.ToLower(req.Username),
+			UserName:  req.Username,
+		},
+		Total:       1,
+		Tier:        "1000",
+		IsAnonymous: req.IsAnonymous,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+// handleDebugResub handles debug resub event
+func handleDebugResub(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Username         string `json:"username"`
+		CumulativeMonths int    `json:"cumulativeMonths"`
+		Message          string `json:"message"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	if req.Username == "" {
+		req.Username = "DebugUser"
+	}
+	if req.CumulativeMonths == 0 {
+		req.CumulativeMonths = 3
+	}
+	if req.Message == "" {
+		req.Message = "デバッグ再サブスクメッセージ"
+	}
+
+	twitcheventsub.HandleChannelSubscriptionMessage(twitch.EventChannelSubscriptionMessage{
+		User: twitch.User{
+			UserID:    "debug-" + req.Username,
+			UserLogin: strings.ToLower(req.Username),
+			UserName:  req.Username,
+		},
+		Tier:             "1000",
+		Message:          twitch.Message{Text: req.Message},
+		CumulativeMonths: req.CumulativeMonths,
+		StreakMonths:     req.CumulativeMonths,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+// handleDebugRaid handles debug raid event
+func handleDebugRaid(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		FromBroadcaster string `json:"fromBroadcaster"`
+		Viewers         int    `json:"viewers"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	if req.FromBroadcaster == "" {
+		req.FromBroadcaster = "DebugRaider"
+	}
+	if req.Viewers == 0 {
+		req.Viewers = 10
+	}
+
+	twitcheventsub.HandleChannelRaid(twitch.EventChannelRaid{
+		FromBroadcaster: twitch.FromBroadcaster{
+			FromBroadcasterUserId:    "debug-" + req.FromBroadcaster,
+			FromBroadcasterUserLogin: strings.ToLower(req.FromBroadcaster),
+			FromBroadcasterUserName:  req.FromBroadcaster,
+		},
+		Viewers: req.Viewers,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+// handleDebugShoutout handles debug shoutout event
+func handleDebugShoutout(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		FromBroadcaster string `json:"fromBroadcaster"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	if req.FromBroadcaster == "" {
+		req.FromBroadcaster = "DebugShouter"
+	}
+
+	twitcheventsub.HandleChannelShoutoutReceive(twitch.EventChannelShoutoutReceive{
+		FromBroadcaster: twitch.FromBroadcaster{
+			FromBroadcasterUserId:    "debug-" + req.FromBroadcaster,
+			FromBroadcasterUserLogin: strings.ToLower(req.FromBroadcaster),
+			FromBroadcasterUserName:  req.FromBroadcaster,
+		},
+		ViewerCount: 100,
+		StartedAt:   time.Now(),
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+// handleDebugStreamOnline handles debug stream online event
+func handleDebugStreamOnline(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	twitcheventsub.HandleStreamOnline(twitch.EventStreamOnline{
+		Broadcaster: twitch.Broadcaster{
+			BroadcasterUserId:    "debug-broadcaster",
+			BroadcasterUserLogin: "debugbroadcaster",
+			BroadcasterUserName:  "DebugBroadcaster",
+		},
+		Id:        "debug-stream-" + time.Now().Format("20060102150405"),
+		Type:      "live",
+		StartedAt: time.Now(),
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+// handleDebugStreamOffline handles debug stream offline event
+func handleDebugStreamOffline(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	twitcheventsub.HandleStreamOffline(twitch.EventStreamOffline{
+		BroadcasterUserId:    "debug-broadcaster",
+		BroadcasterUserLogin: "debugbroadcaster",
+		BroadcasterUserName:  "DebugBroadcaster",
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
 // handleAuth handles OAuth authentication redirect

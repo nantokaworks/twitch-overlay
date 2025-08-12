@@ -37,141 +37,86 @@ func HandleChannelPointsCustomRedemptionAdd(message twitch.EventChannelChannelPo
 }
 
 func HandleChannelCheer(message twitch.EventChannelCheer) {
-	fragments := []twitch.ChatMessageFragment{
-		{
-			Type:      "text",
-			Text:      fmt.Sprintf("🎉ビッツありがとう %d", message.Bits),
-			Cheermote: nil,
-			Emote:     nil,
-		},
-	}
+	title := "ビッツありがとう :)"
+	userName := message.User.UserName
+	details := fmt.Sprintf("%d ビッツ", message.Bits)
 
-	output.PrintOut(message.User.UserName, fragments, time.Now())
-
+	output.PrintOutWithTitle(title, userName, "", details, time.Now())
 }
 func HandleChannelFollow(message twitch.EventChannelFollow) {
-	fragments := []twitch.ChatMessageFragment{
-		{
-			Type:      "text",
-			Text:      fmt.Sprintf("🎉フォローありがとう %s", message.UserLogin),
-			Cheermote: nil,
-			Emote:     nil,
-		},
-	}
+	title := "フォローありがとう :)"
+	userName := message.User.UserName
+	details := "" // フォローの場合は詳細なし
 
-	output.PrintOut(message.User.UserName, fragments, time.Now())
-
+	output.PrintOutWithTitle(title, userName, "", details, time.Now())
 }
 func HandleChannelRaid(message twitch.EventChannelRaid) {
-	fragments := []twitch.ChatMessageFragment{
-		{
-			Type:      "text",
-			Text:      fmt.Sprintf("🎉レイドありがとう %s", message.FromBroadcasterUserLogin),
-			Cheermote: nil,
-			Emote:     nil,
-		},
-	}
+	title := "レイドありがとう :)"
+	userName := message.FromBroadcasterUserName
+	details := fmt.Sprintf("%d 人", message.Viewers)
 
-	output.PrintOut(message.FromBroadcasterUserName, fragments, time.Now())
-
+	output.PrintOutWithTitle(title, userName, "", details, time.Now())
 }
 func HandleChannelShoutoutReceive(message twitch.EventChannelShoutoutReceive) {
-	fragments := []twitch.ChatMessageFragment{
-		{
-			Type:      "text",
-			Text:      fmt.Sprintf("🎉応援ありがとう %s", message.FromBroadcasterUserLogin),
-			Cheermote: nil,
-			Emote:     nil,
-		},
-	}
+	title := "応援ありがとう :)"
+	userName := message.FromBroadcasterUserName
+	details := "" // シャウトアウトの場合は詳細なし
 
-	output.PrintOut(message.FromBroadcasterUserName, fragments, time.Now())
+	output.PrintOutWithTitle(title, userName, "", details, time.Now())
 }
 func HandleChannelSubscribe(message twitch.EventChannelSubscribe) {
-
 	if !message.IsGift {
-		fragments := []twitch.ChatMessageFragment{
-			{
-				Type:      "text",
-				Text:      fmt.Sprintf("🎉サブスクありがとう %s", message.UserLogin),
-				Cheermote: nil,
-				Emote:     nil,
-			},
-		}
+		title := "サブスクありがとう :)"
+		userName := message.User.UserName
+		details := fmt.Sprintf("Tier %s", message.Tier)
 
-		output.PrintOut(message.User.UserName, fragments, time.Now())
-
+		output.PrintOutWithTitle(title, userName, "", details, time.Now())
 	} else {
-		fragments := []twitch.ChatMessageFragment{
-			{
-				Type:      "text",
-				Text:      fmt.Sprintf("🎉サブギフおめ %s", message.UserLogin),
-				Cheermote: nil,
-				Emote:     nil,
-			},
-		}
+		title := "サブギフおめです :)"
+		userName := message.User.UserName
+		details := fmt.Sprintf("Tier %s", message.Tier)
 
-		output.PrintOut(message.User.UserName, fragments, time.Now())
+		output.PrintOutWithTitle(title, userName, "", details, time.Now())
 	}
 }
 
 func HandleChannelSubscriptionGift(message twitch.EventChannelSubscriptionGift) {
+	title := "サブギフありがとう :)"
+
 	if !message.IsAnonymous {
-		fragments := []twitch.ChatMessageFragment{
-			{
-				Type:      "text",
-				Text:      fmt.Sprintf("🎉サブギフありがとう %s", message.UserLogin),
-				Cheermote: nil,
-				Emote:     nil,
-			},
-		}
-
-		output.PrintOut(message.User.UserName, fragments, time.Now())
+		userName := message.User.UserName
+		details := fmt.Sprintf("Tier %s | %d個", message.Tier, message.Total)
+		output.PrintOutWithTitle(title, userName, "", details, time.Now())
 	} else {
-		fragments := []twitch.ChatMessageFragment{
-			{
-				Type:      "text",
-				Text:      fmt.Sprintf("🎉サブギフありがとう %s", "匿名さん"),
-				Cheermote: nil,
-				Emote:     nil,
-			},
-		}
-
-		output.PrintOut("匿名さん", fragments, time.Now())
-
+		userName := "匿名さん"
+		details := fmt.Sprintf("Tier %s | %d個", message.Tier, message.Total)
+		output.PrintOutWithTitle(title, userName, "", details, time.Now())
 	}
-
 }
 
 func HandleChannelSubscriptionMessage(message twitch.EventChannelSubscriptionMessage) {
 	// 再サブスクメッセージの処理
-	var text string
+	var title string
+	var extra string
+	var details string
+
 	if message.CumulativeMonths > 1 {
-		// 再サブスク
-		text = fmt.Sprintf("🎉再サブスクありがとう %s (%dヶ月目) %s", 
-			message.User.UserLogin, 
-			message.CumulativeMonths,
-			message.Message.Text)
+		// 再サブスク - 4行レイアウト
+		title = "サブスクありがとう :)"
+		extra = fmt.Sprintf("%d ヶ月目", message.CumulativeMonths)
+		details = message.Message.Text // 空メッセージの場合は空文字列
 	} else {
 		// 初回サブスク（メッセージ付き）
-		text = fmt.Sprintf("🎉サブスクありがとう %s %s", 
-			message.User.UserLogin,
-			message.Message.Text)
+		title = "サブスクありがとう :)"
+		extra = "" // 初回は月数なし
+		details = message.Message.Text // 空メッセージの場合は空文字列のまま
 	}
 
-	fragments := []twitch.ChatMessageFragment{
-		{
-			Type:      "text",
-			Text:      text,
-			Cheermote: nil,
-			Emote:     nil,
-		},
-	}
+	userName := message.User.UserName
+	output.PrintOutWithTitle(title, userName, extra, details, time.Now())
 
-	output.PrintOut(message.User.UserName, fragments, time.Now())
-	
-	logger.Info("サブスクメッセージ", 
-		zap.String("user", message.User.UserName), 
+	logger.Info("サブスクメッセージ",
+		zap.String("user", message.User.UserName),
 		zap.Int("cumulative_months", message.CumulativeMonths),
 		zap.Int("streak_months", message.StreakMonths),
 		zap.String("tier", message.Tier),

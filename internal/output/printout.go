@@ -181,6 +181,48 @@ func PrintOut(userName string, message []twitch.ChatMessageFragment, timestamp t
 	return nil
 }
 
+// PrintOutWithTitle sends fax output with separate title and details to printer and frontend
+func PrintOutWithTitle(title, userName, extra, details string, timestamp time.Time) error {
+	// Generate color version
+	colorImg, err := MessageToImageWithTitle(title, userName, extra, details, true)
+	if err != nil {
+		return fmt.Errorf("failed to create color image: %w", err)
+	}
+
+	// Generate monochrome version for printing
+	monoImg, err := MessageToImageWithTitle(title, userName, extra, details, false)
+	if err != nil {
+		return fmt.Errorf("failed to create monochrome image: %w", err)
+	}
+
+	// Create display text for fax manager
+	messageText := title
+	if extra != "" {
+		messageText += "\n" + extra
+	}
+	if details != "" {
+		messageText += "\n" + details
+	}
+
+	// Save fax with faxmanager
+	fax, err := faxmanager.SaveFax(userName, messageText, "", colorImg, monoImg)
+	if err != nil {
+		return fmt.Errorf("failed to save fax: %w", err)
+	}
+
+	// Save images to disk
+	if err := saveFaxImages(fax, colorImg, monoImg); err != nil {
+		return fmt.Errorf("failed to save fax images: %w", err)
+	}
+
+	// Broadcast to SSE clients
+	broadcast.BroadcastFax(fax)
+
+	// Add to print queue
+	printQueue <- monoImg
+	return nil
+}
+
 // saveFaxImages saves the fax images to disk
 func saveFaxImages(fax *faxmanager.Fax, colorImg, monoImg image.Image) error {
 	// Save color image
@@ -242,10 +284,15 @@ func keepAliveRoutine() {
 				}
 			}
 			
-			// Try to connect
+			// Try to connect (ConnectPrinterがlatestPrinterを更新する可能性がある)
 			err := ConnectPrinter(latestPrinter, *env.Value.PrinterAddress)
 			if err != nil {
 				logger.Error("Keep-alive: failed initial connection to printer", zap.Error(err))
+				// 接続失敗時に状態をリセット
+				// latestPrinterはConnectPrinter内で更新されている可能性があるため、
+				// Disconnect()は呼ばずに状態だけリセット
+				ResetConnectionStatus()
+				status.SetPrinterConnected(false)
 				printerMutex.Unlock()
 				continue
 			}
