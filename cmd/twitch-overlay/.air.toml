@@ -2,7 +2,7 @@
 
 root = "../../"
 testdata_dir = "testdata"
-tmp_dir = "cmd/twitch-fax/tmp"
+tmp_dir = "cmd/twitch-overlay/tmp"
 
 [build]
 args_bin = []
@@ -17,7 +17,7 @@ follow_symlink = false
 # --continueを外すとデバッガがアタッチするまで待機する。よってmain関数のデバッグも可能になる
 # full_bin = "dlv --headless=true --listen=:41000 --api-version=2 --accept-multiclient exec ./tmp/main | zap-pretty"
 full_bin = "dlv --headless=true --listen=:41000 --api-version=2 --accept-multiclient exec --continue ./tmp/main | zap-pretty"
-include_dir = ["cmd/twitch-fax", "internal"]
+include_dir = ["cmd/twitch-overlay", "internal"]
 include_ext = ["go", "tpl", "tmpl", "html"]
 include_file = []
 kill_delay = "0s"

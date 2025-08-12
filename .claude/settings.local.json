@@ -12,7 +12,8 @@
       "Bash(cat:*)",
       "Bash(rsync:*)",
       "Bash(curl:*)",
-      "Bash(go doc:*)"
+      "Bash(go doc:*)",
+      "Bash(git remote set-url:*)"
     ],
     "deny": []
   }

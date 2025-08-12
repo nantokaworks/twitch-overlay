@@ -44,7 +44,6 @@ tasks:
           echo "local.dbファイルをコピーしました → dist/local.db"
         fi
 
-
   # 統合ビルド
   build:all:
     desc: フロントエンドとバックエンドを両方ビルド
@@ -159,7 +158,7 @@ tasks:
       - echo "パッケージ作成完了 → dist-package/"
 
   # systemdサービスインストール
-  install:service:
+  service:install:
     desc: systemdサービスをインストール（Linux）
     cmds:
       - |
@@ -171,7 +170,7 @@ tasks:
       - bash scripts/install-service.sh {{.CLI_ARGS}}
 
   # systemdサービスアンインストール
-  uninstall:service:
+  service:uninstall:
     desc: systemdサービスをアンインストール（Linux）
     vars:
       USERNAME:

@@ -8,8 +8,8 @@
 
 ### 1. バックエンドの起動
 ```bash
-# twitch-fax ディレクトリで実行
-DRY_RUN_MODE=true go run ./cmd/twitch-fax
+# twitch-overlay ディレクトリで実行
+DRY_RUN_MODE=true go run ./cmd/twitch-overlay
 ```
 
 ### 2. フロントエンドの起動

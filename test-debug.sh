@@ -7,7 +7,7 @@ echo "Testing debug channel points endpoint..."
 # バックエンドが起動しているか確認
 if ! lsof -i :8080 | grep -q LISTEN; then
     echo "❌ バックエンドが起動していません。以下のコマンドで起動してください:"
-    echo "   DRY_RUN_MODE=true go run ./cmd/twitch-fax"
+    echo "   DRY_RUN_MODE=true go run ./cmd/twitch-overlay"
     exit 1
 fi
 

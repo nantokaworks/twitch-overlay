@@ -128,14 +128,14 @@ func handleLogsDownload(w http.ResponseWriter, r *http.Request) {
 		}
 		
 		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=twitch-fax-logs-%s.json", time.Now().Format("20060102-150405")))
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=twitch-overlay-logs-%s.json", time.Now().Format("20060102-150405")))
 		w.Write(data)
 		
 	case "text":
 		data := buffer.ToText()
 		
 		w.Header().Set("Content-Type", "text/plain")
-		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=twitch-fax-logs-%s.txt", time.Now().Format("20060102-150405")))
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=twitch-overlay-logs-%s.txt", time.Now().Format("20060102-150405")))
 		w.Write([]byte(data))
 		
 	default:

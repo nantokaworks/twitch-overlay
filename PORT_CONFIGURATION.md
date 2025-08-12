@@ -6,7 +6,7 @@
 
 ```bash
 # デフォルト: 8080
-SERVER_PORT=3000 go run cmd/twitch-fax/main.go
+SERVER_PORT=3000 go run cmd/twitch-overlay/main.go
 ```
 
 ### フロントエンド開発サーバー
@@ -21,7 +21,7 @@ VITE_FRONTEND_PORT=5000 VITE_BACKEND_PORT=3000 bun run dev
 
 ```bash
 # ターミナル1: バックエンドを3000番ポートで起動
-SERVER_PORT=3000 go run cmd/twitch-fax/main.go
+SERVER_PORT=3000 go run cmd/twitch-overlay/main.go
 
 # ターミナル2: フロントエンドを起動（バックエンドの3000番ポートにプロキシ）
 cd web
@@ -38,13 +38,13 @@ VITE_BACKEND_PORT=3000 bun run dev
 task build:all
 
 # デフォルトポート（8080）で起動
-./dist/twitch-fax
+./dist/twitch-overlay
 
 # カスタムポート（3000）で起動
-SERVER_PORT=3000 ./dist/twitch-fax
+SERVER_PORT=3000 ./dist/twitch-overlay
 
 # 80番ポートで起動（root権限が必要）
-sudo SERVER_PORT=80 ./dist/twitch-fax
+sudo SERVER_PORT=80 ./dist/twitch-overlay
 ```
 
 ### ビルド後の動作

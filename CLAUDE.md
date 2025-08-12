@@ -23,7 +23,7 @@
 
 ## ビルド時の注意事項
 - ビルドテストが完了したら、生成されたバイナリファイルは削除する
-- 例: `go build ./cmd/twitch-fax && rm twitch-fax`
+- 例: `go build ./cmd/twitch-overlay && rm twitch-overlay`
 - リポジトリにバイナリファイルをコミットしない
 
 ## フロントエンド開発ガイドライン

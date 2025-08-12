@@ -71,7 +71,7 @@ func loadDotEnv() {
 	possiblePaths = append(possiblePaths,
 		".env",           // Current directory
 		"../.env",        // Parent directory
-		"../../.env",     // Two levels up (for cmd/twitch-fax)
+		"../../.env",     // Two levels up (for cmd/twitch-overlay)
 	)
 
 	loaded := false

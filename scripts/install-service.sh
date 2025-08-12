@@ -35,8 +35,8 @@ if ! id "$USERNAME" &>/dev/null; then
     exit 1
 fi
 
-# twitch-faxディレクトリが存在するか確認
-TWITCH_FAX_DIR="/home/$USERNAME/twitch-fax"
+# twitch-overlayディレクトリが存在するか確認
+TWITCH_FAX_DIR="/home/$USERNAME/twitch-overlay"
 if [ ! -d "$TWITCH_FAX_DIR" ]; then
     print_error "ディレクトリ '$TWITCH_FAX_DIR' が存在しません"
     print_info "先にTwitch FAXをインストールしてください"
@@ -81,14 +81,14 @@ fi
 
 # systemdサービスファイルをコピー
 print_info "systemdサービスファイルをインストールします"
-SERVICE_FILE="$TWITCH_FAX_DIR/systemd/twitch-fax.service"
+SERVICE_FILE="$TWITCH_FAX_DIR/systemd/twitch-overlay.service"
 if [ ! -f "$SERVICE_FILE" ]; then
     print_error "サービスファイル '$SERVICE_FILE' が見つかりません"
     exit 1
 fi
 
 # サービスファイルをsystemdディレクトリにコピー
-sudo cp "$SERVICE_FILE" "/etc/systemd/system/twitch-fax@$USERNAME.service"
+sudo cp "$SERVICE_FILE" "/etc/systemd/system/twitch-overlay@$USERNAME.service"
 print_success "サービスファイルをインストールしました"
 
 # systemdをリロード
@@ -98,23 +98,23 @@ print_success "systemdデーモンをリロードしました"
 
 # サービスを有効化（自動起動）
 print_info "サービスを自動起動に登録します"
-sudo systemctl enable "twitch-fax@$USERNAME.service"
+sudo systemctl enable "twitch-overlay@$USERNAME.service"
 print_success "サービスを自動起動に登録しました"
 
 # サービスを起動
 print_info "サービスを起動します"
-sudo systemctl start "twitch-fax@$USERNAME.service"
+sudo systemctl start "twitch-overlay@$USERNAME.service"
 print_success "サービスを起動しました"
 
 # ステータスを表示
 print_info "サービスの状態:"
-sudo systemctl status "twitch-fax@$USERNAME.service" --no-pager
+sudo systemctl status "twitch-overlay@$USERNAME.service" --no-pager
 
 print_success "インストールが完了しました！"
 echo ""
 print_info "以下のコマンドでサービスを管理できます:"
-echo "  起動: sudo systemctl start twitch-fax@$USERNAME.service"
-echo "  停止: sudo systemctl stop twitch-fax@$USERNAME.service"
-echo "  再起動: sudo systemctl restart twitch-fax@$USERNAME.service"
-echo "  状態確認: sudo systemctl status twitch-fax@$USERNAME.service"
-echo "  ログ確認: sudo journalctl -u twitch-fax@$USERNAME.service -f"
+echo "  起動: sudo systemctl start twitch-overlay@$USERNAME.service"
+echo "  停止: sudo systemctl stop twitch-overlay@$USERNAME.service"
+echo "  再起動: sudo systemctl restart twitch-overlay@$USERNAME.service"
+echo "  状態確認: sudo systemctl status twitch-overlay@$USERNAME.service"
+echo "  ログ確認: sudo journalctl -u twitch-overlay@$USERNAME.service -f"

@@ -5,7 +5,7 @@ tasks:
     desc: Builds the application
     cmds:
       - echo "Building the project..."
-      - go build -o ./dist/twitch-fax .
+      - go build -o ./dist/twitch-overlay .
 
   test:
     desc: Test the  application
