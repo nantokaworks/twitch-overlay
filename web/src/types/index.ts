@@ -66,7 +66,7 @@ export interface DynamicStyles {
   fontSize?: string;
   marginRight?: string;
   padding?: string;
-  boxSizing?: string;
+  boxSizing?: 'content-box' | 'border-box' | 'inherit' | 'initial' | 'unset';
 }
 
 // 設定関連の型定義

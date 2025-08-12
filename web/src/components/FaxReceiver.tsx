@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useFaxQueue } from '../hooks/useFaxQueue';
 import FaxDisplay from './FaxDisplay';
 import DebugPanel from './DebugPanel';
+import ClockDisplay from './ClockDisplay';
 import { LAYOUT } from '../constants/layout';
 import { buildApiUrl, buildEventSourceUrl } from '../utils/api';
 import type { FaxReceiverProps, FaxData, FaxState, ServerStatus, DynamicStyles } from '../types';
@@ -168,6 +169,11 @@ const FaxReceiver = ({ imageType = 'mono' }: FaxReceiverProps) => {
             FAX
           </span>
         </div>
+      </div>
+
+      {/* Clock Display */}
+      <div className="fixed top-0 right-0 z-10">
+        <ClockDisplay />
       </div>
 
       {/* FAX表示エリア */}

@@ -449,6 +449,54 @@ export const SettingsPage: React.FC = () => {
               </CardContent>
             </Card>
 
+            {/* 時計表示設定カード */}
+            <Card>
+              <CardHeader>
+                <CardTitle>時計表示設定</CardTitle>
+                <CardDescription>
+                  時計に表示される数値を設定します（配信ネタ用）
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="clock_weight">体重（kg）</Label>
+                    <Input
+                      id="clock_weight"
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="999.9"
+                      placeholder="75.4"
+                      value={getSettingValue('CLOCK_WEIGHT') || '75.4'}
+                      onChange={(e) => handleSettingChange('CLOCK_WEIGHT', e.target.value)}
+                      className="max-w-xs"
+                    />
+                    <p className="text-sm text-gray-500">
+                      時計に表示する体重（小数点1桁）
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="clock_wallet">さいふ（円）</Label>
+                    <Input
+                      id="clock_wallet"
+                      type="number"
+                      min="0"
+                      max="9999999"
+                      placeholder="10387"
+                      value={getSettingValue('CLOCK_WALLET') || '10387'}
+                      onChange={(e) => handleSettingChange('CLOCK_WALLET', e.target.value)}
+                      className="max-w-xs"
+                    />
+                    <p className="text-sm text-gray-500">
+                      時計に表示する財布の金額（整数値）
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* フォント設定カード */}
             <Card>
               <CardHeader>
@@ -548,6 +596,7 @@ export const SettingsPage: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
+
           </TabsContent>
 
           {/* Twitchタブ */}
