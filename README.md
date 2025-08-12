@@ -165,10 +165,7 @@ sudo setcap 'cap_net_admin,cap_net_raw+eip' ./dist/twitch-overlay
 
 1. プリンターの電源が入っているか確認
 2. プリンターのMACアドレスが正しいか確認
-3. `cmd/find-fax` ツールでプリンターを検索:
-```bash
-./dist/find-fax
-```
+3. Web設定画面（`http://localhost:8080/settings`）の「プリンター」タブから「デバイススキャン」を実行
 
 ## ライセンス
 

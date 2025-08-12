@@ -13,7 +13,7 @@ tasks:
   # バックエンドビルド
   build:backend:
     desc: バックエンドをビルド
-    dir: cmd/twitch-fax
+    dir: cmd/twitch-overlay
     vars:
       VERSION:
         sh: git describe --tags --always --dirty 2>/dev/null || echo "dev"
@@ -25,11 +25,11 @@ tasks:
       - echo "バックエンドをビルド中..."
       - |
         go build -ldflags "\
-          -X 'github.com/nantokaworks/twitch-fax/internal/version.Version={{.VERSION}}' \
-          -X 'github.com/nantokaworks/twitch-fax/internal/version.Commit={{.COMMIT}}' \
-          -X 'github.com/nantokaworks/twitch-fax/internal/version.BuildTime={{.BUILD_TIME}}'" \
-          -o ../../dist/twitch-fax .
-      - echo "バックエンドビルド完了 → dist/twitch-fax"
+          -X 'github.com/nantokaworks/twitch-overlay/internal/version.Version={{.VERSION}}' \
+          -X 'github.com/nantokaworks/twitch-overlay/internal/version.Commit={{.COMMIT}}' \
+          -X 'github.com/nantokaworks/twitch-overlay/internal/version.BuildTime={{.BUILD_TIME}}'" \
+          -o ../../dist/twitch-overlay .
+      - echo "バックエンドビルド完了 → dist/twitch-overlay"
       - |
         if [ -f .env ]; then
           cp .env ../../dist/.env
@@ -44,14 +44,6 @@ tasks:
           echo "local.dbファイルをコピーしました → dist/local.db"
         fi
 
-  # find-faxツールビルド
-  build:find-fax:
-    desc: find-faxツールをビルド
-    dir: cmd/find-fax
-    cmds:
-      - echo "find-faxをビルド中..."
-      - go build -o ../../dist/find-fax .
-      - echo "find-faxビルド完了 → dist/find-fax"
 
   # 統合ビルド
   build:all:
@@ -60,9 +52,8 @@ tasks:
       - task: clean
       - task: build:frontend
       - task: build:backend
-      - task: build:find-fax
       - echo "全ビルド完了！"
-      - echo "実行 → ./dist/twitch-fax"
+      - echo "実行 → ./dist/twitch-overlay"
 
   # クリーンアップ
   clean:
@@ -73,28 +64,28 @@ tasks:
         # local.dbを一時的に退避
         if [ -f dist/local.db ]; then
           echo "local.dbを退避中..."
-          mv dist/local.db /tmp/twitch-fax-local.db.tmp
+          mv dist/local.db /tmp/twitch-overlay-local.db.tmp
         fi
       - |
         # .envファイルも退避
         if [ -f dist/.env ]; then
           echo ".envを退避中..."
-          mv dist/.env /tmp/twitch-fax-env.tmp
+          mv dist/.env /tmp/twitch-overlay-env.tmp
         fi
       - rm -rf dist
       - rm -rf web/dist
       - mkdir -p dist
       - |
         # local.dbを復元
-        if [ -f /tmp/twitch-fax-local.db.tmp ]; then
+        if [ -f /tmp/twitch-overlay-local.db.tmp ]; then
           echo "local.dbを復元中..."
-          mv /tmp/twitch-fax-local.db.tmp dist/local.db
+          mv /tmp/twitch-overlay-local.db.tmp dist/local.db
         fi
       - |
         # .envを復元
-        if [ -f /tmp/twitch-fax-env.tmp ]; then
+        if [ -f /tmp/twitch-overlay-env.tmp ]; then
           echo ".envを復元中..."
-          mv /tmp/twitch-fax-env.tmp dist/.env
+          mv /tmp/twitch-overlay-env.tmp dist/.env
         fi
       - echo "クリーンアップ完了"
 
@@ -108,7 +99,7 @@ tasks:
   # 開発サーバー起動（バックエンド）
   dev:backend:
     desc: バックエンド開発サーバーを起動
-    dir: cmd/twitch-fax
+    dir: cmd/twitch-overlay
     cmds:
       - air
 
@@ -118,26 +109,26 @@ tasks:
     cmds:
       - claude --dangerously-skip-permissions
 
-  # twitch-faxプロセスを停止
+  # twitch-overlayプロセスを停止
   stop:
-    desc: 実行中のtwitch-faxを停止
+    desc: 実行中のtwitch-overlayを停止
     cmds:
-      - echo "twitch-faxプロセスを停止中..."
-      - pkill -f twitch-fax || echo "実行中のtwitch-faxプロセスが見つかりませんでした"
+      - echo "twitch-overlayプロセスを停止中..."
+      - pkill -f twitch-overlay || echo "実行中のtwitch-overlayプロセスが見つかりませんでした"
 
   # ビルド済みアプリケーションを実行
   run:
-    desc: ビルド済みのtwitch-faxを実行
+    desc: ビルド済みのtwitch-overlayを実行
     dir: dist
     cmds:
       - |
-        if [ ! -f twitch-fax ]; then
-          echo "エラー: dist/twitch-fax が見つかりません"
+        if [ ! -f twitch-overlay ]; then
+          echo "エラー: dist/twitch-overlay が見つかりません"
           echo "先に 'task build:all' でビルドしてください"
           exit 1
         fi
-      - echo "twitch-faxを起動中..."
-      - exec ./twitch-fax
+      - echo "twitch-overlayを起動中..."
+      - exec ./twitch-overlay
 
   # テスト実行
   test:
@@ -161,9 +152,9 @@ tasks:
         if [ -f .env ]; then
           cp .env dist-package/.env
           echo ".envファイルをコピーしました"
-        elif [ -f cmd/twitch-fax/.env ]; then
-          cp cmd/twitch-fax/.env dist-package/.env
-          echo "cmd/twitch-fax/.envファイルをコピーしました"
+        elif [ -f cmd/twitch-overlay/.env ]; then
+          cp cmd/twitch-overlay/.env dist-package/.env
+          echo "cmd/twitch-overlay/.envファイルをコピーしました"
         fi
       - echo "パッケージ作成完了 → dist-package/"
 
@@ -187,9 +178,9 @@ tasks:
         sh: echo ${1:-$USER}
     cmds:
       - echo "systemdサービスをアンインストールします..."
-      - sudo systemctl stop twitch-fax@{{.USERNAME}}.service || true
-      - sudo systemctl disable twitch-fax@{{.USERNAME}}.service || true
-      - sudo rm -f /etc/systemd/system/twitch-fax@{{.USERNAME}}.service
+      - sudo systemctl stop twitch-overlay@{{.USERNAME}}.service || true
+      - sudo systemctl disable twitch-overlay@{{.USERNAME}}.service || true
+      - sudo rm -f /etc/systemd/system/twitch-overlay@{{.USERNAME}}.service
       - sudo systemctl daemon-reload
       - echo "アンインストール完了"
 
@@ -200,10 +191,10 @@ tasks:
       USERNAME:
         sh: echo ${1:-$USER}
     cmds:
-      - echo "twitch-fax@{{.USERNAME}}.service を再起動します..."
-      - sudo systemctl restart twitch-fax@{{.USERNAME}}.service
+      - echo "twitch-overlay@{{.USERNAME}}.service を再起動します..."
+      - sudo systemctl restart twitch-overlay@{{.USERNAME}}.service
       - echo "再起動完了"
-      - sudo systemctl status twitch-fax@{{.USERNAME}}.service --no-pager
+      - sudo systemctl status twitch-overlay@{{.USERNAME}}.service --no-pager
 
   # サービス起動
   service:start:
@@ -212,10 +203,10 @@ tasks:
       USERNAME:
         sh: echo ${1:-$USER}
     cmds:
-      - echo "twitch-fax@{{.USERNAME}}.service を起動します..."
-      - sudo systemctl start twitch-fax@{{.USERNAME}}.service
+      - echo "twitch-overlay@{{.USERNAME}}.service を起動します..."
+      - sudo systemctl start twitch-overlay@{{.USERNAME}}.service
       - echo "起動完了"
-      - sudo systemctl status twitch-fax@{{.USERNAME}}.service --no-pager
+      - sudo systemctl status twitch-overlay@{{.USERNAME}}.service --no-pager
 
   # サービス停止
   service:stop:
@@ -224,8 +215,8 @@ tasks:
       USERNAME:
         sh: echo ${1:-$USER}
     cmds:
-      - echo "twitch-fax@{{.USERNAME}}.service を停止します..."
-      - sudo systemctl stop twitch-fax@{{.USERNAME}}.service
+      - echo "twitch-overlay@{{.USERNAME}}.service を停止します..."
+      - sudo systemctl stop twitch-overlay@{{.USERNAME}}.service
       - echo "停止完了"
 
   # サービスステータス確認
@@ -235,7 +226,7 @@ tasks:
       USERNAME:
         sh: echo ${1:-$USER}
     cmds:
-      - sudo systemctl status twitch-fax@{{.USERNAME}}.service --no-pager
+      - sudo systemctl status twitch-overlay@{{.USERNAME}}.service --no-pager
 
   # サービスログ確認
   service:logs:
@@ -244,4 +235,4 @@ tasks:
       USERNAME:
         sh: echo ${1:-$USER}
     cmds:
-      - sudo journalctl -u twitch-fax@{{.USERNAME}}.service -f
+      - sudo journalctl -u twitch-overlay@{{.USERNAME}}.service -f
