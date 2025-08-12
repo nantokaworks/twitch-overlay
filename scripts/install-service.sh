@@ -27,7 +27,7 @@ if [ -z "$USERNAME" ]; then
     exit 1
 fi
 
-print_info "Twitch FAXサービスをユーザー '$USERNAME' でインストールします"
+print_info "Twitch Overlayサービスをユーザー '$USERNAME' でインストールします"
 
 # ユーザーが存在するか確認
 if ! id "$USERNAME" &>/dev/null; then
@@ -36,16 +36,16 @@ if ! id "$USERNAME" &>/dev/null; then
 fi
 
 # twitch-overlayディレクトリが存在するか確認
-TWITCH_FAX_DIR="/home/$USERNAME/twitch-overlay"
-if [ ! -d "$TWITCH_FAX_DIR" ]; then
-    print_error "ディレクトリ '$TWITCH_FAX_DIR' が存在しません"
-    print_info "先にTwitch FAXをインストールしてください"
+TWITCH_OVERLAY_DIR="/home/$USERNAME/twitch-overlay"
+if [ ! -d "$TWITCH_OVERLAY_DIR" ]; then
+    print_error "ディレクトリ '$TWITCH_OVERLAY_DIR' が存在しません"
+    print_info "先にTwitch Overlayをインストールしてください"
     exit 1
 fi
 
 # distディレクトリが存在するか確認
-if [ ! -d "$TWITCH_FAX_DIR/dist" ]; then
-    print_error "ディレクトリ '$TWITCH_FAX_DIR/dist' が存在しません"
+if [ ! -d "$TWITCH_OVERLAY_DIR/dist" ]; then
+    print_error "ディレクトリ '$TWITCH_OVERLAY_DIR/dist' が存在しません"
     print_info "先に 'task build:all' でビルドしてください"
     exit 1
 fi
@@ -81,7 +81,7 @@ fi
 
 # systemdサービスファイルをコピー
 print_info "systemdサービスファイルをインストールします"
-SERVICE_FILE="$TWITCH_FAX_DIR/systemd/twitch-overlay.service"
+SERVICE_FILE="$TWITCH_OVERLAY_DIR/systemd/twitch-overlay.service"
 if [ ! -f "$SERVICE_FILE" ]; then
     print_error "サービスファイル '$SERVICE_FILE' が見つかりません"
     exit 1

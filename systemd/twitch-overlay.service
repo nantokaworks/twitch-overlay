@@ -1,5 +1,5 @@
 [Unit]
-Description=Twitch FAX Service
+Description=Twitch Overlay Service
 After=network.target bluetooth.service
 Wants=bluetooth.service
 
