@@ -104,6 +104,14 @@ var DefaultSettings = map[string]Setting{
 		Key: "CLOCK_ENABLED", Value: "false", Type: SettingTypeNormal, Required: false,
 		Description: "Enable clock printing",
 	},
+	"CLOCK_WEIGHT": {
+		Key: "CLOCK_WEIGHT", Value: "75.4", Type: SettingTypeNormal, Required: false,
+		Description: "Weight to display on clock (kg)",
+	},
+	"CLOCK_WALLET": {
+		Key: "CLOCK_WALLET", Value: "10387", Type: SettingTypeNormal, Required: false,
+		Description: "Wallet amount to display on clock (yen)",
+	},
 	"DEBUG_OUTPUT": {
 		Key: "DEBUG_OUTPUT", Value: "false", Type: SettingTypeNormal, Required: false,
 		Description: "Enable debug output",
@@ -328,6 +336,20 @@ func ValidateSetting(key, value string) error {
 		if value != "" {
 			if _, err := time.LoadLocation(value); err != nil {
 				return fmt.Errorf("invalid timezone: %v", err)
+			}
+		}
+	case "CLOCK_WEIGHT":
+		// 数値形式のチェック（0.1〜999.9）
+		if value != "" {
+			if val, err := strconv.ParseFloat(value, 64); err != nil || val < 0.1 || val > 999.9 {
+				return fmt.Errorf("must be a number between 0.1 and 999.9")
+			}
+		}
+	case "CLOCK_WALLET":
+		// 整数形式のチェック（0〜9999999）
+		if value != "" {
+			if val, err := strconv.Atoi(value); err != nil || val < 0 || val > 9999999 {
+				return fmt.Errorf("must be an integer between 0 and 9999999")
 			}
 		}
 	case "DRY_RUN_MODE", "BEST_QUALITY", "DITHER", "AUTO_ROTATE", "ROTATE_PRINT", "INITIAL_PRINT_ENABLED", "KEEP_ALIVE_ENABLED", "CLOCK_ENABLED", "DEBUG_OUTPUT":

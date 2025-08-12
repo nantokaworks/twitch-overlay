@@ -6,6 +6,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -288,6 +289,30 @@ func keepAliveRoutine() {
 			err := ConnectPrinter(latestPrinter, *env.Value.PrinterAddress)
 			if err != nil {
 				logger.Error("Keep-alive: failed initial connection to printer", zap.Error(err))
+				
+				// HCIソケットエラーの場合、BLEデバイスをリセット
+				if strings.Contains(err.Error(), "hci socket") || strings.Contains(err.Error(), "broken pipe") {
+					logger.Warn("Detected HCI socket error during initial connection, resetting BLE device")
+					
+					// 既存のクライアントを完全に破棄
+					if latestPrinter != nil {
+						func() {
+							defer func() {
+								if r := recover(); r != nil {
+									logger.Warn("Recovered from panic during BLE device reset", zap.Any("panic", r))
+								}
+							}()
+							latestPrinter.Stop()
+						}()
+						latestPrinter = nil
+					}
+					
+					// 次回の接続試行まで長めに待機
+					printerMutex.Unlock()
+					time.Sleep(5 * time.Second)
+					continue
+				}
+				
 				// 接続失敗時に状態をリセット
 				// latestPrinterはConnectPrinter内で更新されている可能性があるため、
 				// Disconnect()は呼ばずに状態だけリセット
@@ -359,6 +384,30 @@ func keepAliveRoutine() {
 			err = ConnectPrinter(c, *env.Value.PrinterAddress)
 			if err != nil {
 				logger.Error("Keep-alive: failed to connect printer", zap.Error(err))
+				
+				// HCIソケットエラーの場合、BLEデバイスをリセット
+				if strings.Contains(err.Error(), "hci socket") || strings.Contains(err.Error(), "broken pipe") {
+					logger.Warn("Detected HCI socket error, resetting BLE device")
+					
+					// 既存のクライアントを完全に破棄
+					if latestPrinter != nil {
+						func() {
+							defer func() {
+								if r := recover(); r != nil {
+									logger.Warn("Recovered from panic during BLE device reset", zap.Any("panic", r))
+								}
+							}()
+							latestPrinter.Stop()
+						}()
+						latestPrinter = nil
+					}
+					
+					// 次回の接続試行まで長めに待機
+					printerMutex.Unlock()
+					time.Sleep(5 * time.Second)
+					continue
+				}
+				
 				printerMutex.Unlock()
 				continue
 			}

@@ -13,9 +13,9 @@ ExecStart=/home/%i/twitch-overlay/dist/twitch-overlay
 Restart=on-failure
 RestartSec=10
 
-# Bluetooth権限を付与
-AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW
-CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW
+# Bluetooth権限を付与（強化）
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW CAP_NET_BIND_SERVICE
 
 # セキュリティ設定
 NoNewPrivileges=true
@@ -23,6 +23,10 @@ PrivateTmp=true
 # システムファイルへの書き込みを制限しつつ、必要なディレクトリへのアクセスは許可
 ProtectSystem=false
 ProtectHome=false
+
+# Bluetoothデバイスへのアクセスを許可
+PrivateDevices=no
+DevicePolicy=auto
 
 # 環境変数設定
 Environment="SERVER_PORT=3456"
