@@ -39,7 +39,7 @@ var (
 func corsMiddleware(handler http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
 		if r.Method == http.MethodOptions {
@@ -68,7 +68,7 @@ func StartWebServer(port int) {
 		"./dist/public", // Development: built files
 		"./web/dist",    // Fallback: frontend build directory
 	}
-	
+
 	for _, path := range possiblePaths {
 		if _, err := os.Stat(path); err == nil {
 			staticDir = path
@@ -76,27 +76,52 @@ func StartWebServer(port int) {
 			break
 		}
 	}
-	
+
 	if staticDir == "" {
 		logger.Warn("No static files directory found, using default")
 		staticDir = "./web/dist"
 	}
-	
+
+	// Create a new ServeMux for better routing control
+	mux := http.NewServeMux()
+
+	// Settings API endpoints - 最初に登録してAPIが優先されるようにする
+	mux.HandleFunc("/api/settings/v2", corsMiddleware(handleSettingsV2))
+	mux.HandleFunc("/api/settings/status", corsMiddleware(handleSettingsStatus))
+	mux.HandleFunc("/api/settings/bulk", corsMiddleware(handleBulkSettings))
+	mux.HandleFunc("/api/settings/font/preview", corsMiddleware(handleFontPreview))
+	mux.HandleFunc("/api/settings/font", handleFontUpload) // handleFontUploadは独自のCORS処理を持つ
+	mux.HandleFunc("/api/settings/auth/status", corsMiddleware(handleAuthStatus))
+	mux.HandleFunc("/api/settings", corsMiddleware(handleSettings))
+
+	// Printer API endpoints
+	mux.HandleFunc("/api/printer/scan", corsMiddleware(handlePrinterScan))
+	mux.HandleFunc("/api/printer/test", corsMiddleware(handlePrinterTest))
+	mux.HandleFunc("/api/printer/status", corsMiddleware(handlePrinterStatus))
+
+	// SSE endpoint
+	mux.HandleFunc("/events", handleSSE)
+
+	// Fax image endpoint
+	mux.HandleFunc("/fax/", handleFaxImage)
+
+	// Status endpoint
+	mux.HandleFunc("/status", handleStatus)
+
+	// Debug endpoints
+	mux.HandleFunc("/debug/fax", handleDebugFax)
+	mux.HandleFunc("/debug/channel-points", handleDebugChannelPoints)
+	mux.HandleFunc("/debug/clock", handleDebugClock)
+
+	// OAuth endpoints
+	mux.HandleFunc("/auth", handleAuth)
+	mux.HandleFunc("/callback", handleCallback)
+
 	// Create a custom file server that handles SPA routing
 	fs := http.FileServer(http.Dir(staticDir))
-	
-	// Handle all routes
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		// Check if this is an API route
-		if strings.HasPrefix(r.URL.Path, "/events") || 
-		   strings.HasPrefix(r.URL.Path, "/fax/") || 
-		   strings.HasPrefix(r.URL.Path, "/status") || 
-		   strings.HasPrefix(r.URL.Path, "/debug/") {
-			// Let the API handlers handle these
-			http.NotFound(w, r)
-			return
-		}
-		
+
+	// Handle all other routes (SPA fallback) - 最後に登録
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		// Try to serve the file
 		filePath := filepath.Join(staticDir, r.URL.Path)
 		if _, err := os.Stat(filePath); err == nil && !strings.HasSuffix(r.URL.Path, "/") {
@@ -104,37 +129,13 @@ func StartWebServer(port int) {
 			fs.ServeHTTP(w, r)
 			return
 		}
-		
+
 		// For all other routes, serve index.html (SPA fallback)
 		http.ServeFile(w, r, filepath.Join(staticDir, "index.html"))
 	})
 
-	// SSE endpoint
-	http.HandleFunc("/events", handleSSE)
-
-	// Fax image endpoint
-	http.HandleFunc("/fax/", handleFaxImage)
-
-	// Status endpoint
-	http.HandleFunc("/status", handleStatus)
-
-	// Debug endpoints - シンプルに直接登録
-	http.HandleFunc("/debug/fax", handleDebugFax)
-	http.HandleFunc("/debug/channel-points", handleDebugChannelPoints)
-	http.HandleFunc("/debug/clock", handleDebugClock)
-	
-	// OAuth endpoints
-	http.HandleFunc("/auth", handleAuth)
-	http.HandleFunc("/callback", handleCallback)
-
-	// Settings API endpoints
-	http.HandleFunc("/api/settings", corsMiddleware(handleSettings))
-	http.HandleFunc("/api/settings/font", handleFontUpload)  // handleFontUploadは独自のCORS処理を持つ
-	http.HandleFunc("/api/settings/font/preview", corsMiddleware(handleFontPreview))
-	http.HandleFunc("/api/settings/auth/status", corsMiddleware(handleAuthStatus))
-
 	addr := fmt.Sprintf(":%d", port)
-	
+
 	// 起動メッセージを表示（logger出力の前に）
 	fmt.Println("")
 	fmt.Println("====================================================")
@@ -143,6 +144,8 @@ func StartWebServer(port int) {
 	fmt.Printf("   モノクロ表示: http://localhost:%d\n", port)
 	fmt.Printf("   カラー表示:   http://localhost:%d/color\n", port)
 	fmt.Printf("\n")
+	fmt.Printf("⚙️  設定画面:     http://localhost:%d/settings\n", port)
+	fmt.Printf("\n")
 	fmt.Printf("🐛 デバッグモード:\n")
 	fmt.Printf("   モノクロ表示: http://localhost:%d?debug=true\n", port)
 	fmt.Printf("   カラー表示:   http://localhost:%d/color?debug=true\n", port)
@@ -150,13 +153,13 @@ func StartWebServer(port int) {
 	fmt.Printf("🔧 環境変数 SERVER_PORT で変更可能\n")
 	fmt.Println("====================================================")
 	fmt.Println("")
-	
+
 	logger.Info("Starting web server", zap.String("address", addr))
 
 	// Create HTTP server instance
 	httpServer = &http.Server{
 		Addr:    addr,
-		Handler: nil, // Use DefaultServeMux
+		Handler: mux, // Use our custom ServeMux
 	}
 
 	go func() {
@@ -188,13 +191,13 @@ func handleSSE(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	
+
 	// Handle OPTIONS request
 	if r.Method == http.MethodOptions {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	
+
 	// Set headers for SSE
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -575,14 +578,14 @@ func handleCallback(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "code not found", http.StatusBadRequest)
 		return
 	}
-	
+
 	// Get token from Twitch
 	result, err := twitchtoken.GetTwitchToken(code)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	
+
 	// Process expires_in
 	expiresInFloat, ok := result["expires_in"].(float64)
 	if !ok {
@@ -680,13 +683,13 @@ func handleFontUpload(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, DELETE, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	
+
 	// Handle OPTIONS request
 	if r.Method == http.MethodOptions {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	
+
 	switch r.Method {
 	case http.MethodPost:
 		// Parse multipart form
@@ -708,7 +711,7 @@ func handleFontUpload(w http.ResponseWriter, r *http.Request) {
 		err = fontmanager.SaveCustomFont(header.Filename, file, header.Size)
 		if err != nil {
 			logger.Error("Failed to save font", zap.Error(err))
-			
+
 			// Return appropriate error message
 			switch err {
 			case fontmanager.ErrFileTooLarge:
@@ -763,7 +766,7 @@ func handleFontPreview(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Text string `json:"text"`
 	}
-	
+
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
@@ -802,14 +805,14 @@ func handleAuthStatus(w http.ResponseWriter, r *http.Request) {
 
 	// Get current token status
 	token, isValid, err := twitchtoken.GetLatestToken()
-	
+
 	response := map[string]interface{}{
-		"authUrl": twitchtoken.GetAuthURL(),
+		"authUrl":       twitchtoken.GetAuthURL(),
 		"authenticated": false,
-		"expiresAt": nil,
-		"error": nil,
+		"expiresAt":     nil,
+		"error":         nil,
 	}
-	
+
 	if err != nil {
 		// No token found
 		response["error"] = "No token found"

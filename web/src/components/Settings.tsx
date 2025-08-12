@@ -1,5 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { buildApiUrl } from '../utils/api';
+import { 
+  Setting, 
+  FeatureStatus, 
+  BluetoothDevice, 
+  ScanResponse, 
+  TestResponse, 
+  SettingsResponse,
+  UpdateSettingsRequest,
+  UpdateSettingsResponse
+} from '../types';
 
 interface FontInfo {
   hasCustomFont: boolean;
@@ -30,10 +40,20 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
   const [success, setSuccess] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // 新しい設定管理関連の状態
+  const [settings, setSettings] = useState<Record<string, Setting>>({});
+  const [featureStatus, setFeatureStatus] = useState<FeatureStatus | null>(null);
+  const [activeTab, setActiveTab] = useState<'general' | 'twitch' | 'printer' | 'behavior' | 'font'>('general');
+  const [bluetoothDevices, setBluetoothDevices] = useState<BluetoothDevice[]>([]);
+  const [scanning, setScanning] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [selectedDevice, setSelectedDevice] = useState('');
+  const [unsavedChanges, setUnsavedChanges] = useState<UpdateSettingsRequest>({});
+
   // 設定情報を取得
   useEffect(() => {
     const initialize = async () => {
-      await fetchSettings();
+      await fetchAllSettings();
       await fetchAuthStatus();
       // 初期表示時のプレビュー生成エラーは無視（後でリトライ）
       try {
@@ -44,6 +64,27 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
     };
     initialize();
   }, []);
+
+  // 全ての設定を取得
+  const fetchAllSettings = async () => {
+    try {
+      const response = await fetch(buildApiUrl('/api/settings/v2'));
+      if (!response.ok) throw new Error('Failed to fetch settings');
+      const data: SettingsResponse = await response.json();
+      
+      setSettings(data.settings);
+      setFeatureStatus(data.status);
+      setFontInfo(data.font || { hasCustomFont: false });
+      
+      // プリンターアドレスを選択状態に設定
+      if (data.settings.PRINTER_ADDRESS?.value) {
+        setSelectedDevice(data.settings.PRINTER_ADDRESS.value);
+      }
+    } catch (err) {
+      console.error('Failed to fetch settings:', err);
+      setError('設定の取得に失敗しました');
+    }
+  };
 
   const fetchSettings = async () => {
     try {
@@ -195,6 +236,118 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+
+  // プリンタースキャン機能
+  const handleScan = async () => {
+    setScanning(true);
+    setError('');
+    try {
+      const response = await fetch(buildApiUrl('/api/printer/scan'), { 
+        method: 'POST' 
+      });
+      if (!response.ok) throw new Error('Scan request failed');
+      
+      const data: ScanResponse = await response.json();
+      if (data.status === 'success') {
+        setBluetoothDevices(data.devices);
+        setSuccess(`${data.devices.length}台のデバイスが見つかりました`);
+      } else {
+        throw new Error(data.message || 'Scan failed');
+      }
+    } catch (err: any) {
+      console.error('Scan failed:', err);
+      setError('デバイススキャンに失敗しました: ' + err.message);
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  // プリンター接続テスト
+  const handleTest = async (macAddress: string) => {
+    setTesting(true);
+    setError('');
+    try {
+      const response = await fetch(buildApiUrl('/api/printer/test'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mac_address: macAddress }),
+      });
+      
+      const data: TestResponse = await response.json();
+      if (data.success) {
+        setSuccess('プリンターとの接続に成功しました');
+      } else {
+        setError('プリンター接続テスト失敗: ' + data.message);
+      }
+    } catch (err: any) {
+      console.error('Test failed:', err);
+      setError('接続テストでエラーが発生しました: ' + err.message);
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  // 設定値の変更を一時保存
+  const handleSettingChange = (key: string, value: string) => {
+    setUnsavedChanges(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
+  // 設定を保存
+  const handleSaveSettings = async () => {
+    if (Object.keys(unsavedChanges).length === 0) {
+      setError('変更された設定がありません');
+      return;
+    }
+
+    try {
+      const response = await fetch(buildApiUrl('/api/settings/v2'), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(unsavedChanges),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText);
+      }
+
+      const data: UpdateSettingsResponse = await response.json();
+      if (data.success) {
+        setSuccess(data.message);
+        setFeatureStatus(data.status);
+        setUnsavedChanges({});
+        // 設定を再取得して最新状態に同期
+        await fetchAllSettings();
+      } else {
+        throw new Error('設定の保存に失敗しました');
+      }
+    } catch (err: any) {
+      console.error('Save failed:', err);
+      setError('設定の保存に失敗しました: ' + err.message);
+    }
+  };
+
+  // 設定値を取得（表示用）
+  const getSettingValue = (key: string): string => {
+    // 未保存の変更があればそれを優先
+    if (key in unsavedChanges) {
+      return unsavedChanges[key];
+    }
+    // 設定値が存在すればそれを返す
+    return settings[key]?.value || '';
+  };
+
+  // 設定値のタイプ変換（boolean, number用）
+  const getBooleanSetting = (key: string): boolean => {
+    return getSettingValue(key) === 'true';
+  };
+
+  const getNumberSetting = (key: string): number => {
+    return parseInt(getSettingValue(key)) || 0;
   };
 
   return (

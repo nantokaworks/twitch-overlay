@@ -66,3 +66,112 @@ export interface DynamicStyles {
   fontSize?: string;
   marginRight?: string;
 }
+
+// 設定関連の型定義
+
+// 設定タイプ
+export type SettingType = 'normal' | 'secret';
+
+// 個別設定
+export interface Setting {
+  key: string;
+  value: string;
+  type: SettingType;
+  required: boolean;
+  description: string;
+  updated_at: string;
+  has_value?: boolean;
+}
+
+// アプリケーション設定
+export interface AppSettings {
+  twitch: {
+    CLIENT_ID: string;
+    CLIENT_SECRET: string;
+    TWITCH_USER_ID: string;
+    TRIGGER_CUSTOM_REWORD_ID: string;
+  };
+  printer: {
+    PRINTER_ADDRESS: string;
+    DRY_RUN_MODE: boolean;
+    BEST_QUALITY: boolean;
+    DITHER: boolean;
+    BLACK_POINT: number;
+    AUTO_ROTATE: boolean;
+    ROTATE_PRINT: boolean;
+    INITIAL_PRINT_ENABLED: boolean;
+  };
+  behavior: {
+    KEEP_ALIVE_INTERVAL: number;
+    KEEP_ALIVE_ENABLED: boolean;
+    CLOCK_ENABLED: boolean;
+    DEBUG_OUTPUT: boolean;
+    TIMEZONE: string;
+  };
+}
+
+// 機能ステータス
+export interface FeatureStatus {
+  twitch_configured: boolean;
+  printer_configured: boolean;
+  printer_connected: boolean;
+  missing_settings: string[];
+  warnings: string[];
+}
+
+// Bluetoothデバイス
+export interface BluetoothDevice {
+  mac_address: string;
+  name?: string;
+  signal_strength?: number;
+  last_seen: string;
+}
+
+// プリンタースキャン結果
+export interface ScanResponse {
+  devices: BluetoothDevice[];
+  status: string;
+  message?: string;
+}
+
+// プリンター接続テスト結果
+export interface TestResponse {
+  success: boolean;
+  message: string;
+}
+
+// 設定セクション
+export interface SettingsSection {
+  twitch: {
+    configured: boolean;
+    missing_fields: string[];
+  };
+  printer: {
+    configured: boolean;
+    connected: boolean;
+  };
+  features: {
+    keep_alive: boolean;
+    clock: boolean;
+    event_sub: boolean;
+  };
+}
+
+// 設定API応答
+export interface SettingsResponse {
+  settings: Record<string, Setting>;
+  status: FeatureStatus;
+  font: any; // 既存のフォント情報
+}
+
+// 設定更新リクエスト
+export interface UpdateSettingsRequest {
+  [key: string]: string;
+}
+
+// 設定更新応答
+export interface UpdateSettingsResponse {
+  success: boolean;
+  status: FeatureStatus;
+  message: string;
+}

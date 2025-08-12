@@ -11,7 +11,8 @@
       "Bash(CLIENT_ID=test CLIENT_SECRET=test TWITCH_USER_ID=test TRIGGER_CUSTOM_REWORD_ID=test PRINTER_ADDRESS=dummy BEST_QUALITY=false DITHER=false BLACK_POINT=100 AUTO_ROTATE=false DEBUG_OUTPUT=false DRY_RUN_MODE=true ./find-fax --raw -o scan_logs.txt)",
       "Bash(cat:*)",
       "Bash(rsync:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(go doc:*)"
     ],
     "deny": []
   }
