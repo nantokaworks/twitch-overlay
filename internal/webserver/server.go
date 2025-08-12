@@ -15,6 +15,7 @@ import (
 	twitch "github.com/joeyak/go-twitch-eventsub/v3"
 	"github.com/nantokaworks/twitch-fax/internal/broadcast"
 	"github.com/nantokaworks/twitch-fax/internal/faxmanager"
+	"github.com/nantokaworks/twitch-fax/internal/fontmanager"
 	"github.com/nantokaworks/twitch-fax/internal/output"
 	"github.com/nantokaworks/twitch-fax/internal/shared/logger"
 	"github.com/nantokaworks/twitch-fax/internal/status"
@@ -54,6 +55,11 @@ func corsMiddleware(handler http.HandlerFunc) http.HandlerFunc {
 func StartWebServer(port int) {
 	// Register SSE server as the global broadcaster
 	broadcast.SetBroadcaster(sseServer)
+
+	// Initialize font manager
+	if err := fontmanager.Initialize(); err != nil {
+		logger.Error("Failed to initialize font manager", zap.Error(err))
+	}
 
 	// Serve static files - try multiple paths
 	var staticDir string
@@ -120,6 +126,11 @@ func StartWebServer(port int) {
 	// OAuth endpoints
 	http.HandleFunc("/auth", handleAuth)
 	http.HandleFunc("/callback", handleCallback)
+
+	// Settings API endpoints
+	http.HandleFunc("/api/settings", corsMiddleware(handleSettings))
+	http.HandleFunc("/api/settings/font", handleFontUpload)  // handleFontUploadは独自のCORS処理を持つ
+	http.HandleFunc("/api/settings/font/preview", corsMiddleware(handleFontPreview))
 
 	addr := fmt.Sprintf(":%d", port)
 	
@@ -645,4 +656,138 @@ func handleCallback(w http.ResponseWriter, r *http.Request) {
 </body>
 </html>
 `)
+}
+
+// handleSettings returns current settings
+func handleSettings(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	settings := map[string]interface{}{
+		"font": fontmanager.GetCurrentFontInfo(),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(settings)
+}
+
+// handleFontUpload handles font file upload
+func handleFontUpload(w http.ResponseWriter, r *http.Request) {
+	// Set CORS headers first
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, DELETE, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	
+	// Handle OPTIONS request
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	
+	switch r.Method {
+	case http.MethodPost:
+		// Parse multipart form
+		err := r.ParseMultipartForm(fontmanager.MaxFileSize)
+		if err != nil {
+			http.Error(w, "Failed to parse form", http.StatusBadRequest)
+			return
+		}
+
+		// Get the file
+		file, header, err := r.FormFile("font")
+		if err != nil {
+			http.Error(w, "Failed to get file", http.StatusBadRequest)
+			return
+		}
+		defer file.Close()
+
+		// Save the font
+		err = fontmanager.SaveCustomFont(header.Filename, file, header.Size)
+		if err != nil {
+			logger.Error("Failed to save font", zap.Error(err))
+			
+			// Return appropriate error message
+			switch err {
+			case fontmanager.ErrFileTooLarge:
+				http.Error(w, "File too large (max 50MB)", http.StatusRequestEntityTooLarge)
+			case fontmanager.ErrInvalidFormat:
+				http.Error(w, "Invalid font format (only TTF/OTF supported)", http.StatusBadRequest)
+			default:
+				http.Error(w, "Failed to save font", http.StatusInternalServerError)
+			}
+			return
+		}
+
+		// Return success with updated font info
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": true,
+			"font":    fontmanager.GetCurrentFontInfo(),
+		})
+
+	case http.MethodDelete:
+		// Delete custom font
+		err := fontmanager.DeleteCustomFont()
+		if err != nil {
+			if err == fontmanager.ErrNoCustomFont {
+				http.Error(w, "No custom font configured", http.StatusNotFound)
+			} else {
+				http.Error(w, "Failed to delete font", http.StatusInternalServerError)
+			}
+			return
+		}
+
+		// Return success
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": true,
+			"message": "Custom font deleted successfully",
+		})
+
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// handleFontPreview generates a preview image with the current font
+func handleFontPreview(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Parse JSON body
+	var req struct {
+		Text string `json:"text"`
+	}
+	
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.Text == "" {
+		req.Text = "サンプルテキスト Sample Text 123"
+	}
+
+	// Generate preview image
+	fragments := []twitch.ChatMessageFragment{
+		{Type: "text", Text: req.Text},
+	}
+
+	// Use output package to generate image
+	img, err := output.GeneratePreviewImage("プレビュー", fragments)
+	if err != nil {
+		logger.Error("Failed to generate preview", zap.Error(err))
+		http.Error(w, "Failed to generate preview", http.StatusInternalServerError)
+		return
+	}
+
+	// Return base64 encoded image
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"image": img,
+	})
 }

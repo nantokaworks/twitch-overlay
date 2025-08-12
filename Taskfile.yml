@@ -41,6 +41,15 @@ tasks:
           echo "local.dbファイルをコピーしました → dist/local.db"
         fi
 
+  # find-faxツールビルド
+  build:find-fax:
+    desc: find-faxツールをビルド
+    dir: cmd/find-fax
+    cmds:
+      - echo "find-faxをビルド中..."
+      - go build -o ../../dist/find-fax .
+      - echo "find-faxビルド完了 → dist/find-fax"
+
   # 統合ビルド
   build:all:
     desc: フロントエンドとバックエンドを両方ビルド
@@ -48,6 +57,7 @@ tasks:
       - task: clean
       - task: build:frontend
       - task: build:backend
+      - task: build:find-fax
       - echo "全ビルド完了！"
       - echo "実行 → ./dist/twitch-fax"
 

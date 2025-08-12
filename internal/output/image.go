@@ -3,6 +3,7 @@ package output
 import (
 	"bytes"
 	"crypto/sha1"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"image"
@@ -16,11 +17,13 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 
 	"github.com/joeyak/go-twitch-eventsub/v3"
 	"github.com/nantokaworks/twitch-fax/internal/env"
+	"github.com/nantokaworks/twitch-fax/internal/fontmanager"
 	"github.com/nantokaworks/twitch-fax/internal/shared/logger"
 	"github.com/nantokaworks/twitch-fax/internal/twitchapi"
 	"github.com/skip2/go-qrcode"
@@ -30,6 +33,71 @@ import (
 	"golang.org/x/image/font/opentype"
 	"golang.org/x/image/math/fixed"
 )
+
+// getSystemDefaultFont はOSのデフォルトフォントを取得します
+func getSystemDefaultFont() ([]byte, error) {
+	var fontPaths []string
+	var triedPaths []string
+	
+	switch runtime.GOOS {
+	case "darwin": // macOS
+		fontPaths = []string{
+			// TTFファイルを優先
+			"/System/Library/Fonts/Supplemental/Arial.ttf",
+			"/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+			"/System/Library/Fonts/Supplemental/Courier New.ttf",
+			"/System/Library/Fonts/Supplemental/Georgia.ttf",
+			"/System/Library/Fonts/Supplemental/Times New Roman.ttf",
+			"/System/Library/Fonts/Supplemental/Verdana.ttf",
+			// 標準フォント
+			"/System/Library/Fonts/Avenir.ttc",
+			"/System/Library/Fonts/Helvetica.ttc",
+			"/System/Library/Fonts/Times.ttc",
+			"/System/Library/Fonts/Courier.ttc",
+			// 日本語フォント（TTCファイル）
+			"/System/Library/Fonts/Hiragino Sans GB.ttc",
+			"/System/Library/Fonts/ヒラギノ角ゴ ProN W3.ttc",
+		}
+	case "windows":
+		fontPaths = []string{
+			// TTFファイルを優先
+			"C:\\Windows\\Fonts\\arial.ttf",
+			"C:\\Windows\\Fonts\\times.ttf",
+			"C:\\Windows\\Fonts\\cour.ttf",
+			"C:\\Windows\\Fonts\\verdana.ttf",
+			// 日本語フォント
+			"C:\\Windows\\Fonts\\YuGothM.ttc",
+			"C:\\Windows\\Fonts\\msgothic.ttc",
+		}
+	default: // Linux and others
+		fontPaths = []string{
+			// TTFファイルを優先
+			"/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+			"/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+			"/usr/share/fonts/truetype/ubuntu/Ubuntu-R.ttf",
+			"/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
+			// 日本語フォント
+			"/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+		}
+	}
+	
+	// Try each font path
+	for _, path := range fontPaths {
+		triedPaths = append(triedPaths, path)
+		if data, err := os.ReadFile(path); err == nil {
+			logger.Info("Using system font", zap.String("path", path))
+			return data, nil
+		}
+	}
+	
+	// エラー時は試したパスを全て出力
+	logger.Error("No suitable font found on system", 
+		zap.Strings("tried_paths", triedPaths),
+		zap.String("os", runtime.GOOS))
+	
+	return nil, fmt.Errorf("no suitable font found on system (OS: %s, tried %d paths: %v)", 
+		runtime.GOOS, len(triedPaths), triedPaths)
+}
 
 const PaperWidth = 384
 
@@ -230,13 +298,21 @@ func rotate90(src image.Image) image.Image {
 
 // MessageToImage creates an image from the message with optional color support
 func MessageToImage(userName string, msg []twitch.ChatMessageFragment, useColor bool) (image.Image, error) {
-	// 新しいフォントを作成（拡大文字）
-	fontBytes, err := os.ReadFile("/Users/toka/Library/Fonts/HackGen-Bold.ttf")
-	if err != nil {
-		return nil, err
+	// フォントマネージャーからフォントデータを取得
+	// まずカスタムフォントを試し、なければシステムフォントを使用
+	fontData, err := fontmanager.GetFont(nil)
+	if err != nil || fontData == nil {
+		// カスタムフォントがない場合はシステムフォントを取得
+		defaultFont, err := getSystemDefaultFont()
+		if err != nil {
+			logger.Error("Failed to get system default font", zap.Error(err))
+			return nil, fmt.Errorf("failed to get system font: %w", err)
+		}
+		fontData = defaultFont
 	}
-
-	f, err := opentype.Parse(fontBytes)
+	
+	// 新しいフォントを作成（拡大文字）
+	f, err := opentype.Parse(fontData)
 	if err != nil {
 		return nil, err
 	}
@@ -646,13 +722,20 @@ func GenerateTimeImageWithStatsOptions(timeStr string, forceEmptyLeaderboard boo
 		zap.String("time", timeStr),
 		zap.Int("monthlyLeaders", len(monthLeaders)))
 	
-	// Load font
-	fontBytes, err := os.ReadFile("/Users/toka/Library/Fonts/HackGen-Bold.ttf")
+	// フォントマネージャーからフォントデータを取得（デフォルトはOSフォント）
+	defaultFont, err := getSystemDefaultFont()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load font: %w", err)
+		logger.Error("Failed to get system default font", zap.Error(err))
+		return nil, fmt.Errorf("failed to get system font: %w", err)
 	}
 	
-	f, err := opentype.Parse(fontBytes)
+	fontData, err := fontmanager.GetFont(defaultFont)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get font: %w", err)
+	}
+	
+	// Load font
+	f, err := opentype.Parse(fontData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse font: %w", err)
 	}
@@ -953,13 +1036,20 @@ func downloadAndResizeAvatarColor(url string, size int) (image.Image, error) {
 
 // GenerateTimeImageSimple creates a simple monochrome image with date and time
 func GenerateTimeImageSimple(timeStr string) (image.Image, error) {
-	// Load font
-	fontBytes, err := os.ReadFile("/Users/toka/Library/Fonts/HackGen-Bold.ttf")
+	// フォントマネージャーからフォントデータを取得（デフォルトはOSフォント）
+	defaultFont, err := getSystemDefaultFont()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load font: %w", err)
+		logger.Error("Failed to get system default font", zap.Error(err))
+		return nil, fmt.Errorf("failed to get system font: %w", err)
 	}
 	
-	parsedFont, err := opentype.Parse(fontBytes)
+	fontData, err := fontmanager.GetFont(defaultFont)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get font: %w", err)
+	}
+	
+	// Load font
+	parsedFont, err := opentype.Parse(fontData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse font: %w", err)
 	}
@@ -1028,13 +1118,20 @@ func GenerateTimeImageWithStatsColorOptions(timeStr string, forceEmptyLeaderboar
 	fmt.Printf("Monthly leaders count: %d\n", len(monthLeaders))
 	fmt.Printf("==========================================\n")
 	
-	// Load font
-	fontBytes, err := os.ReadFile("/Users/toka/Library/Fonts/HackGen-Bold.ttf")
+	// フォントマネージャーからフォントデータを取得（デフォルトはOSフォント）
+	defaultFont, err := getSystemDefaultFont()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load font: %w", err)
+		logger.Error("Failed to get system default font", zap.Error(err))
+		return nil, fmt.Errorf("failed to get system font: %w", err)
 	}
 	
-	f, err := opentype.Parse(fontBytes)
+	fontData, err := fontmanager.GetFont(defaultFont)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get font: %w", err)
+	}
+	
+	// Load font
+	f, err := opentype.Parse(fontData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse font: %w", err)
 	}
@@ -1334,4 +1431,23 @@ func GenerateTimeImageWithStatsColorOptions(timeStr string, forceEmptyLeaderboar
 	}
 	
 	return img, nil
+}
+
+// GeneratePreviewImage creates a preview image for font testing
+func GeneratePreviewImage(userName string, msg []twitch.ChatMessageFragment) (string, error) {
+	// Generate image using current font
+	img, err := MessageToImage(userName, msg, false)
+	if err != nil {
+		return "", err
+	}
+	
+	// Convert to PNG
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		return "", err
+	}
+	
+	// Encode to base64
+	encoded := base64.StdEncoding.EncodeToString(buf.Bytes())
+	return "data:image/png;base64," + encoded, nil
 }

@@ -14,13 +14,20 @@ var isConnected bool
 var hasInitialPrintBeenDone bool
 
 func SetupPrinter() (*catprinter.Client, error) {
+	// 既存のクライアントがあれば再利用（BLEデバイスの再取得を避ける）
 	if latestPrinter != nil {
-		latestPrinter.Disconnect()
-		latestPrinter = nil
-		isConnected = false
-		status.SetPrinterConnected(false)
+		// 接続状態のみリセット
+		if isConnected {
+			logger.Info("Reusing existing printer client, disconnecting current connection")
+			latestPrinter.Disconnect()
+			isConnected = false
+			status.SetPrinterConnected(false)
+		}
+		return latestPrinter, nil
 	}
 
+	// 初回のみ新規作成
+	logger.Info("Creating new printer client")
 	instance, err := catprinter.NewClient()
 	if err != nil {
 		return nil, err
@@ -67,13 +74,18 @@ func SetupPrinterOptions(bestQuality, dither, autoRotate bool, blackPoint float3
 	return nil
 }
 
-// Stop gracefully disconnects the printer if connected
+// Stop gracefully disconnects the printer and releases BLE device
 func Stop() {
-	if latestPrinter != nil && isConnected {
-		latestPrinter.Disconnect()
-		isConnected = false
-		status.SetPrinterConnected(false)
+	if latestPrinter != nil {
+		if isConnected {
+			latestPrinter.Disconnect()
+			isConnected = false
+			status.SetPrinterConnected(false)
+		}
+		// Stop()を呼ぶとBLEデバイスも解放される
+		latestPrinter.Stop()
 		latestPrinter = nil
+		logger.Info("Printer client stopped and BLE device released")
 	}
 }
 
