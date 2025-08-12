@@ -14,6 +14,7 @@ export const LAYOUT = {
   // Animation
   PIXELS_PER_FRAME: 2,
   DISPLAY_DURATION: 5000, // 5 seconds
+  CLOCK_DISPLAY_DURATION: 10000, // 10 seconds (時計印刷用)
   FADE_DURATION: 500, // 0.5 seconds
   LAG_DURATION: 2000, // 2 seconds
   TRANSITION_DELAY: 50, // 50ms delay for transition switching

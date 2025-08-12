@@ -91,6 +91,12 @@ const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate, onA
         setImagePosition(0); // 最終位置に固定
         setScrollProgress(100);
         setDisplayState('displaying');
+        
+        // 時計印刷かどうかで表示時間を分岐
+        const displayDuration = faxData.username === "🕐 Clock" 
+          ? LAYOUT.CLOCK_DISPLAY_DURATION 
+          : LAYOUT.DISPLAY_DURATION;
+        
         setTimeout(() => {
           setDisplayState('sliding');
           // スライドアップアニメーションを開始
@@ -101,7 +107,7 @@ const FaxDisplay = ({ faxData, onComplete, imageType, onLabelPositionUpdate, onA
             const currentLabelPos = Math.min(imageHeight + LAYOUT.FAX_CONTENT_TOP_MARGIN, LAYOUT.FAX_HEIGHT);
             startSlideUpAnimation(currentLabelPos);
           }, LAYOUT.TRANSITION_DELAY);
-        }, LAYOUT.DISPLAY_DURATION);
+        }, displayDuration);
       }
     };
     
