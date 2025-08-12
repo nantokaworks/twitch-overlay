@@ -8,12 +8,20 @@ interface FontInfo {
   modifiedAt?: string;
 }
 
+interface AuthInfo {
+  authUrl: string;
+  authenticated: boolean;
+  expiresAt?: number | null;
+  error?: string | null;
+}
+
 interface SettingsProps {
   onClose?: () => void;
 }
 
 export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
   const [fontInfo, setFontInfo] = useState<FontInfo>({ hasCustomFont: false });
+  const [authInfo, setAuthInfo] = useState<AuthInfo | null>(null);
   const [uploading, setUploading] = useState(false);
   const [previewText, setPreviewText] = useState('サンプルテキスト Sample Text 123');
   const [previewImage, setPreviewImage] = useState<string>('');
@@ -26,6 +34,7 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
   useEffect(() => {
     const initialize = async () => {
       await fetchSettings();
+      await fetchAuthStatus();
       // 初期表示時のプレビュー生成エラーは無視（後でリトライ）
       try {
         await generatePreview(undefined, false);
@@ -45,6 +54,17 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
     } catch (err) {
       console.error('Failed to fetch settings:', err);
       setError('設定の取得に失敗しました');
+    }
+  };
+
+  const fetchAuthStatus = async () => {
+    try {
+      const response = await fetch(buildApiUrl('/api/settings/auth/status'));
+      if (!response.ok) throw new Error('Failed to fetch auth status');
+      const data = await response.json();
+      setAuthInfo(data);
+    } catch (err) {
+      console.error('Failed to fetch auth status:', err);
     }
   };
 
@@ -315,6 +335,61 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
                   再試行
                 </button>
               </div>
+            )}
+          </div>
+
+          {/* Twitch認証セクション */}
+          <div className="mb-8">
+            <h3 className="text-lg font-semibold mb-4">Twitch認証</h3>
+            
+            {authInfo && (
+              <div className="border rounded p-4 bg-gray-50">
+                {authInfo.authenticated ? (
+                  <div>
+                    <div className="flex items-center mb-2">
+                      <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                      <span className="text-green-700 font-medium">認証済み</span>
+                    </div>
+                    {authInfo.expiresAt && (
+                      <p className="text-sm text-gray-600">
+                        有効期限: {new Date(authInfo.expiresAt * 1000).toLocaleString('ja-JP')}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <div className="flex items-center mb-3">
+                      <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
+                      <span className="text-red-700 font-medium">
+                        {authInfo.error === 'No token found' ? '未認証' : 'トークン期限切れ'}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-3">
+                      Twitchアカウントを連携して、FAX機能を使用できるようにしてください。
+                    </p>
+                    <a
+                      href={authInfo.authUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+                    >
+                      <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"/>
+                      </svg>
+                      Twitchでログイン
+                    </a>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {authInfo && authInfo.authenticated && (
+              <button
+                onClick={fetchAuthStatus}
+                className="mt-3 text-sm text-blue-600 hover:text-blue-800 underline"
+              >
+                認証状態を更新
+              </button>
             )}
           </div>
 

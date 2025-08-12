@@ -93,10 +93,10 @@ func getSystemDefaultFont() ([]byte, error) {
 	// エラー時は試したパスを全て出力
 	logger.Error("No suitable font found on system", 
 		zap.Strings("tried_paths", triedPaths),
-		zap.String("os", runtime.GOOS))
+		zap.String("os", runtime.GOOS),
+		zap.String("solution", "Please upload a custom font via the settings page or install system fonts"))
 	
-	return nil, fmt.Errorf("no suitable font found on system (OS: %s, tried %d paths: %v)", 
-		runtime.GOOS, len(triedPaths), triedPaths)
+	return nil, fmt.Errorf("no suitable font found on system. Please either: 1) Upload a custom font via the settings page (/settings), or 2) Install system fonts (e.g., 'sudo apt-get install fonts-liberation fonts-dejavu' on Ubuntu/Debian)")
 }
 
 const PaperWidth = 384
@@ -298,17 +298,11 @@ func rotate90(src image.Image) image.Image {
 
 // MessageToImage creates an image from the message with optional color support
 func MessageToImage(userName string, msg []twitch.ChatMessageFragment, useColor bool) (image.Image, error) {
-	// フォントマネージャーからフォントデータを取得
-	// まずカスタムフォントを試し、なければシステムフォントを使用
+	// フォントマネージャーからフォントデータを取得（カスタムフォント必須）
 	fontData, err := fontmanager.GetFont(nil)
-	if err != nil || fontData == nil {
-		// カスタムフォントがない場合はシステムフォントを取得
-		defaultFont, err := getSystemDefaultFont()
-		if err != nil {
-			logger.Error("Failed to get system default font", zap.Error(err))
-			return nil, fmt.Errorf("failed to get system font: %w", err)
-		}
-		fontData = defaultFont
+	if err != nil {
+		logger.Error("Failed to get font", zap.Error(err))
+		return nil, fmt.Errorf("フォントがアップロードされていません。設定ページ(/settings)からフォントファイル(TTF/OTF)をアップロードしてください")
 	}
 	
 	// 新しいフォントを作成（拡大文字）
@@ -722,16 +716,11 @@ func GenerateTimeImageWithStatsOptions(timeStr string, forceEmptyLeaderboard boo
 		zap.String("time", timeStr),
 		zap.Int("monthlyLeaders", len(monthLeaders)))
 	
-	// フォントマネージャーからフォントデータを取得（デフォルトはOSフォント）
-	defaultFont, err := getSystemDefaultFont()
+	// フォントマネージャーからフォントデータを取得（カスタムフォント必須）
+	fontData, err := fontmanager.GetFont(nil)
 	if err != nil {
-		logger.Error("Failed to get system default font", zap.Error(err))
-		return nil, fmt.Errorf("failed to get system font: %w", err)
-	}
-	
-	fontData, err := fontmanager.GetFont(defaultFont)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get font: %w", err)
+		logger.Error("Failed to get font", zap.Error(err))
+		return nil, fmt.Errorf("フォントがアップロードされていません。設定ページ(/settings)からフォントファイル(TTF/OTF)をアップロードしてください")
 	}
 	
 	// Load font
@@ -948,7 +937,6 @@ func GenerateTimeImageWithStatsOptions(timeStr string, forceEmptyLeaderboard boo
 	return img, nil
 }
 
-
 // getBitsLeaders gets the top bits cheerers for month only
 func getBitsLeaders(forceEmpty bool) (monthLeaders []*twitchapi.BitsLeaderboardEntry) {
 	// Check if we should return empty leaderboard for testing
@@ -1036,16 +1024,11 @@ func downloadAndResizeAvatarColor(url string, size int) (image.Image, error) {
 
 // GenerateTimeImageSimple creates a simple monochrome image with date and time
 func GenerateTimeImageSimple(timeStr string) (image.Image, error) {
-	// フォントマネージャーからフォントデータを取得（デフォルトはOSフォント）
-	defaultFont, err := getSystemDefaultFont()
+	// フォントマネージャーからフォントデータを取得（カスタムフォント必須）
+	fontData, err := fontmanager.GetFont(nil)
 	if err != nil {
-		logger.Error("Failed to get system default font", zap.Error(err))
-		return nil, fmt.Errorf("failed to get system font: %w", err)
-	}
-	
-	fontData, err := fontmanager.GetFont(defaultFont)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get font: %w", err)
+		logger.Error("Failed to get font", zap.Error(err))
+		return nil, fmt.Errorf("フォントがアップロードされていません。設定ページ(/settings)からフォントファイル(TTF/OTF)をアップロードしてください")
 	}
 	
 	// Load font
@@ -1118,16 +1101,11 @@ func GenerateTimeImageWithStatsColorOptions(timeStr string, forceEmptyLeaderboar
 	fmt.Printf("Monthly leaders count: %d\n", len(monthLeaders))
 	fmt.Printf("==========================================\n")
 	
-	// フォントマネージャーからフォントデータを取得（デフォルトはOSフォント）
-	defaultFont, err := getSystemDefaultFont()
+	// フォントマネージャーからフォントデータを取得（カスタムフォント必須）
+	fontData, err := fontmanager.GetFont(nil)
 	if err != nil {
-		logger.Error("Failed to get system default font", zap.Error(err))
-		return nil, fmt.Errorf("failed to get system font: %w", err)
-	}
-	
-	fontData, err := fontmanager.GetFont(defaultFont)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get font: %w", err)
+		logger.Error("Failed to get font", zap.Error(err))
+		return nil, fmt.Errorf("フォントがアップロードされていません。設定ページ(/settings)からフォントファイル(TTF/OTF)をアップロードしてください")
 	}
 	
 	// Load font

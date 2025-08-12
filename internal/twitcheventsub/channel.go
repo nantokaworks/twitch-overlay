@@ -142,3 +142,38 @@ func HandleChannelSubscriptionGift(message twitch.EventChannelSubscriptionGift) 
 	}
 
 }
+
+func HandleChannelSubscriptionMessage(message twitch.EventChannelSubscriptionMessage) {
+	// 再サブスクメッセージの処理
+	var text string
+	if message.CumulativeMonths > 1 {
+		// 再サブスク
+		text = fmt.Sprintf("🎉再サブスクありがとう %s (%dヶ月目) %s", 
+			message.User.UserLogin, 
+			message.CumulativeMonths,
+			message.Message.Text)
+	} else {
+		// 初回サブスク（メッセージ付き）
+		text = fmt.Sprintf("🎉サブスクありがとう %s %s", 
+			message.User.UserLogin,
+			message.Message.Text)
+	}
+
+	fragments := []twitch.ChatMessageFragment{
+		{
+			Type:      "text",
+			Text:      text,
+			Cheermote: nil,
+			Emote:     nil,
+		},
+	}
+
+	output.PrintOut(message.User.UserName, fragments, time.Now())
+	
+	logger.Info("サブスクメッセージ", 
+		zap.String("user", message.User.UserName), 
+		zap.Int("cumulative_months", message.CumulativeMonths),
+		zap.Int("streak_months", message.StreakMonths),
+		zap.String("tier", message.Tier),
+		zap.String("message", message.Message.Text))
+}

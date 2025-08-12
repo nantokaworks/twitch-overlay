@@ -32,6 +32,7 @@ func SetupEventSub(token *twitchtoken.Token) {
 			twitch.SubChannelShoutoutReceive,
 			twitch.SubChannelSubscribe,
 			twitch.SubChannelSubscriptionGift,
+			twitch.SubChannelSubscriptionMessage,
 			twitch.SubStreamOffline,
 			twitch.SubStreamOnline,
 		}
@@ -134,6 +135,15 @@ func SetupEventSub(token *twitchtoken.Token) {
 				fmt.Printf("Error parsing SUBSCRIBE event: %v\n", err)
 			} else {
 				HandleChannelSubscriptionGift(evt)
+			}
+
+		// use subscription message (for resubs)
+		case twitch.SubChannelSubscriptionMessage:
+			var evt twitch.EventChannelSubscriptionMessage
+			if err := json.Unmarshal(*message.Payload.Event, &evt); err != nil {
+				fmt.Printf("Error parsing SUBSCRIPTION MESSAGE event: %v\n", err)
+			} else {
+				HandleChannelSubscriptionMessage(evt)
 			}
 
 		// use stream offline

@@ -131,6 +131,7 @@ func StartWebServer(port int) {
 	http.HandleFunc("/api/settings", corsMiddleware(handleSettings))
 	http.HandleFunc("/api/settings/font", handleFontUpload)  // handleFontUploadは独自のCORS処理を持つ
 	http.HandleFunc("/api/settings/font/preview", corsMiddleware(handleFontPreview))
+	http.HandleFunc("/api/settings/auth/status", corsMiddleware(handleAuthStatus))
 
 	addr := fmt.Sprintf(":%d", port)
 	
@@ -790,4 +791,36 @@ func handleFontPreview(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"image": img,
 	})
+}
+
+// handleAuthStatus returns current Twitch authentication status
+func handleAuthStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get current token status
+	token, isValid, err := twitchtoken.GetLatestToken()
+	
+	response := map[string]interface{}{
+		"authUrl": twitchtoken.GetAuthURL(),
+		"authenticated": false,
+		"expiresAt": nil,
+		"error": nil,
+	}
+	
+	if err != nil {
+		// No token found
+		response["error"] = "No token found"
+	} else {
+		response["authenticated"] = isValid
+		response["expiresAt"] = token.ExpiresAt
+		if !isValid {
+			response["error"] = "Token expired"
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }

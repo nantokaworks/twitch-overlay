@@ -84,12 +84,7 @@ func GetFont(defaultFontData []byte) ([]byte, error) {
 	
 	// カスタムフォントが設定されていない場合
 	if customFontPath == "" {
-		// defaultFontDataが渡されていればそれを返す
-		if defaultFontData != nil {
-			return defaultFontData, nil
-		}
-		// それ以外はnilを返す（呼び出し側でシステムフォントを取得）
-		return nil, nil
+		return nil, fmt.Errorf("no custom font configured: please upload a font file (TTF/OTF) via the settings page")
 	}
 	
 	// カスタムフォントを読み込み
@@ -98,8 +93,7 @@ func GetFont(defaultFontData []byte) ([]byte, error) {
 		logger.Error("Failed to read custom font", 
 			zap.String("path", customFontPath),
 			zap.Error(err))
-		// エラーの場合もnilを返す（呼び出し側でシステムフォントを取得）
-		return nil, nil
+		return nil, fmt.Errorf("failed to read custom font file: %w", err)
 	}
 	
 	return data, nil
