@@ -1,8 +1,9 @@
 {
-  "name": "web",
+  "name": "twitch-overlay-web",
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "description": "Web interface for twitch-overlay - Twitch custom reward overlay system",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

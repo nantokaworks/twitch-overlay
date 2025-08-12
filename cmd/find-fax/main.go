@@ -7,8 +7,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/nantokaworks/twitch-fax/internal/output"
-	"github.com/nantokaworks/twitch-fax/internal/shared/logger"
+	"github.com/nantokaworks/twitch-overlay/internal/output"
+	"github.com/nantokaworks/twitch-overlay/internal/shared/logger"
 	"go.uber.org/zap"
 )
 

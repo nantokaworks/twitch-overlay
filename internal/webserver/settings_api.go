@@ -6,11 +6,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/nantokaworks/twitch-fax/internal/fontmanager"
-	"github.com/nantokaworks/twitch-fax/internal/localdb"
-	"github.com/nantokaworks/twitch-fax/internal/output"
-	"github.com/nantokaworks/twitch-fax/internal/settings"
-	"github.com/nantokaworks/twitch-fax/internal/shared/logger"
+	"github.com/nantokaworks/twitch-overlay/internal/fontmanager"
+	"github.com/nantokaworks/twitch-overlay/internal/localdb"
+	"github.com/nantokaworks/twitch-overlay/internal/output"
+	"github.com/nantokaworks/twitch-overlay/internal/settings"
+	"github.com/nantokaworks/twitch-overlay/internal/shared/logger"
 	"go.uber.org/zap"
 )
 

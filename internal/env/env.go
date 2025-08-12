@@ -8,9 +8,9 @@ import (
 	"strconv"
 
 	"github.com/joho/godotenv"
-	"github.com/nantokaworks/twitch-fax/internal/localdb"
-	"github.com/nantokaworks/twitch-fax/internal/settings"
-	"github.com/nantokaworks/twitch-fax/internal/shared/logger"
+	"github.com/nantokaworks/twitch-overlay/internal/localdb"
+	"github.com/nantokaworks/twitch-overlay/internal/settings"
+	"github.com/nantokaworks/twitch-overlay/internal/shared/logger"
 	"go.uber.org/zap"
 )
 

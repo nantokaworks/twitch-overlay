@@ -1,7 +1,7 @@
 package broadcast
 
 import (
-	"github.com/nantokaworks/twitch-fax/internal/faxmanager"
+	"github.com/nantokaworks/twitch-overlay/internal/faxmanager"
 )
 
 // FaxBroadcaster is an interface for broadcasting fax events

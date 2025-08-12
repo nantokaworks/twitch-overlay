@@ -1,4 +1,4 @@
-module github.com/nantokaworks/twitch-fax
+module github.com/nantokaworks/twitch-overlay
 
 go 1.23.4
 

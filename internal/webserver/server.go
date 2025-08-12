@@ -13,14 +13,14 @@ import (
 	"time"
 
 	twitch "github.com/joeyak/go-twitch-eventsub/v3"
-	"github.com/nantokaworks/twitch-fax/internal/broadcast"
-	"github.com/nantokaworks/twitch-fax/internal/faxmanager"
-	"github.com/nantokaworks/twitch-fax/internal/fontmanager"
-	"github.com/nantokaworks/twitch-fax/internal/output"
-	"github.com/nantokaworks/twitch-fax/internal/shared/logger"
-	"github.com/nantokaworks/twitch-fax/internal/status"
-	"github.com/nantokaworks/twitch-fax/internal/twitcheventsub"
-	"github.com/nantokaworks/twitch-fax/internal/twitchtoken"
+	"github.com/nantokaworks/twitch-overlay/internal/broadcast"
+	"github.com/nantokaworks/twitch-overlay/internal/faxmanager"
+	"github.com/nantokaworks/twitch-overlay/internal/fontmanager"
+	"github.com/nantokaworks/twitch-overlay/internal/output"
+	"github.com/nantokaworks/twitch-overlay/internal/shared/logger"
+	"github.com/nantokaworks/twitch-overlay/internal/status"
+	"github.com/nantokaworks/twitch-overlay/internal/twitcheventsub"
+	"github.com/nantokaworks/twitch-overlay/internal/twitchtoken"
 	"go.uber.org/zap"
 )
 

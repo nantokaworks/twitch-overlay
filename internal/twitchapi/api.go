@@ -7,9 +7,9 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/nantokaworks/twitch-fax/internal/env"
-	"github.com/nantokaworks/twitch-fax/internal/shared/logger"
-	"github.com/nantokaworks/twitch-fax/internal/twitchtoken"
+	"github.com/nantokaworks/twitch-overlay/internal/env"
+	"github.com/nantokaworks/twitch-overlay/internal/shared/logger"
+	"github.com/nantokaworks/twitch-overlay/internal/twitchtoken"
 	"go.uber.org/zap"
 )
 

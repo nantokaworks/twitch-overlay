@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/nantokaworks/twitch-fax/internal/shared/logger"
+	"github.com/nantokaworks/twitch-overlay/internal/shared/logger"
 	"go.uber.org/zap"
 	"golang.org/x/image/font/opentype"
 )

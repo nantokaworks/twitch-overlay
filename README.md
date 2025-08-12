@@ -1,6 +1,12 @@
-# Twitch FAX
+# twitch-overlay
 
-Twitchのチャンネルポイント報酬をサーマルプリンターに印刷するサービス
+Twitchカスタムリワードと連携した配信用オーバーレイシステム
+
+> **📝 利用について**  
+> このプロジェクトは個人の配信環境向けにカスタマイズされています。  
+> 時計の表示内容等に個人設定が含まれているため、技術実装の参考として、または改造ベースとしてご活用ください。
+
+**主要機能**: Twitchリワード連携 | FAX風画像表示 | カスタマイズ可能時計 | サーマルプリンター印刷
 
 ## 機能
 
@@ -23,8 +29,8 @@ Twitchのチャンネルポイント報酬をサーマルプリンターに印�
 
 1. リポジトリをクローン
 ```bash
-git clone https://github.com/nantokaworks/twitch-fax.git
-cd twitch-fax
+git clone https://github.com/nantokaworks/twitch-overlay.git
+cd twitch-overlay
 ```
 
 2. 依存関係をインストール
@@ -52,10 +58,10 @@ task build:all
 
 ```bash
 # Bluetooth権限を付与
-sudo setcap 'cap_net_admin,cap_net_raw+eip' ./dist/twitch-fax
+sudo setcap 'cap_net_admin,cap_net_raw+eip' ./dist/twitch-overlay
 
 # 実行
-./dist/twitch-fax
+./dist/twitch-overlay
 ```
 
 #### 方法2: systemdサービスとして実行（推奨）
@@ -84,9 +90,9 @@ task service:status
 task service:logs
 
 # サービスの手動起動/停止/再起動
-sudo systemctl start twitch-fax@$USER.service
-sudo systemctl stop twitch-fax@$USER.service
-sudo systemctl restart twitch-fax@$USER.service
+sudo systemctl start twitch-overlay@$USER.service
+sudo systemctl stop twitch-overlay@$USER.service
+sudo systemctl restart twitch-overlay@$USER.service
 
 # サービスのアンインストール
 task uninstall:service
@@ -152,7 +158,7 @@ task install:service
 
 3. **setcapを使用（毎回必要）**
 ```bash
-sudo setcap 'cap_net_admin,cap_net_raw+eip' ./dist/twitch-fax
+sudo setcap 'cap_net_admin,cap_net_raw+eip' ./dist/twitch-overlay
 ```
 
 ### プリンターが見つからない

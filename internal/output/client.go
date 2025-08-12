@@ -4,9 +4,9 @@ import (
 	"strings"
 	
 	"git.massivebox.net/massivebox/go-catprinter"
-	"github.com/nantokaworks/twitch-fax/internal/env"
-	"github.com/nantokaworks/twitch-fax/internal/shared/logger"
-	"github.com/nantokaworks/twitch-fax/internal/status"
+	"github.com/nantokaworks/twitch-overlay/internal/env"
+	"github.com/nantokaworks/twitch-overlay/internal/shared/logger"
+	"github.com/nantokaworks/twitch-overlay/internal/status"
 	"go.uber.org/zap"
 )
 

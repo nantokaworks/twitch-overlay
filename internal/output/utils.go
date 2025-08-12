@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"git.massivebox.net/massivebox/go-catprinter"
-	"github.com/nantokaworks/twitch-fax/internal/shared/logger"
+	"github.com/nantokaworks/twitch-overlay/internal/shared/logger"
 	"go.uber.org/zap"
 )
 
