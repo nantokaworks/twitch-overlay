@@ -37,6 +37,11 @@ var logStreamer = &LogStreamer{
 
 func init() {
 	go logStreamer.run()
+	
+	// Set up the broadcast callback
+	logger.SetBroadcastCallback(func(entry logger.LogEntry) {
+		BroadcastLog(entry)
+	})
 }
 
 func (ls *LogStreamer) run() {

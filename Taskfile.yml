@@ -30,19 +30,6 @@ tasks:
           -X 'github.com/nantokaworks/twitch-overlay/internal/version.BuildTime={{.BUILD_TIME}}'" \
           -o ../../dist/twitch-overlay .
       - echo "バックエンドビルド完了 → dist/twitch-overlay"
-      - |
-        if [ -f .env ]; then
-          cp .env ../../dist/.env
-          echo ".envファイルをコピーしました → dist/.env"
-        fi
-      - |
-        # dist/local.dbが既に存在する場合は上書きしない
-        if [ -f ../../dist/local.db ]; then
-          echo "local.dbファイルは既に存在します → dist/local.db (上書きしません)"
-        elif [ -f local.db ]; then
-          cp local.db ../../dist/local.db
-          echo "local.dbファイルをコピーしました → dist/local.db"
-        fi
 
   # 統合ビルド
   build:all:
@@ -59,33 +46,9 @@ tasks:
     desc: ビルドファイルをクリーンアップ
     cmds:
       - echo "ビルドファイルをクリーンアップ中..."
-      - |
-        # local.dbを一時的に退避
-        if [ -f dist/local.db ]; then
-          echo "local.dbを退避中..."
-          mv dist/local.db /tmp/twitch-overlay-local.db.tmp
-        fi
-      - |
-        # .envファイルも退避
-        if [ -f dist/.env ]; then
-          echo ".envを退避中..."
-          mv dist/.env /tmp/twitch-overlay-env.tmp
-        fi
       - rm -rf dist
       - rm -rf web/dist
       - mkdir -p dist
-      - |
-        # local.dbを復元
-        if [ -f /tmp/twitch-overlay-local.db.tmp ]; then
-          echo "local.dbを復元中..."
-          mv /tmp/twitch-overlay-local.db.tmp dist/local.db
-        fi
-      - |
-        # .envを復元
-        if [ -f /tmp/twitch-overlay-env.tmp ]; then
-          echo ".envを復元中..."
-          mv /tmp/twitch-overlay-env.tmp dist/.env
-        fi
       - echo "クリーンアップ完了"
 
   # 開発サーバー起動（フロントエンド）

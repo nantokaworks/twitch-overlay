@@ -24,6 +24,8 @@ type LogBuffer struct {
 var (
 	globalBuffer *LogBuffer
 	bufferOnce   sync.Once
+	broadcastCallback func(LogEntry)
+	callbackMu sync.RWMutex
 )
 
 // GetLogBuffer returns the global log buffer instance
@@ -37,6 +39,13 @@ func GetLogBuffer() *LogBuffer {
 	return globalBuffer
 }
 
+// SetBroadcastCallback sets the callback function for broadcasting log entries
+func SetBroadcastCallback(callback func(LogEntry)) {
+	callbackMu.Lock()
+	defer callbackMu.Unlock()
+	broadcastCallback = callback
+}
+
 // Add adds a new log entry to the buffer
 func (lb *LogBuffer) Add(entry LogEntry) {
 	lb.mu.Lock()
@@ -47,6 +56,16 @@ func (lb *LogBuffer) Add(entry LogEntry) {
 	// Remove old entries if buffer exceeds max size
 	if len(lb.entries) > lb.maxSize {
 		lb.entries = lb.entries[len(lb.entries)-lb.maxSize:]
+	}
+	
+	// Broadcast to WebSocket clients if callback is set
+	callbackMu.RLock()
+	callback := broadcastCallback
+	callbackMu.RUnlock()
+	
+	if callback != nil {
+		// Call the callback in a goroutine to avoid blocking
+		go callback(entry)
 	}
 }
 
