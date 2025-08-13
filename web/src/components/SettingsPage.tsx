@@ -1211,19 +1211,6 @@ export const SettingsPage: React.FC = () => {
 
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
-                      <Label>初回印刷</Label>
-                      <p className="text-sm text-gray-500">
-                        起動時に時計を印刷します
-                      </p>
-                    </div>
-                    <Switch
-                      checked={getBooleanValue('INITIAL_PRINT_ENABLED')}
-                      onCheckedChange={(checked) => handleSettingChange('INITIAL_PRINT_ENABLED', checked)}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
                       <Label>キープアライブ</Label>
                       <p className="text-sm text-gray-500">
                         プリンター接続を維持します

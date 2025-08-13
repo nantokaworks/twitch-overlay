@@ -101,7 +101,6 @@ export interface AppSettings {
     BLACK_POINT: number;
     AUTO_ROTATE: boolean;
     ROTATE_PRINT: boolean;
-    INITIAL_PRINT_ENABLED: boolean;
   };
   behavior: {
     KEEP_ALIVE_INTERVAL: number;

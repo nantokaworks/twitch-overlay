@@ -134,7 +134,6 @@ task test
 | `PRINTER_ADDRESS` | プリンターのMACアドレス | 必須 |
 | `DRY_RUN_MODE` | 実際の印刷を行わないモード | false |
 | `ROTATE_PRINT` | 印刷を180度回転 | false |
-| `INITIAL_PRINT_ENABLED` | 起動時の時計印刷 | false |
 | `CLOCK_ENABLED` | 時計印刷機能の有効化 | true |
 
 詳細は `.env.template` を参照してください。
