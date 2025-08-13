@@ -5,11 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
+	
+	"github.com/nantokaworks/twitch-overlay/internal/env"
 )
 
 var scopes = []string{
@@ -25,8 +29,15 @@ var scopes = []string{
 }
 
 func GetTwitchToken(code string) (map[string]interface{}, error) {
-	clientID := os.Getenv("CLIENT_ID")
-	clientSecret := os.Getenv("CLIENT_SECRET")
+	// データベースから読み込まれた認証情報を使用
+	clientID := ""
+	if env.Value.ClientID != nil {
+		clientID = *env.Value.ClientID
+	}
+	clientSecret := ""
+	if env.Value.ClientSecret != nil {
+		clientSecret = *env.Value.ClientSecret
+	}
 	
 	// コールバックURLを生成
 	redirectURI := getCallbackURL()
@@ -42,12 +53,25 @@ func GetTwitchToken(code string) (map[string]interface{}, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	var result map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, err
+	
+	// レスポンスボディを読み取る
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
+	
+	var result map[string]interface{}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w, body: %s", err, string(body))
+	}
+	
+	// エラーチェック
+	if errorMsg, ok := result["error"]; ok {
+		return nil, fmt.Errorf("Twitch API error: %v, description: %v", errorMsg, result["error_description"])
+	}
+	
 	if _, ok := result["access_token"]; !ok {
-		return nil, errors.New("access_token not found in response")
+		return nil, fmt.Errorf("access_token not found in response, got: %v", result)
 	}
 	// スコープの設定（必要に応じて加工）
 	result["scope"] = strings.Join(scopes, " ")
@@ -55,8 +79,15 @@ func GetTwitchToken(code string) (map[string]interface{}, error) {
 }
 
 func (t *Token) RefreshTwitchToken() error {
-	clientID := os.Getenv("CLIENT_ID")
-	clientSecret := os.Getenv("CLIENT_SECRET")
+	// データベースから読み込まれた認証情報を使用
+	clientID := ""
+	if env.Value.ClientID != nil {
+		clientID = *env.Value.ClientID
+	}
+	clientSecret := ""
+	if env.Value.ClientSecret != nil {
+		clientSecret = *env.Value.ClientSecret
+	}
 
 	resp, err := http.PostForm("https://id.twitch.tv/oauth2/token", url.Values{
 		"client_id":     {clientID},
@@ -121,17 +152,28 @@ func getCallbackURL() string {
 		return fmt.Sprintf("%s/callback", callbackBaseURL)
 	}
 	
-	// デフォルトはlocalhost
-	serverPort := os.Getenv("SERVER_PORT")
-	if serverPort == "" {
-		serverPort = "8080"
+	// データベースから読み込まれたサーバーポートを使用
+	serverPort := env.Value.ServerPort
+	if serverPort == 0 {
+		// 環境変数からも試す
+		portStr := os.Getenv("SERVER_PORT")
+		if portStr != "" {
+			serverPort, _ = strconv.Atoi(portStr)
+		}
+		if serverPort == 0 {
+			serverPort = 8080 // デフォルト
+		}
 	}
-	return fmt.Sprintf("http://localhost:%s/callback", serverPort)
+	return fmt.Sprintf("http://localhost:%d/callback", serverPort)
 }
 
 // 変更: 引数なしで環境変数から認証情報を取得し、定数 scopes を使用
 func GetAuthURL() string {
-	clientID := os.Getenv("CLIENT_ID")
+	// データベースから読み込まれたClient IDを使用
+	clientID := ""
+	if env.Value.ClientID != nil {
+		clientID = *env.Value.ClientID
+	}
 	redirectURI := getCallbackURL()
 	return fmt.Sprintf(
 		"https://id.twitch.tv/oauth2/authorize?response_type=code&client_id=%s&redirect_uri=%s&scope=%s",

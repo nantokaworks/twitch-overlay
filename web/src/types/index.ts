@@ -132,6 +132,14 @@ export interface TwitchUserInfo {
   error?: string;
 }
 
+// Twitch認証状態
+export interface AuthStatus {
+  authenticated: boolean;
+  authUrl: string;
+  expiresAt?: number | null;
+  error?: string | null;
+}
+
 // プリンターステータス情報
 export interface PrinterStatusInfo {
   connected: boolean;

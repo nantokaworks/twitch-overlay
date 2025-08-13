@@ -227,6 +227,23 @@ tasks:
     cmds:
       - sudo systemctl status twitch-overlay@{{.USERNAME}}.service --no-pager
 
+  # SSHトンネル開始（heimdall）
+  tunnel:heimdall:
+    desc: heimdallへのSSHトンネルを開始（ポート3456）
+    cmds:
+      - echo "heimdallへのSSHトンネルを開始します (localhost:3456 -> heimdall:3456)"
+      - ssh -L 3456:localhost:3456 heimdall -N &
+      - echo "SSHトンネルが開始されました"
+      - echo "ブラウザで http://localhost:3456 にアクセスしてください"
+
+  # SSHトンネル停止
+  tunnel:stop:
+    desc: SSHトンネルを停止
+    cmds:
+      - echo "SSHトンネルを停止します..."
+      - pkill -f "ssh.*3456.*heimdall" || true
+      - echo "SSHトンネルが停止されました"
+
   # サービスログ確認
   service:logs:
     desc: systemdサービスのログを表示

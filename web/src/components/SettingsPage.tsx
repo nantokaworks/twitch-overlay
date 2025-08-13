@@ -18,7 +18,8 @@ import {
   ScanResponse,
   TestResponse,
   TwitchUserInfo,
-  PrinterStatusInfo
+  PrinterStatusInfo,
+  AuthStatus
 } from '../types';
 import { buildApiUrl } from '../utils/api';
 import { toast } from 'sonner';
@@ -43,6 +44,7 @@ export const SettingsPage: React.FC = () => {
   const [verifyingTwitch, setVerifyingTwitch] = useState(false);
   const [printerStatusInfo, setPrinterStatusInfo] = useState<PrinterStatusInfo | null>(null);
   const [reconnectingPrinter, setReconnectingPrinter] = useState(false);
+  const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
 
   // デバイスのソート関数
   const sortBluetoothDevices = (devices: BluetoothDevice[]): BluetoothDevice[] => {
@@ -66,14 +68,15 @@ export const SettingsPage: React.FC = () => {
   // 設定データの取得
   useEffect(() => {
     fetchAllSettings();
+    fetchAuthStatus();
   }, []);
 
   // Twitch連携が設定済みの場合、ユーザー情報を検証
   useEffect(() => {
-    if (featureStatus?.twitch_configured) {
+    if (featureStatus?.twitch_configured && authStatus?.authenticated) {
       verifyTwitchConfig();
     }
-  }, [featureStatus?.twitch_configured]);
+  }, [featureStatus?.twitch_configured, authStatus?.authenticated]);
 
   // プリンター設定済みの場合、プリンター状態を取得
   useEffect(() => {
@@ -211,6 +214,21 @@ export const SettingsPage: React.FC = () => {
     } catch (err: any) {
       console.error('Failed to fetch printer status:', err);
     }
+  };
+
+  const fetchAuthStatus = async () => {
+    try {
+      const response = await fetch(buildApiUrl('/api/settings/auth/status'));
+      const data: AuthStatus = await response.json();
+      setAuthStatus(data);
+    } catch (err: any) {
+      console.error('Failed to fetch auth status:', err);
+    }
+  };
+
+  const handleTwitchAuth = () => {
+    // Redirect to Twitch OAuth
+    window.location.href = buildApiUrl('/auth');
   };
 
   const handlePrinterReconnect = async () => {
@@ -546,7 +564,24 @@ export const SettingsPage: React.FC = () => {
                       {featureStatus.twitch_configured ? '設定済み' : '未設定'}
                     </span>
                   </div>
-                  {featureStatus.twitch_configured && twitchUserInfo && (
+                  {featureStatus.twitch_configured && authStatus && !authStatus.authenticated && (
+                    <div className="ml-5 text-sm">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-orange-600">
+                          ⚠️ Twitch認証が必要です
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="default"
+                          onClick={handleTwitchAuth}
+                          className="h-6 px-2 text-xs"
+                        >
+                          Twitchで認証
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  {featureStatus.twitch_configured && authStatus?.authenticated && twitchUserInfo && (
                     <div className="ml-5 text-sm">
                       {twitchUserInfo.verified ? (
                         <div className="flex items-center space-x-2">
@@ -581,7 +616,7 @@ export const SettingsPage: React.FC = () => {
                       )}
                     </div>
                   )}
-                  {featureStatus.twitch_configured && !twitchUserInfo && verifyingTwitch && (
+                  {featureStatus.twitch_configured && authStatus?.authenticated && !twitchUserInfo && verifyingTwitch && (
                     <div className="ml-5 text-sm text-gray-500">
                       検証中...
                     </div>
@@ -881,6 +916,50 @@ export const SettingsPage: React.FC = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
+                {/* 認証状態の表示 */}
+                {authStatus && (
+                  <div className="p-4 bg-gray-50 rounded-lg border">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-sm font-medium">
+                          認証状態: {authStatus.authenticated ? (
+                            <span className="text-green-600">認証済み</span>
+                          ) : (
+                            <span className="text-orange-600">未認証</span>
+                          )}
+                        </h3>
+                        {authStatus.error && (
+                          <p className="text-sm text-gray-500 mt-1">{authStatus.error}</p>
+                        )}
+                        {authStatus.authenticated && authStatus.expiresAt && (
+                          <p className="text-sm text-gray-500 mt-1">
+                            有効期限: {new Date(authStatus.expiresAt * 1000).toLocaleString()}
+                          </p>
+                        )}
+                      </div>
+                      {!authStatus.authenticated && (
+                        <Button
+                          onClick={handleTwitchAuth}
+                          variant="default"
+                          className="flex items-center space-x-2"
+                        >
+                          <Wifi className="w-4 h-4" />
+                          <span>Twitchで認証</span>
+                        </Button>
+                      )}
+                      {authStatus.authenticated && (
+                        <Button
+                          onClick={handleTwitchAuth}
+                          variant="outline"
+                          className="flex items-center space-x-2"
+                        >
+                          <RefreshCw className="w-4 h-4" />
+                          <span>再認証</span>
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <Label htmlFor="client_id">Client ID *</Label>
