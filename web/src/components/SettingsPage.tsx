@@ -38,6 +38,25 @@ export const SettingsPage: React.FC = () => {
   const [restarting, setRestarting] = useState(false);
   const [restartCountdown, setRestartCountdown] = useState(0);
 
+  // デバイスのソート関数
+  const sortBluetoothDevices = (devices: BluetoothDevice[]): BluetoothDevice[] => {
+    return [...devices].sort((a, b) => {
+      // 両方名前がある場合: 名前でソート
+      if (a.name && b.name) {
+        // (現在の設定) を最上位に
+        if (a.name === '(現在の設定)') return -1;
+        if (b.name === '(現在の設定)') return 1;
+        // それ以外は名前順
+        return a.name.localeCompare(b.name);
+      }
+      // 片方だけ名前がある場合: 名前があるものを上に
+      if (a.name && !b.name) return -1;
+      if (!a.name && b.name) return 1;
+      // 両方名前がない場合: MACアドレスでソート
+      return a.mac_address.localeCompare(b.mac_address);
+    });
+  };
+
   // 設定データの取得
   useEffect(() => {
     fetchAllSettings();
@@ -159,7 +178,10 @@ export const SettingsPage: React.FC = () => {
           });
         }
         
-        setBluetoothDevices(updatedDevices);
+        // デバイスをソート
+        const sortedDevices = sortBluetoothDevices(updatedDevices);
+        
+        setBluetoothDevices(sortedDevices);
         toast.success(`${data.devices.length}台のデバイスが見つかりました`);
       } else {
         throw new Error(data.message || 'Scan failed');
