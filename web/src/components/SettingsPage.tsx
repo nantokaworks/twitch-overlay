@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Settings2, Bluetooth, Wifi, Zap, Eye, EyeOff, FileText, Upload, X, RefreshCw, Server } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Settings2, Bluetooth, Wifi, Zap, Eye, EyeOff, FileText, Upload, X, RefreshCw, Server, Monitor, Bug } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
@@ -23,7 +22,6 @@ import { buildApiUrl } from '../utils/api';
 import { toast } from 'sonner';
 
 export const SettingsPage: React.FC = () => {
-  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('general');
   const [settings, setSettings] = useState<Record<string, any>>({});
   const [featureStatus, setFeatureStatus] = useState<FeatureStatus | null>(null);
@@ -380,18 +378,49 @@ export const SettingsPage: React.FC = () => {
         <div className="max-w-6xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate('/')}
-                className="flex items-center space-x-2"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                <span>FAX画面に戻る</span>
-              </Button>
               <div className="flex items-center space-x-2">
                 <Settings2 className="w-6 h-6 text-gray-600" />
                 <h1 className="text-2xl font-bold">設定</h1>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => window.open('/', '_blank')}
+                  className="flex items-center space-x-1"
+                >
+                  <Monitor className="w-3 h-3" />
+                  <span>モノクロ表示</span>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => window.open('/?debug=true', '_blank')}
+                  className="flex items-center space-x-1"
+                >
+                  <Monitor className="w-3 h-3" />
+                  <Bug className="w-3 h-3" />
+                  <span>モノクロ＋デバッグ</span>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => window.open('/color', '_blank')}
+                  className="flex items-center space-x-1"
+                >
+                  <Monitor className="w-3 h-3" />
+                  <span>カラー表示</span>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => window.open('/color?debug=true', '_blank')}
+                  className="flex items-center space-x-1"
+                >
+                  <Monitor className="w-3 h-3" />
+                  <Bug className="w-3 h-3" />
+                  <span>カラー＋デバッグ</span>
+                </Button>
               </div>
             </div>
           </div>
