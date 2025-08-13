@@ -17,7 +17,8 @@ import {
   UpdateSettingsResponse,
   ScanResponse,
   TestResponse,
-  TwitchUserInfo
+  TwitchUserInfo,
+  PrinterStatusInfo
 } from '../types';
 import { buildApiUrl } from '../utils/api';
 import { toast } from 'sonner';
@@ -40,6 +41,8 @@ export const SettingsPage: React.FC = () => {
   const [restartCountdown, setRestartCountdown] = useState(0);
   const [twitchUserInfo, setTwitchUserInfo] = useState<TwitchUserInfo | null>(null);
   const [verifyingTwitch, setVerifyingTwitch] = useState(false);
+  const [printerStatusInfo, setPrinterStatusInfo] = useState<PrinterStatusInfo | null>(null);
+  const [reconnectingPrinter, setReconnectingPrinter] = useState(false);
 
   // デバイスのソート関数
   const sortBluetoothDevices = (devices: BluetoothDevice[]): BluetoothDevice[] => {
@@ -71,6 +74,13 @@ export const SettingsPage: React.FC = () => {
       verifyTwitchConfig();
     }
   }, [featureStatus?.twitch_configured]);
+
+  // プリンター設定済みの場合、プリンター状態を取得
+  useEffect(() => {
+    if (featureStatus?.printer_configured) {
+      fetchPrinterStatus();
+    }
+  }, [featureStatus?.printer_configured]);
   
   // 設定読み込み時に現在のプリンターアドレスをデバイスリストに追加
   useEffect(() => {
@@ -190,6 +200,39 @@ export const SettingsPage: React.FC = () => {
       });
     } finally {
       setVerifyingTwitch(false);
+    }
+  };
+
+  const fetchPrinterStatus = async () => {
+    try {
+      const response = await fetch(buildApiUrl('/api/printer/status'));
+      const data: PrinterStatusInfo = await response.json();
+      setPrinterStatusInfo(data);
+    } catch (err: any) {
+      console.error('Failed to fetch printer status:', err);
+    }
+  };
+
+  const handlePrinterReconnect = async () => {
+    setReconnectingPrinter(true);
+    try {
+      const response = await fetch(buildApiUrl('/api/printer/reconnect'), {
+        method: 'POST',
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        toast.success('プリンターに再接続しました');
+        // 状態を更新
+        await fetchPrinterStatus();
+      } else {
+        toast.error(`再接続エラー: ${data.error || '接続に失敗しました'}`);
+      }
+    } catch (err: any) {
+      toast.error('プリンター再接続に失敗しました');
+    } finally {
+      setReconnectingPrinter(false);
     }
   };
 
@@ -544,12 +587,33 @@ export const SettingsPage: React.FC = () => {
                     </div>
                   )}
                 </div>
-                <div className="flex items-center space-x-2">
-                  <div className={`w-3 h-3 rounded-full ${featureStatus.printer_configured ? 'bg-green-500' : 'bg-red-500'}`} />
-                  <span className="font-medium">プリンター</span>
-                  <span className="text-sm text-gray-500">
-                    {featureStatus.printer_configured ? '設定済み' : '未設定'}
-                  </span>
+                <div className="space-y-1">
+                  <div className="flex items-center space-x-2">
+                    <div className={`w-3 h-3 rounded-full ${featureStatus.printer_configured ? 'bg-green-500' : 'bg-red-500'}`} />
+                    <span className="font-medium">プリンター</span>
+                    <span className="text-sm text-gray-500">
+                      {featureStatus.printer_configured ? '設定済み' : '未設定'}
+                    </span>
+                  </div>
+                  {featureStatus.printer_configured && printerStatusInfo && (
+                    <div className="ml-5 text-sm">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-gray-600">
+                          接続状態: {printerStatusInfo.connected ? '接続中' : '未接続'}
+                          {printerStatusInfo.dry_run_mode && ' (DRY-RUN)'}
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={handlePrinterReconnect}
+                          disabled={reconnectingPrinter}
+                          className="h-6 px-2 text-xs"
+                        >
+                          {reconnectingPrinter ? '再接続中...' : '再接続'}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center space-x-2">
                   <div className={`w-3 h-3 rounded-full ${featureStatus.warnings.length === 0 ? 'bg-green-500' : 'bg-yellow-500'}`} />

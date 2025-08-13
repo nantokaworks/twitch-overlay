@@ -132,6 +132,17 @@ export interface TwitchUserInfo {
   error?: string;
 }
 
+// プリンターステータス情報
+export interface PrinterStatusInfo {
+  connected: boolean;
+  dry_run_mode: boolean;
+  printer_address: string;
+  configured: boolean;
+  last_print?: string | null;
+  print_queue?: number;
+  error?: string;
+}
+
 // Bluetoothデバイス
 export interface BluetoothDevice {
   mac_address: string;

@@ -99,6 +99,7 @@ func StartWebServer(port int) {
 	mux.HandleFunc("/api/printer/scan", corsMiddleware(handlePrinterScan))
 	mux.HandleFunc("/api/printer/test", corsMiddleware(handlePrinterTest))
 	mux.HandleFunc("/api/printer/status", corsMiddleware(handlePrinterStatus))
+	mux.HandleFunc("/api/printer/reconnect", corsMiddleware(handlePrinterReconnect))
 
 	// Server management API endpoints
 	mux.HandleFunc("/api/server/restart", corsMiddleware(handleServerRestart))

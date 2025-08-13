@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/nantokaworks/twitch-overlay/internal/env"
 	"github.com/nantokaworks/twitch-overlay/internal/output"
 	"github.com/nantokaworks/twitch-overlay/internal/shared/logger"
 	"go.uber.org/zap"
@@ -206,13 +207,26 @@ func handlePrinterStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: プリンターの状態を取得する実装
-	// 現在は基本的な情報のみ返す
+	// Get printer connection status
+	isConnected := output.IsConnected()
+	
+	// Get dry-run mode from environment
+	dryRunMode := env.Value.DryRunMode
+	
+	// Get printer address
+	printerAddress := ""
+	if env.Value.PrinterAddress != nil {
+		printerAddress = *env.Value.PrinterAddress
+	}
+	
 	response := map[string]interface{}{
-		"connected":    false, // TODO: 実際の接続状態を確認
-		"last_print":   nil,   // TODO: 最後の印刷時刻
-		"print_queue":  0,     // TODO: 印刷キューの長さ
-		"dry_run_mode": true,  // TODO: 設定から取得
+		"connected":        isConnected,
+		"dry_run_mode":     dryRunMode,
+		"printer_address":  printerAddress,
+		"configured":       printerAddress != "",
+		// Additional fields can be added as needed
+		"last_print":      nil,  // This would need to be tracked separately
+		"print_queue":     0,    // This would need queue implementation
 	}
 
 	w.Header().Set("Content-Type", "application/json")
