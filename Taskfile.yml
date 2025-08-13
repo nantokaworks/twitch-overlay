@@ -244,11 +244,31 @@ tasks:
       - pkill -f "ssh.*3456.*heimdall" || true
       - echo "SSHトンネルが停止されました"
 
-  # サービスログ確認
+  # サービスログ確認（リアルタイム）
   service:logs:
-    desc: systemdサービスのログを表示
+    desc: systemdサービスのログをリアルタイムで表示
     vars:
       USERNAME:
         sh: echo ${1:-$USER}
     cmds:
       - sudo journalctl -u twitch-overlay@{{.USERNAME}}.service -f
+
+  # サービスログ確認（最新50行）
+  service:logs:tail:
+    desc: systemdサービスの最新ログを表示
+    vars:
+      USERNAME:
+        sh: echo ${1:-$USER}
+      LINES:
+        sh: echo ${2:-50}
+    cmds:
+      - sudo journalctl -u twitch-overlay@{{.USERNAME}}.service -n {{.LINES}} --no-pager
+
+  # サービスエラーログ確認
+  service:logs:error:
+    desc: systemdサービスのエラーログのみ表示
+    vars:
+      USERNAME:
+        sh: echo ${1:-$USER}
+    cmds:
+      - sudo journalctl -u twitch-overlay@{{.USERNAME}}.service -p err --no-pager

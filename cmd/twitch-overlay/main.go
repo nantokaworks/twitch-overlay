@@ -80,38 +80,11 @@ func main() {
 		os.Exit(0)
 	}
 
-	// init output
-	c, err := output.SetupPrinter()
-	if err != nil {
-		log.Fatal(err)
-	}
+	// init printer options (printer setup is handled by keep-alive goroutine)
 	defer output.Stop()
 	err = output.SetupPrinterOptions(env.Value.BestQuality, env.Value.Dither, env.Value.AutoRotate, env.Value.BlackPoint)
 	if err != nil {
-		log.Fatal(err)
-	}
-	err = output.ConnectPrinter(c, *env.Value.PrinterAddress)
-	if err != nil {
-		logger.Error("Failed to connect to printer at startup", zap.Error(err))
-		logger.Info("Will retry connection when printing")
-	} else {
-		// Print initial clock on successful connection
-		if env.Value.InitialPrintEnabled && env.Value.ClockEnabled {
-			if env.Value.DryRunMode {
-				logger.Info("Printing initial clock (DRY-RUN MODE)")
-			} else {
-				logger.Info("Printing initial clock")
-			}
-			err = output.PrintInitialClock()
-			if err != nil {
-				logger.Error("Failed to print initial clock", zap.Error(err))
-			} else {
-				output.MarkInitialPrintDone()
-			}
-		} else {
-			logger.Info("Skipping initial print (InitialPrintEnabled=false or ClockEnabled=false)")
-			output.MarkInitialPrintDone()
-		}
+		logger.Error("Failed to setup printer options", zap.Error(err))
 	}
 
 	// load token from db

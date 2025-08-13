@@ -36,13 +36,18 @@ func handlePrinterReconnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Stop existing connection if any
-	output.Stop()
+	// Stop keep-alive goroutine
+	output.StopKeepAlive()
+	
+	// Disconnect existing connection if any (keep BLE device)
+	output.Disconnect()
 
-	// Setup and connect to printer
+	// Setup and connect to printer (reuse existing BLE device)
 	c, err := output.SetupPrinter()
 	if err != nil {
 		logger.Error("Failed to setup printer for reconnection", zap.Error(err))
+		// Restart keep-alive even on error
+		output.StartKeepAlive()
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"success": false,
@@ -55,6 +60,8 @@ func handlePrinterReconnect(w http.ResponseWriter, r *http.Request) {
 	err = output.ConnectPrinter(c, printerAddress)
 	if err != nil {
 		logger.Error("Failed to reconnect to printer", zap.String("address", printerAddress), zap.Error(err))
+		// Restart keep-alive even on error
+		output.StartKeepAlive()
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"success": false,
@@ -62,6 +69,9 @@ func handlePrinterReconnect(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	
+	// Restart keep-alive goroutine after successful reconnection
+	output.StartKeepAlive()
 
 	logger.Info("Printer reconnected successfully", zap.String("address", printerAddress))
 	

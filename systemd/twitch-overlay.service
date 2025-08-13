@@ -29,11 +29,17 @@ ProtectHome=false
 # Bluetoothデバイスへのアクセスを許可
 PrivateDevices=no
 DevicePolicy=auto
+DeviceAllow=/dev/bus/usb rw
+DeviceAllow=/sys/class/bluetooth rw
+
+# ネットワークとDBusアクセスを許可
+PrivateNetwork=no
+RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_BLUETOOTH AF_INET AF_INET6
 
 # 環境変数設定
 Environment="SERVER_PORT=3456"
 Environment="RUNNING_AS_SERVICE=true"
-Environment="TWITCH_OVERLAY_DATA_DIR=%h/.twitch-overlay"
+Environment="TWITCH_OVERLAY_DATA_DIR=/home/%i/.twitch-overlay"
 
 # 環境変数ファイル（オプション）
 EnvironmentFile=-/home/%i/twitch-overlay/dist/.env

@@ -86,10 +86,6 @@ var DefaultSettings = map[string]Setting{
 		Key: "ROTATE_PRINT", Value: "true", Type: SettingTypeNormal, Required: false,
 		Description: "Rotate print output 180 degrees",
 	},
-	"INITIAL_PRINT_ENABLED": {
-		Key: "INITIAL_PRINT_ENABLED", Value: "false", Type: SettingTypeNormal, Required: false,
-		Description: "Enable initial clock print on startup",
-	},
 
 	// 動作設定
 	"KEEP_ALIVE_INTERVAL": {
@@ -354,7 +350,7 @@ func ValidateSetting(key, value string) error {
 				return fmt.Errorf("must be an integer between 0 and 9999999")
 			}
 		}
-	case "DRY_RUN_MODE", "BEST_QUALITY", "DITHER", "AUTO_ROTATE", "ROTATE_PRINT", "INITIAL_PRINT_ENABLED", "KEEP_ALIVE_ENABLED", "CLOCK_ENABLED", "DEBUG_OUTPUT":
+	case "DRY_RUN_MODE", "BEST_QUALITY", "DITHER", "AUTO_ROTATE", "ROTATE_PRINT", "KEEP_ALIVE_ENABLED", "CLOCK_ENABLED", "DEBUG_OUTPUT":
 		// boolean値のチェック
 		if value != "true" && value != "false" {
 			return fmt.Errorf("must be 'true' or 'false'")

@@ -57,18 +57,23 @@ func StartWebServer(port int) {
 	// Register SSE server as the global broadcaster
 	broadcast.SetBroadcaster(sseServer)
 
-	// Initialize font manager
-	if err := fontmanager.Initialize(); err != nil {
-		logger.Error("Failed to initialize font manager", zap.Error(err))
-	}
-
 	// Serve static files - try multiple paths
 	var staticDir string
-	possiblePaths := []string{
+	possiblePaths := []string{}
+	
+	// First, try to find public directory relative to executable
+	if execPath, err := os.Executable(); err == nil {
+		execDir := filepath.Dir(execPath)
+		// Try public directory in the same directory as the executable
+		possiblePaths = append(possiblePaths, filepath.Join(execDir, "public"))
+	}
+	
+	// Then try relative paths from current working directory
+	possiblePaths = append(possiblePaths,
 		"./public",      // Production: same directory as executable
 		"./dist/public", // Development: built files
 		"./web/dist",    // Fallback: frontend build directory
-	}
+	)
 
 	for _, path := range possiblePaths {
 		if _, err := os.Stat(path); err == nil {

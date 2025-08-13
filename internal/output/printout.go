@@ -5,8 +5,6 @@ import (
 	"image"
 	"image/png"
 	"os"
-	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -14,7 +12,6 @@ import (
 	"github.com/nantokaworks/twitch-overlay/internal/env"
 	"github.com/nantokaworks/twitch-overlay/internal/faxmanager"
 	"github.com/nantokaworks/twitch-overlay/internal/shared/logger"
-	"github.com/nantokaworks/twitch-overlay/internal/status"
 	"github.com/nantokaworks/twitch-overlay/internal/broadcast"
 	"go.uber.org/zap"
 )
@@ -30,10 +27,8 @@ func init() {
 	// Initialize last print time to now
 	lastPrintTime = time.Now()
 	
-	// Start keep-alive goroutine if enabled
-	if env.Value.KeepAliveEnabled {
-		go keepAliveRoutine()
-	}
+	// Start keep-alive goroutine using the new implementation
+	StartKeepAlive()
 	
 	// Start clock routine
 	if env.Value.ClockEnabled {
@@ -263,183 +258,6 @@ func saveFaxImages(fax *faxmanager.Fax, colorImg, monoImg image.Image) error {
 	return nil
 }
 
-func keepAliveRoutine() {
-	ticker := time.NewTicker(1 * time.Second) // Check every second
-	defer ticker.Stop()
-	
-	for range ticker.C {
-		// First check if we need to do initial connection
-		if !isConnected && !hasInitialPrintBeenDone {
-			logger.Info("Keep-alive: attempting initial printer connection")
-			
-			// Lock printer for exclusive access
-			printerMutex.Lock()
-			
-			// Setup printer if needed
-			if latestPrinter == nil {
-				_, err := SetupPrinter()
-				if err != nil {
-					logger.Error("Keep-alive: failed to setup printer for initial connection", zap.Error(err))
-					printerMutex.Unlock()
-					continue
-				}
-			}
-			
-			// Try to connect (ConnectPrinterがlatestPrinterを更新する可能性がある)
-			err := ConnectPrinter(latestPrinter, *env.Value.PrinterAddress)
-			if err != nil {
-				logger.Error("Keep-alive: failed initial connection to printer", zap.Error(err))
-				
-				// HCIソケットエラーの場合、BLEデバイスをリセット
-				if strings.Contains(err.Error(), "hci socket") || strings.Contains(err.Error(), "broken pipe") {
-					logger.Warn("Detected HCI socket error during initial connection, resetting BLE device")
-					
-					// 既存のクライアントを完全に破棄
-					if latestPrinter != nil {
-						func() {
-							defer func() {
-								if r := recover(); r != nil {
-									logger.Warn("Recovered from panic during BLE device reset", zap.Any("panic", r))
-								}
-							}()
-							latestPrinter.Stop()
-						}()
-						latestPrinter = nil
-					}
-					
-					// 次回の接続試行まで長めに待機
-					printerMutex.Unlock()
-					time.Sleep(5 * time.Second)
-					continue
-				}
-				
-				// 接続失敗時に状態をリセット
-				// latestPrinterはConnectPrinter内で更新されている可能性があるため、
-				// Disconnect()は呼ばずに状態だけリセット
-				ResetConnectionStatus()
-				status.SetPrinterConnected(false)
-				printerMutex.Unlock()
-				continue
-			}
-			
-			logger.Info("Keep-alive: initial connection established")
-			
-			// Perform initial print if enabled
-			if env.Value.InitialPrintEnabled && env.Value.ClockEnabled {
-				logger.Info("Keep-alive: performing initial clock print")
-				if env.Value.DryRunMode {
-					logger.Info("Printing initial clock (DRY-RUN MODE)")
-				} else {
-					logger.Info("Printing initial clock")
-				}
-				err := PrintInitialClock()
-				if err != nil {
-					logger.Error("Keep-alive: failed to print initial clock", zap.Error(err))
-				} else {
-					hasInitialPrintBeenDone = true
-				}
-			} else {
-				logger.Info("Keep-alive: skipping initial print (InitialPrintEnabled=false)")
-				hasInitialPrintBeenDone = true
-			}
-			
-			// Update last print time
-			lastPrintMutex.Lock()
-			lastPrintTime = time.Now()
-			lastPrintMutex.Unlock()
-			
-			printerMutex.Unlock()
-			continue
-		}
-		
-		lastPrintMutex.Lock()
-		timeSinceLastPrint := time.Since(lastPrintTime)
-		lastPrintMutex.Unlock()
-		
-		// If more than KeepAliveInterval seconds have passed since last print
-		if timeSinceLastPrint > time.Duration(env.Value.KeepAliveInterval)*time.Second {
-			logger.Info("Keep-alive: waiting for printer access", zap.Int("seconds_since_last_print", int(timeSinceLastPrint.Seconds())))
-			
-			// Lock printer for exclusive access
-			printerMutex.Lock()
-			
-			logger.Info("Keep-alive: creating new connection")
-			
-			// Disconnect existing client if any
-			if latestPrinter != nil {
-				// Disconnect the printer
-				latestPrinter.Disconnect()
-				isConnected = false
-				status.SetPrinterConnected(false)
-			}
-			
-			// Create new client and connect
-			c, err := SetupPrinter()
-			if err != nil {
-				logger.Error("Keep-alive: failed to setup printer", zap.Error(err))
-				printerMutex.Unlock()
-				continue
-			}
-			
-			err = ConnectPrinter(c, *env.Value.PrinterAddress)
-			if err != nil {
-				logger.Error("Keep-alive: failed to connect printer", zap.Error(err))
-				
-				// HCIソケットエラーの場合、BLEデバイスをリセット
-				if strings.Contains(err.Error(), "hci socket") || strings.Contains(err.Error(), "broken pipe") {
-					logger.Warn("Detected HCI socket error, resetting BLE device")
-					
-					// 既存のクライアントを完全に破棄
-					if latestPrinter != nil {
-						func() {
-							defer func() {
-								if r := recover(); r != nil {
-									logger.Warn("Recovered from panic during BLE device reset", zap.Any("panic", r))
-								}
-							}()
-							latestPrinter.Stop()
-						}()
-						latestPrinter = nil
-					}
-					
-					// 次回の接続試行まで長めに待機
-					printerMutex.Unlock()
-					time.Sleep(5 * time.Second)
-					continue
-				}
-				
-				printerMutex.Unlock()
-				continue
-			}
-			
-			logger.Info("Keep-alive: new connection established")
-			
-			// Check if initial print hasn't been done yet after successful reconnection
-			if !hasInitialPrintBeenDone && isConnected && env.Value.InitialPrintEnabled && env.Value.ClockEnabled {
-				logger.Info("Keep-alive: performing initial clock print on first successful connection")
-				if env.Value.DryRunMode {
-					logger.Info("Printing initial clock (DRY-RUN MODE)")
-				} else {
-					logger.Info("Printing initial clock")
-				}
-				err := PrintInitialClock()
-				if err != nil {
-					logger.Error("Keep-alive: failed to print initial clock", zap.Error(err))
-				} else {
-					hasInitialPrintBeenDone = true
-				}
-			}
-			
-			// Update last print time
-			lastPrintMutex.Lock()
-			lastPrintTime = time.Now()
-			lastPrintMutex.Unlock()
-			
-			// Release printer lock
-			printerMutex.Unlock()
-		}
-	}
-}
 
 func clockRoutine() {
 	ticker := time.NewTicker(1 * time.Second)
@@ -484,52 +302,6 @@ func clockRoutine() {
 
 
 
-// PrintInitialClock prints current time on startup (simple version without stats and without frontend notification)
-func PrintInitialClock() error {
-	now := time.Now()
-	currentTime := now.Format("15:04")
-	logger.Info("Printing initial clock (simple)", zap.String("time", currentTime))
-	
-	// Generate simple time-only image
-	img, err := GenerateTimeImageSimple(currentTime)
-	if err != nil {
-		return fmt.Errorf("failed to generate initial clock image: %w", err)
-	}
-	
-	// Save image if debug output is enabled
-	if env.Value.DebugOutput {
-		outputDir := ".output"
-		if err := os.MkdirAll(outputDir, 0755); err != nil {
-			return fmt.Errorf("failed to create output directory: %w", err)
-		}
-		
-		// Save time-only image
-		monoPath := filepath.Join(outputDir, fmt.Sprintf("%s_initial_clock.png", now.Format("20060102_150405")))
-		file, err := os.Create(monoPath)
-		if err != nil {
-			return fmt.Errorf("failed to create output file: %w", err)
-		}
-		defer file.Close()
-		if err := png.Encode(file, img); err != nil {
-			return fmt.Errorf("failed to encode image: %w", err)
-		}
-		logger.Info("Initial clock: output file saved", zap.String("path", monoPath))
-		
-		// Return early when debug output is enabled (skip print queue)
-		return nil
-	}
-	
-	// Directly add to print queue without frontend notification
-	// This is the only output that doesn't notify the frontend
-	select {
-	case printQueue <- img:
-		logger.Info("Initial clock added to print queue (no frontend notification)")
-	default:
-		return fmt.Errorf("print queue is full")
-	}
-	
-	return nil
-}
 
 // GetPrintQueueSize returns the current number of items in the print queue
 func GetPrintQueueSize() int {

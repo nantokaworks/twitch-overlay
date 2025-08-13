@@ -624,7 +624,10 @@ export const SettingsPage: React.FC = () => {
                 </div>
                 <div className="space-y-1">
                   <div className="flex items-center space-x-2">
-                    <div className={`w-3 h-3 rounded-full ${featureStatus.printer_configured ? 'bg-green-500' : 'bg-red-500'}`} />
+                    <div className={`w-3 h-3 rounded-full ${
+                      !featureStatus.printer_configured ? 'bg-red-500' : 
+                      printerStatusInfo?.connected ? 'bg-green-500' : 'bg-yellow-500'
+                    }`} />
                     <span className="font-medium">プリンター</span>
                     <span className="text-sm text-gray-500">
                       {featureStatus.printer_configured ? '設定済み' : '未設定'}

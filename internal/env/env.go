@@ -31,7 +31,6 @@ type EnvValue struct {
 	ClockEnabled          bool
 	DryRunMode            bool
 	RotatePrint           bool
-	InitialPrintEnabled   bool
 	ServerPort            int
 	TimeZone              string
 }
@@ -147,7 +146,6 @@ func loadFromDatabase() error {
 	clockEnabled, _ := settingsManager.GetRealValue("CLOCK_ENABLED")
 	dryRunMode, _ := settingsManager.GetRealValue("DRY_RUN_MODE")
 	rotatePrint, _ := settingsManager.GetRealValue("ROTATE_PRINT")
-	initialPrintEnabled, _ := settingsManager.GetRealValue("INITIAL_PRINT_ENABLED")
 	timeZone, _ := settingsManager.GetRealValue("TIMEZONE")
 
 	// SERVER_PORTは環境変数のまま
@@ -170,7 +168,6 @@ func loadFromDatabase() error {
 		ClockEnabled:          clockEnabled == "true",
 		DryRunMode:            dryRunMode == "true",
 		RotatePrint:           rotatePrint == "true",
-		InitialPrintEnabled:   initialPrintEnabled == "true",
 		ServerPort:            parseIntStr(*serverPortStr),
 		TimeZone:              timeZone,
 	}
@@ -226,7 +223,6 @@ func loadFromEnvironment() {
 	clockEnabled := getEnvOrDefault("CLOCK_ENABLED", "false")
 	dryRunMode := getEnvOrDefault("DRY_RUN_MODE", "true") // セキュリティ上trueをデフォルトに
 	rotatePrint := getEnvOrDefault("ROTATE_PRINT", "false")
-	initialPrintEnabled := getEnvOrDefault("INITIAL_PRINT_ENABLED", "false")
 	serverPort := getEnvOrDefault("SERVER_PORT", "8080")
 	timeZone := getEnvOrDefault("TIMEZONE", "Asia/Tokyo")
 
@@ -247,7 +243,6 @@ func loadFromEnvironment() {
 		ClockEnabled:          *clockEnabled == "true",
 		DryRunMode:            *dryRunMode == "true",
 		RotatePrint:           *rotatePrint == "true",
-		InitialPrintEnabled:   *initialPrintEnabled == "true",
 		ServerPort:            parseInt(serverPort),
 		TimeZone:              *timeZone,
 	}

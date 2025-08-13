@@ -19,7 +19,8 @@
       "Bash(ssh:*)",
       "Bash(TWITCH_OVERLAY_DATA_DIR=/tmp/test-twitch-overlay go run ./cmd/twitch-overlay --version)",
       "Bash(/Users/toka/Abyss/twitch-overlay/ heimdall:~/twitch-overlay/)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(task tunnel:heimdall:*)"
     ],
     "deny": []
   }

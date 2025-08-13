@@ -2,6 +2,7 @@ package output
 
 import (
 	"strings"
+	"time"
 	
 	"git.massivebox.net/massivebox/go-catprinter"
 	"github.com/nantokaworks/twitch-overlay/internal/env"
@@ -13,17 +14,8 @@ import (
 var latestPrinter *catprinter.Client
 var opts *catprinter.PrinterOptions
 var isConnected bool
-var hasInitialPrintBeenDone bool
-
-// formatAddress formats the address to match the error message format
-func formatAddress(address string) string {
-	// アドレスにハイフンが含まれていない場合、追加する
-	// 58c122f9faa1484624a37d6858cbbc5b -> 58c122f9-faa1-4846-24a3-7d6858cbbc5b
-	if !strings.Contains(address, "-") && len(address) == 32 {
-		return address[:8] + "-" + address[8:12] + "-" + address[12:16] + "-" + address[16:20] + "-" + address[20:]
-	}
-	return address
-}
+var keepAliveStopCh chan struct{}
+var keepAliveRunning bool
 
 func SetupPrinter() (*catprinter.Client, error) {
 	// 既存のクライアントがあれば再利用（BLEデバイスの再取得を避ける）
@@ -119,6 +111,31 @@ func SetupPrinterOptions(bestQuality, dither, autoRotate bool, blackPoint float3
 	return nil
 }
 
+// Disconnect disconnects from the printer but keeps the BLE device
+func Disconnect() {
+	// nilチェックとパニック対策
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Error("Recovered from panic in Disconnect()", zap.Any("panic", r))
+		}
+	}()
+	
+	if latestPrinter != nil && isConnected {
+		// Disconnectが失敗してもプロセスを続行
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					logger.Warn("Recovered from panic during Disconnect", zap.Any("panic", r))
+				}
+			}()
+			latestPrinter.Disconnect()
+		}()
+		isConnected = false
+		status.SetPrinterConnected(false)
+		logger.Info("Printer disconnected (BLE device kept)")
+	}
+}
+
 // Stop gracefully disconnects the printer and releases BLE device
 func Stop() {
 	// nilチェックとパニック対策
@@ -156,11 +173,6 @@ func Stop() {
 	}
 }
 
-// MarkInitialPrintDone marks that the initial print has been completed
-func MarkInitialPrintDone() {
-	hasInitialPrintBeenDone = true
-}
-
 // IsConnected returns whether the printer is connected
 func IsConnected() bool {
 	return isConnected
@@ -171,7 +183,164 @@ func ResetConnectionStatus() {
 	isConnected = false
 }
 
-// HasInitialPrintBeenDone returns whether the initial print has been done
-func HasInitialPrintBeenDone() bool {
-	return hasInitialPrintBeenDone
+// MaintainPrinterConnection performs a single connection maintenance cycle
+// This is used both at startup and in the periodic loop
+func MaintainPrinterConnection() {
+	// Lock printer for exclusive access
+	printerMutex.Lock()
+	defer printerMutex.Unlock()
+	
+	// Check if printer address is configured
+	if env.Value.PrinterAddress == nil || *env.Value.PrinterAddress == "" {
+		logger.Debug("Printer address not configured, skipping connection maintenance")
+		return
+	}
+	
+	if isConnected {
+		// Already connected: disconnect and reconnect to refresh the connection
+		logger.Info("Keep-alive: refreshing existing connection")
+		
+		// Disconnect current connection
+		if latestPrinter != nil {
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						logger.Warn("Recovered from panic during disconnect", zap.Any("panic", r))
+					}
+				}()
+				latestPrinter.Disconnect()
+			}()
+			isConnected = false
+			status.SetPrinterConnected(false)
+		}
+		
+		// Wait a moment before reconnecting
+		time.Sleep(500 * time.Millisecond)
+		
+		// Setup printer if needed
+		if latestPrinter == nil {
+			c, err := SetupPrinter()
+			if err != nil {
+				logger.Error("Keep-alive: failed to setup printer", zap.Error(err))
+				return
+			}
+			latestPrinter = c
+		}
+		
+		// Reconnect
+		err := ConnectPrinter(latestPrinter, *env.Value.PrinterAddress)
+		if err != nil {
+			logger.Error("Keep-alive: failed to reconnect", zap.Error(err))
+			
+			// On HCI socket error, reset BLE device
+			if strings.Contains(err.Error(), "hci socket") || strings.Contains(err.Error(), "broken pipe") {
+				logger.Warn("Detected HCI socket error, resetting BLE device")
+				if latestPrinter != nil {
+					func() {
+						defer func() {
+							if r := recover(); r != nil {
+								logger.Warn("Recovered from panic during BLE reset", zap.Any("panic", r))
+							}
+						}()
+						latestPrinter.Stop()
+					}()
+					latestPrinter = nil
+				}
+			}
+			ResetConnectionStatus()
+			status.SetPrinterConnected(false)
+		} else {
+			logger.Info("Keep-alive: connection refreshed successfully")
+		}
+	} else {
+		// Not connected: try to connect
+		logger.Info("Keep-alive: attempting to connect")
+		
+		// Setup printer if needed
+		if latestPrinter == nil {
+			c, err := SetupPrinter()
+			if err != nil {
+				logger.Error("Keep-alive: failed to setup printer", zap.Error(err))
+				return
+			}
+			latestPrinter = c
+		}
+		
+		// Try to connect
+		err := ConnectPrinter(latestPrinter, *env.Value.PrinterAddress)
+		if err != nil {
+			logger.Error("Keep-alive: failed to connect", zap.Error(err))
+			
+			// On HCI socket error, reset BLE device
+			if strings.Contains(err.Error(), "hci socket") || strings.Contains(err.Error(), "broken pipe") {
+				logger.Warn("Detected HCI socket error, resetting BLE device")
+				if latestPrinter != nil {
+					func() {
+						defer func() {
+							if r := recover(); r != nil {
+								logger.Warn("Recovered from panic during BLE reset", zap.Any("panic", r))
+							}
+						}()
+						latestPrinter.Stop()
+					}()
+					latestPrinter = nil
+				}
+			}
+			ResetConnectionStatus()
+			status.SetPrinterConnected(false)
+		} else {
+			logger.Info("Keep-alive: connected successfully")
+		}
+	}
+	
+	// Update last print time
+	lastPrintMutex.Lock()
+	lastPrintTime = time.Now()
+	lastPrintMutex.Unlock()
+}
+
+// StopKeepAlive stops the keep-alive goroutine
+func StopKeepAlive() {
+	if keepAliveRunning && keepAliveStopCh != nil {
+		logger.Info("Stopping keep-alive goroutine")
+		close(keepAliveStopCh)
+		keepAliveRunning = false
+		// Wait a moment for goroutine to stop
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
+// StartKeepAlive starts the keep-alive goroutine
+func StartKeepAlive() {
+	// Stop existing goroutine if running
+	StopKeepAlive()
+	
+	if !env.Value.KeepAliveEnabled {
+		logger.Info("Keep-alive is disabled in configuration")
+		return
+	}
+	
+	logger.Info("Starting keep-alive goroutine")
+	keepAliveStopCh = make(chan struct{})
+	keepAliveRunning = true
+	
+	go func() {
+		// Perform connection maintenance once at startup
+		MaintainPrinterConnection()
+		
+		// Create ticker for 60 second intervals
+		ticker := time.NewTicker(60 * time.Second)
+		defer ticker.Stop()
+		
+		for {
+			select {
+			case <-ticker.C:
+				// Perform periodic connection maintenance
+				MaintainPrinterConnection()
+			case <-keepAliveStopCh:
+				logger.Info("Keep-alive goroutine stopped")
+				return
+			}
+		}
+	}()
 }

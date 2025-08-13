@@ -115,14 +115,17 @@ func handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 				}
 			}()
 			
+			// Stop keep-alive goroutine
+			output.StopKeepAlive()
+			
 			// 既存の接続を安全に切断
 			func() {
 				defer func() {
 					if r := recover(); r != nil {
-						logger.Warn("Recovered from panic during printer stop", zap.Any("panic", r))
+						logger.Warn("Recovered from panic during disconnect", zap.Any("panic", r))
 					}
 				}()
-				output.Stop()
+				output.Disconnect()
 			}()
 			
 			time.Sleep(500 * time.Millisecond) // 少し待機
@@ -130,6 +133,8 @@ func handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 			c, err := output.SetupPrinter()
 			if err != nil {
 				logger.Error("Failed to setup printer after settings change", zap.Error(err))
+				// Restart keep-alive even on error
+				output.StartKeepAlive()
 				return
 			}
 			
@@ -139,6 +144,9 @@ func handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 			} else {
 				logger.Info("Successfully reconnected to printer", zap.String("address", newAddress))
 			}
+			
+			// Restart keep-alive goroutine
+			output.StartKeepAlive()
 		}()
 	}
 
