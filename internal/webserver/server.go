@@ -137,6 +137,9 @@ func StartWebServer(port int) {
 	mux.HandleFunc("/auth", handleAuth)
 	mux.HandleFunc("/callback", handleCallback)
 
+	// Twitch API endpoints
+	mux.HandleFunc("/api/twitch/verify", corsMiddleware(handleTwitchVerify))
+
 	// Create a custom file server that handles SPA routing
 	fs := http.FileServer(http.Dir(staticDir))
 

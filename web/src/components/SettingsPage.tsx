@@ -16,7 +16,8 @@ import {
   UpdateSettingsRequest,
   UpdateSettingsResponse,
   ScanResponse,
-  TestResponse
+  TestResponse,
+  TwitchUserInfo
 } from '../types';
 import { buildApiUrl } from '../utils/api';
 import { toast } from 'sonner';
@@ -37,6 +38,8 @@ export const SettingsPage: React.FC = () => {
   const saveTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const [restarting, setRestarting] = useState(false);
   const [restartCountdown, setRestartCountdown] = useState(0);
+  const [twitchUserInfo, setTwitchUserInfo] = useState<TwitchUserInfo | null>(null);
+  const [verifyingTwitch, setVerifyingTwitch] = useState(false);
 
   // デバイスのソート関数
   const sortBluetoothDevices = (devices: BluetoothDevice[]): BluetoothDevice[] => {
@@ -61,6 +64,13 @@ export const SettingsPage: React.FC = () => {
   useEffect(() => {
     fetchAllSettings();
   }, []);
+
+  // Twitch連携が設定済みの場合、ユーザー情報を検証
+  useEffect(() => {
+    if (featureStatus?.twitch_configured) {
+      verifyTwitchConfig();
+    }
+  }, [featureStatus?.twitch_configured]);
   
   // 設定読み込み時に現在のプリンターアドレスをデバイスリストに追加
   useEffect(() => {
@@ -155,6 +165,33 @@ export const SettingsPage: React.FC = () => {
     return parseInt(getSettingValue(key)) || 0;
   };
 
+
+  const verifyTwitchConfig = async () => {
+    setVerifyingTwitch(true);
+    try {
+      const response = await fetch(buildApiUrl('/api/twitch/verify'));
+      const data: TwitchUserInfo = await response.json();
+      
+      setTwitchUserInfo(data);
+      
+      if (data.verified) {
+        toast.success(`Twitch連携確認: ${data.display_name} (${data.login})`);
+      } else if (data.error) {
+        toast.error(`Twitch連携エラー: ${data.error}`);
+      }
+    } catch (err: any) {
+      toast.error('Twitch連携の検証に失敗しました');
+      setTwitchUserInfo({
+        id: '',
+        login: '',
+        display_name: '',
+        verified: false,
+        error: '検証に失敗しました'
+      });
+    } finally {
+      setVerifyingTwitch(false);
+    }
+  };
 
   const handleScanDevices = async () => {
     setScanning(true);
@@ -458,12 +495,54 @@ export const SettingsPage: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="flex items-center space-x-2">
-                  <div className={`w-3 h-3 rounded-full ${featureStatus.twitch_configured ? 'bg-green-500' : 'bg-red-500'}`} />
-                  <span className="font-medium">Twitch連携</span>
-                  <span className="text-sm text-gray-500">
-                    {featureStatus.twitch_configured ? '設定済み' : '未設定'}
-                  </span>
+                <div className="space-y-1">
+                  <div className="flex items-center space-x-2">
+                    <div className={`w-3 h-3 rounded-full ${featureStatus.twitch_configured ? 'bg-green-500' : 'bg-red-500'}`} />
+                    <span className="font-medium">Twitch連携</span>
+                    <span className="text-sm text-gray-500">
+                      {featureStatus.twitch_configured ? '設定済み' : '未設定'}
+                    </span>
+                  </div>
+                  {featureStatus.twitch_configured && twitchUserInfo && (
+                    <div className="ml-5 text-sm">
+                      {twitchUserInfo.verified ? (
+                        <div className="flex items-center space-x-2">
+                          <span className="text-gray-600">
+                            ユーザー: {twitchUserInfo.login} ({twitchUserInfo.display_name})
+                          </span>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={verifyTwitchConfig}
+                            disabled={verifyingTwitch}
+                            className="h-6 px-2 text-xs"
+                          >
+                            {verifyingTwitch ? '検証中...' : '検証'}
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center space-x-2">
+                          <span className="text-red-600">
+                            ⚠️ {twitchUserInfo.error || '設定エラー'}
+                          </span>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={verifyTwitchConfig}
+                            disabled={verifyingTwitch}
+                            className="h-6 px-2 text-xs"
+                          >
+                            {verifyingTwitch ? '検証中...' : '再検証'}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {featureStatus.twitch_configured && !twitchUserInfo && verifyingTwitch && (
+                    <div className="ml-5 text-sm text-gray-500">
+                      検証中...
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center space-x-2">
                   <div className={`w-3 h-3 rounded-full ${featureStatus.printer_configured ? 'bg-green-500' : 'bg-red-500'}`} />

@@ -122,6 +122,16 @@ export interface FeatureStatus {
   service_mode?: boolean;  // systemdサービスとして実行されているか
 }
 
+// Twitchユーザー情報
+export interface TwitchUserInfo {
+  id: string;
+  login: string;
+  display_name: string;
+  profile_image_url?: string;
+  verified: boolean;
+  error?: string;
+}
+
 // Bluetoothデバイス
 export interface BluetoothDevice {
   mac_address: string;
