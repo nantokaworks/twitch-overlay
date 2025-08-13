@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Settings2, Bluetooth, Wifi, Zap, Eye, EyeOff, FileText, Upload, X } from 'lucide-react';
+import { ArrowLeft, Settings2, Bluetooth, Wifi, Zap, Eye, EyeOff, FileText, Upload, X, RefreshCw, Server } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
@@ -37,6 +37,8 @@ export const SettingsPage: React.FC = () => {
   const [previewText, setPreviewText] = useState<string>('サンプルテキスト Sample Text 123\nフォントプレビュー 🎨');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const [restarting, setRestarting] = useState(false);
+  const [restartCountdown, setRestartCountdown] = useState(0);
 
   // 設定データの取得
   useEffect(() => {
@@ -273,6 +275,78 @@ export const SettingsPage: React.FC = () => {
     }
   };
 
+  const handleServerRestart = async (force: boolean = false) => {
+    const confirmMessage = force 
+      ? 'サーバーを強制的に再起動しますか？\n処理中のタスクがある場合は中断されます。'
+      : 'サーバーを再起動しますか？';
+    
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+    
+    setRestarting(true);
+    setRestartCountdown(10); // 10秒のカウントダウン
+    
+    try {
+      const response = await fetch(buildApiUrl('/api/server/restart'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ force }),
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        if (response.status === 409 && result.warning) {
+          // 印刷キューが空でない場合
+          toast.warning(result.warning);
+          if (confirm('強制的に再起動しますか？')) {
+            await handleServerRestart(true); // 強制再起動を再実行
+          }
+          setRestarting(false);
+          return;
+        }
+        throw new Error(result.message || 'Restart failed');
+      }
+      
+      toast.success(result.message);
+      
+      // カウントダウンを開始
+      let countdown = 10;
+      const countdownInterval = setInterval(() => {
+        countdown--;
+        setRestartCountdown(countdown);
+        
+        if (countdown <= 0) {
+          clearInterval(countdownInterval);
+          // 自動リロード
+          window.location.reload();
+        }
+      }, 1000);
+      
+      // 5秒後から接続確認を開始
+      setTimeout(() => {
+        const checkInterval = setInterval(async () => {
+          try {
+            const statusResponse = await fetch(buildApiUrl('/api/server/status'));
+            if (statusResponse.ok) {
+              clearInterval(checkInterval);
+              clearInterval(countdownInterval);
+              window.location.reload();
+            }
+          } catch (err) {
+            // まだ接続できない
+          }
+        }, 1000);
+      }, 5000);
+      
+    } catch (err: any) {
+      toast.error('再起動に失敗しました: ' + err.message);
+      setRestarting(false);
+      setRestartCountdown(0);
+    }
+  };
+
   const handleFontPreview = async () => {
     try {
       const response = await fetch(buildApiUrl('/api/settings/font/preview'), {
@@ -368,7 +442,7 @@ export const SettingsPage: React.FC = () => {
 
         {/* タブコンテンツ */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-5 mb-6">
+          <TabsList className="grid w-full grid-cols-6 mb-6">
             <TabsTrigger value="general" className="flex items-center space-x-2">
               <Settings2 className="w-4 h-4" />
               <span>一般</span>
@@ -388,6 +462,10 @@ export const SettingsPage: React.FC = () => {
             <TabsTrigger value="logs" className="flex items-center space-x-2">
               <FileText className="w-4 h-4" />
               <span>ログ</span>
+            </TabsTrigger>
+            <TabsTrigger value="system" className="flex items-center space-x-2">
+              <Server className="w-4 h-4" />
+              <span>システム</span>
             </TabsTrigger>
           </TabsList>
 
@@ -902,6 +980,90 @@ export const SettingsPage: React.FC = () => {
           {/* ログタブ */}
           <TabsContent value="logs" className="space-y-6">
             <LogViewer embedded={true} />
+          </TabsContent>
+
+          {/* システムタブ */}
+          <TabsContent value="system" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>サーバー管理</CardTitle>
+                <CardDescription>
+                  サーバーの再起動や状態確認を行います
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* サーバー状態 */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-medium">サーバー状態</h3>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                      <span>サーバー稼働中</span>
+                    </div>
+                    {featureStatus && (
+                      <div>
+                        サービスモード: {featureStatus.service_mode ? 'Yes' : 'No'}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 再起動ボタン */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-medium">サーバー再起動</h3>
+                  {restarting ? (
+                    <div className="space-y-4">
+                      <Alert>
+                        <AlertDescription className="flex items-center space-x-2">
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          <span>サーバーを再起動しています...</span>
+                          {restartCountdown > 0 && (
+                            <span className="font-mono">({restartCountdown}秒)</span>
+                          )}
+                        </AlertDescription>
+                      </Alert>
+                      <p className="text-sm text-gray-600">
+                        再起動が完了すると自動的にページがリロードされます。
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <p className="text-sm text-gray-600">
+                        サーバーを再起動すると、すべての接続が一時的に切断されます。
+                        処理中の印刷ジョブがある場合は完了を待ってから実行してください。
+                      </p>
+                      <div className="flex space-x-2">
+                        <Button 
+                          onClick={() => handleServerRestart(false)}
+                          variant="default"
+                          className="flex items-center space-x-2"
+                        >
+                          <RefreshCw className="w-4 h-4" />
+                          <span>サーバーを再起動</span>
+                        </Button>
+                        <Button 
+                          onClick={() => handleServerRestart(true)}
+                          variant="destructive"
+                          className="flex items-center space-x-2"
+                        >
+                          <RefreshCw className="w-4 h-4" />
+                          <span>強制再起動</span>
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 再起動に関する注意事項 */}
+                <Alert>
+                  <AlertDescription>
+                    <strong>注意:</strong> systemdサービスとして動作している場合、
+                    サーバーは自動的に再起動されます。通常モードで動作している場合は、
+                    新しいプロセスが起動されます。
+                  </AlertDescription>
+                </Alert>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>

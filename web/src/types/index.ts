@@ -119,6 +119,7 @@ export interface FeatureStatus {
   printer_connected: boolean;
   missing_settings: string[];
   warnings: string[];
+  service_mode?: boolean;  // systemdサービスとして実行されているか
 }
 
 // Bluetoothデバイス

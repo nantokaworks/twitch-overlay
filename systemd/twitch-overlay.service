@@ -10,7 +10,9 @@ User=%i
 SupplementaryGroups=bluetooth
 WorkingDirectory=/home/%i/twitch-overlay/dist
 ExecStart=/home/%i/twitch-overlay/dist/twitch-overlay
+# 再起動ポリシー: エラー時と終了コード75で再起動
 Restart=on-failure
+RestartExitStatus=75
 RestartSec=10
 
 # Bluetooth権限を付与（強化）
@@ -30,6 +32,8 @@ DevicePolicy=auto
 
 # 環境変数設定
 Environment="SERVER_PORT=3456"
+Environment="RUNNING_AS_SERVICE=true"
+Environment="TWITCH_OVERLAY_DATA_DIR=%h/.twitch-overlay"
 
 # 環境変数ファイル（オプション）
 EnvironmentFile=-/home/%i/twitch-overlay/dist/.env

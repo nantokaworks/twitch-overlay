@@ -530,3 +530,8 @@ func PrintInitialClock() error {
 	
 	return nil
 }
+
+// GetPrintQueueSize returns the current number of items in the print queue
+func GetPrintQueueSize() int {
+	return len(printQueue)
+}

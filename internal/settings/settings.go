@@ -135,12 +135,14 @@ type FeatureStatus struct {
 	PrinterConnected  bool     `json:"printer_connected"`
 	MissingSettings   []string `json:"missing_settings"`
 	Warnings          []string `json:"warnings"`
+	ServiceMode       bool     `json:"service_mode"`  // systemdサービスとして実行されているか
 }
 
 func (sm *SettingsManager) CheckFeatureStatus() (*FeatureStatus, error) {
 	status := &FeatureStatus{
 		MissingSettings: []string{},
 		Warnings:        []string{},
+		ServiceMode:     os.Getenv("RUNNING_AS_SERVICE") == "true",
 	}
 
 	// Twitch設定チェック

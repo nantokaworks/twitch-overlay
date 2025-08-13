@@ -13,6 +13,7 @@ import (
 	localdb "github.com/nantokaworks/twitch-overlay/internal/localdb"
 	"github.com/nantokaworks/twitch-overlay/internal/output"
 	"github.com/nantokaworks/twitch-overlay/internal/shared/logger"
+	"github.com/nantokaworks/twitch-overlay/internal/shared/paths"
 	"github.com/nantokaworks/twitch-overlay/internal/twitcheventsub"
 	"github.com/nantokaworks/twitch-overlay/internal/twitchtoken"
 	"github.com/nantokaworks/twitch-overlay/internal/version"
@@ -29,8 +30,14 @@ func main() {
 	fmt.Println("🖨️  Twitch Overlay " + version.String())
 	fmt.Println()
 
+	// Ensure data directories exist
+	if err := paths.EnsureDataDirs(); err != nil {
+		log.Fatal("Failed to create data directories: ", err)
+	}
+	logger.Info("Data directory", zap.String("path", paths.GetDataDir()))
+
 	// init db
-	db, err := localdb.SetupDB("./local.db")
+	db, err := localdb.SetupDB(paths.GetDBPath())
 	if err != nil {
 		log.Fatal(err)
 	}

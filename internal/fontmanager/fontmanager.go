@@ -9,17 +9,18 @@ import (
 	"sync"
 
 	"github.com/nantokaworks/twitch-overlay/internal/shared/logger"
+	"github.com/nantokaworks/twitch-overlay/internal/shared/paths"
 	"go.uber.org/zap"
 	"golang.org/x/image/font/opentype"
 )
 
 const (
-	// フォントを保存するディレクトリ
-	FontDirectory = "./uploads/fonts"
-	
 	// 最大ファイルサイズ (50MB)
 	MaxFileSize = 50 * 1024 * 1024
 )
+
+// FontDirectory はフォントを保存するディレクトリ
+var FontDirectory = paths.GetFontsDir()
 
 var (
 	mu             sync.RWMutex
@@ -34,6 +35,9 @@ var (
 
 // Initialize はフォントマネージャーを初期化します
 func Initialize() error {
+	// フォントディレクトリのパスを更新
+	FontDirectory = paths.GetFontsDir()
+	
 	// フォントディレクトリの作成
 	if err := os.MkdirAll(FontDirectory, 0755); err != nil {
 		return fmt.Errorf("failed to create font directory: %w", err)

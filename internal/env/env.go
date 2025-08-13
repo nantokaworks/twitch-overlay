@@ -11,6 +11,7 @@ import (
 	"github.com/nantokaworks/twitch-overlay/internal/localdb"
 	"github.com/nantokaworks/twitch-overlay/internal/settings"
 	"github.com/nantokaworks/twitch-overlay/internal/shared/logger"
+	"github.com/nantokaworks/twitch-overlay/internal/shared/paths"
 	"go.uber.org/zap"
 )
 
@@ -91,7 +92,7 @@ func loadDotEnv() {
 
 func loadFromDatabase() error {
 	// データベース接続を確立
-	db, err := localdb.SetupDB("./local.db")
+	db, err := localdb.SetupDB(paths.GetDBPath())
 	if err != nil {
 		return fmt.Errorf("failed to setup database: %w", err)
 	}
