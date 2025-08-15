@@ -196,9 +196,12 @@ func MaintainPrinterConnection() {
 		return
 	}
 	
+	printerAddress := *env.Value.PrinterAddress
+	logger.Debug("Starting connection maintenance cycle", zap.String("address", printerAddress), zap.Bool("currently_connected", isConnected))
+	
 	if isConnected {
 		// Already connected: disconnect and reconnect to refresh the connection
-		logger.Info("Keep-alive: refreshing existing connection")
+		logger.Info("Keep-alive: refreshing existing connection", zap.String("address", printerAddress))
 		
 		// Disconnect current connection
 		if latestPrinter != nil {
@@ -228,13 +231,18 @@ func MaintainPrinterConnection() {
 		}
 		
 		// Reconnect
-		err := ConnectPrinter(latestPrinter, *env.Value.PrinterAddress)
+		err := ConnectPrinter(latestPrinter, printerAddress)
 		if err != nil {
-			logger.Error("Keep-alive: failed to reconnect", zap.Error(err))
+			errStr := err.Error()
+			logger.Error("Keep-alive: failed to reconnect", zap.String("address", printerAddress), zap.Error(err))
 			
-			// On HCI socket error, reset BLE device
-			if strings.Contains(err.Error(), "hci socket") || strings.Contains(err.Error(), "broken pipe") {
-				logger.Warn("Detected HCI socket error, resetting BLE device")
+			// Check for various Bluetooth-related errors
+			if strings.Contains(errStr, "hci socket") || 
+			   strings.Contains(errStr, "broken pipe") ||
+			   strings.Contains(errStr, "connection reset") ||
+			   strings.Contains(errStr, "device not found") ||
+			   strings.Contains(errStr, "operation timed out") {
+				logger.Warn("Detected Bluetooth connection error, resetting BLE device", zap.String("error_type", errStr))
 				if latestPrinter != nil {
 					func() {
 						defer func() {
@@ -254,7 +262,7 @@ func MaintainPrinterConnection() {
 		}
 	} else {
 		// Not connected: try to connect
-		logger.Info("Keep-alive: attempting to connect")
+		logger.Info("Keep-alive: attempting to connect", zap.String("address", printerAddress))
 		
 		// Setup printer if needed
 		if latestPrinter == nil {
@@ -267,13 +275,18 @@ func MaintainPrinterConnection() {
 		}
 		
 		// Try to connect
-		err := ConnectPrinter(latestPrinter, *env.Value.PrinterAddress)
+		err := ConnectPrinter(latestPrinter, printerAddress)
 		if err != nil {
-			logger.Error("Keep-alive: failed to connect", zap.Error(err))
+			errStr := err.Error()
+			logger.Error("Keep-alive: failed to connect", zap.String("address", printerAddress), zap.Error(err))
 			
-			// On HCI socket error, reset BLE device
-			if strings.Contains(err.Error(), "hci socket") || strings.Contains(err.Error(), "broken pipe") {
-				logger.Warn("Detected HCI socket error, resetting BLE device")
+			// Check for various Bluetooth-related errors
+			if strings.Contains(errStr, "hci socket") || 
+			   strings.Contains(errStr, "broken pipe") ||
+			   strings.Contains(errStr, "connection reset") ||
+			   strings.Contains(errStr, "device not found") ||
+			   strings.Contains(errStr, "operation timed out") {
+				logger.Warn("Detected Bluetooth connection error, resetting BLE device", zap.String("error_type", errStr))
 				if latestPrinter != nil {
 					func() {
 						defer func() {
@@ -289,7 +302,7 @@ func MaintainPrinterConnection() {
 			ResetConnectionStatus()
 			status.SetPrinterConnected(false)
 		} else {
-			logger.Info("Keep-alive: connected successfully")
+			logger.Info("Keep-alive: connected successfully", zap.String("address", printerAddress))
 		}
 	}
 	
@@ -297,6 +310,8 @@ func MaintainPrinterConnection() {
 	lastPrintMutex.Lock()
 	lastPrintTime = time.Now()
 	lastPrintMutex.Unlock()
+	
+	logger.Debug("Connection maintenance cycle completed", zap.Bool("connected", isConnected))
 }
 
 // StopKeepAlive stops the keep-alive goroutine
@@ -320,7 +335,13 @@ func StartKeepAlive() {
 		return
 	}
 	
-	logger.Info("Starting keep-alive goroutine")
+	// Get the interval from environment variable (default to 60 seconds if not set or invalid)
+	interval := 60
+	if env.Value.KeepAliveInterval > 0 {
+		interval = env.Value.KeepAliveInterval
+	}
+	
+	logger.Info("Starting keep-alive goroutine", zap.Int("interval_seconds", interval))
 	keepAliveStopCh = make(chan struct{})
 	keepAliveRunning = true
 	
@@ -328,8 +349,8 @@ func StartKeepAlive() {
 		// Perform connection maintenance once at startup
 		MaintainPrinterConnection()
 		
-		// Create ticker for 60 second intervals
-		ticker := time.NewTicker(60 * time.Second)
+		// Create ticker with the configured interval
+		ticker := time.NewTicker(time.Duration(interval) * time.Second)
 		defer ticker.Stop()
 		
 		for {

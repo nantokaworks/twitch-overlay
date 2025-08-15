@@ -193,6 +193,10 @@ func main() {
 	if err != nil {
 		logger.Error("Failed to setup printer options", zap.Error(err))
 	}
+	
+	// Initialize printer subsystem (including keep-alive and clock)
+	// This must be called after env.Value is initialized
+	output.InitializePrinter()
 
 	// load token from db
 	var tokenValid bool

@@ -37,12 +37,9 @@ func shouldUseDryRun() bool {
 	return false
 }
 
-func init() {
-	printQueue = make(chan image.Image, 100)
-	
-	// Initialize last print time to now
-	lastPrintTime = time.Now()
-	
+// InitializePrinter initializes the printer subsystem (including keep-alive and clock)
+// This should be called from main() after env.Value is properly initialized
+func InitializePrinter() {
 	// Start keep-alive goroutine using the new implementation
 	StartKeepAlive()
 	
@@ -50,6 +47,21 @@ func init() {
 	if env.Value.ClockEnabled {
 		go clockRoutine()
 	}
+	
+	logger.Info("Printer subsystem initialized", 
+		zap.Bool("keep_alive_enabled", env.Value.KeepAliveEnabled),
+		zap.Int("keep_alive_interval", env.Value.KeepAliveInterval),
+		zap.Bool("clock_enabled", env.Value.ClockEnabled))
+}
+
+func init() {
+	printQueue = make(chan image.Image, 100)
+	
+	// Initialize last print time to now
+	lastPrintTime = time.Now()
+	
+	// Note: StartKeepAlive() and clockRoutine() are now called from InitializePrinter()
+	// after env.Value is properly initialized
 	
 	go func() {
 		for img := range printQueue {

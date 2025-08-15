@@ -288,6 +288,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                       onCheckedChange={(checked) => handleSettingChange('DEBUG_OUTPUT', checked)}
                     />
                   </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label>時計機能</Label>
+                      <p className="text-sm text-gray-500">
+                        定期的に時計を印刷します
+                      </p>
+                    </div>
+                    <Switch
+                      checked={getBooleanValue('CLOCK_ENABLED')}
+                      onCheckedChange={(checked) => handleSettingChange('CLOCK_ENABLED', checked)}
+                    />
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -467,32 +480,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                     />
                     <p className="text-sm text-gray-500">0-255の値で黒色の判定しきい値を設定</p>
                   </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* 動作タブ */}
-            <TabsContent value="behavior" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>動作設定</CardTitle>
-                  <CardDescription>
-                    アプリケーションの動作に関する設定を行います
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>時計機能</Label>
-                      <p className="text-sm text-gray-500">
-                        定期的に時計を印刷します
-                      </p>
-                    </div>
-                    <Switch
-                      checked={getBooleanValue('CLOCK_ENABLED')}
-                      onCheckedChange={(checked) => handleSettingChange('CLOCK_ENABLED', checked)}
-                    />
-                  </div>
 
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
@@ -521,6 +508,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                   </div>
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            {/* 動作タブ */}
+            <TabsContent value="behavior" className="space-y-4">
+              {/* このタブは削除されました。設定は他のタブに移動されました */}
             </TabsContent>
           </Tabs>
         </div>

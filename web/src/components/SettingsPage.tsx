@@ -904,6 +904,19 @@ export const SettingsPage: React.FC = () => {
                     onCheckedChange={(checked) => handleSettingChange('DEBUG_OUTPUT', checked)}
                   />
                 </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>時計機能</Label>
+                    <p className="text-sm text-gray-500">
+                      定期的に時計を印刷します
+                    </p>
+                  </div>
+                  <Switch
+                    checked={getBooleanValue('CLOCK_ENABLED')}
+                    onCheckedChange={(checked) => handleSettingChange('CLOCK_ENABLED', checked)}
+                  />
+                </div>
               </CardContent>
             </Card>
 
@@ -1339,46 +1352,18 @@ export const SettingsPage: React.FC = () => {
                   />
                   <p className="text-sm text-gray-500">0-255の値で黒色の判定しきい値を設定</p>
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
 
-          {/* 動作タブ */}
-          <TabsContent value="behavior" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>動作設定</CardTitle>
-                <CardDescription>
-                  アプリケーションの動作に関する設定を行います
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>時計機能</Label>
-                      <p className="text-sm text-gray-500">
-                        定期的に時計を印刷します
-                      </p>
-                    </div>
-                    <Switch
-                      checked={getBooleanValue('CLOCK_ENABLED')}
-                      onCheckedChange={(checked) => handleSettingChange('CLOCK_ENABLED', checked)}
-                    />
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>キープアライブ</Label>
+                    <p className="text-sm text-gray-500">
+                      プリンター接続を維持します
+                    </p>
                   </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>キープアライブ</Label>
-                      <p className="text-sm text-gray-500">
-                        プリンター接続を維持します
-                      </p>
-                    </div>
-                    <Switch
-                      checked={getBooleanValue('KEEP_ALIVE_ENABLED')}
-                      onCheckedChange={(checked) => handleSettingChange('KEEP_ALIVE_ENABLED', checked)}
-                    />
-                  </div>
+                  <Switch
+                    checked={getBooleanValue('KEEP_ALIVE_ENABLED')}
+                    onCheckedChange={(checked) => handleSettingChange('KEEP_ALIVE_ENABLED', checked)}
+                  />
                 </div>
 
                 <div className="space-y-2">
@@ -1396,6 +1381,11 @@ export const SettingsPage: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* 動作タブ */}
+          <TabsContent value="behavior" className="space-y-6">
+            {/* このタブは削除されました。設定は他のタブに移動されました */}
           </TabsContent>
 
           {/* ログタブ */}
