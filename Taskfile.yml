@@ -38,6 +38,13 @@ tasks:
       - task: clean
       - task: build:frontend
       - task: build:backend
+      - |
+        if [ "$(uname)" = "Linux" ]; then
+          echo ""
+          echo "💡 Linux環境での実行方法:"
+          echo "  - 手動実行: task setcap （Bluetooth権限設定）"
+          echo "  - サービス: task service:install （systemdサービスとして実行）"
+        fi
       - echo "全ビルド完了！"
       - echo "実行 → ./dist/twitch-overlay"
 
@@ -78,6 +85,28 @@ tasks:
       - echo "twitch-overlayプロセスを停止中..."
       - pkill -f twitch-overlay || echo "実行中のtwitch-overlayプロセスが見つかりませんでした"
 
+  # Bluetooth権限設定（Linux、手動実行用）
+  setcap:
+    desc: Bluetooth用の権限を設定（Linux、手動実行用）
+    cmds:
+      - |
+        if [ "$(uname)" != "Linux" ]; then
+          echo "ℹ️  このタスクはLinux環境でのみ実行可能です"
+          exit 0
+        fi
+      - |
+        if [ ! -f dist/twitch-overlay ]; then
+          echo "❌ エラー: dist/twitch-overlay が見つかりません"
+          echo "先に 'task build:all' でビルドしてください"
+          exit 1
+        fi
+      - echo "🔧 Bluetooth権限を設定します（手動実行用）..."
+      - echo "※ systemdサービスで実行する場合は不要です"
+      - sudo setcap cap_net_admin,cap_net_raw+eip dist/twitch-overlay
+      - echo "✅ 権限設定完了"
+      - echo "現在の権限:"
+      - getcap dist/twitch-overlay
+
   # ビルド済みアプリケーションを実行
   run:
     desc: ビルド済みのtwitch-overlayを実行
@@ -88,6 +117,23 @@ tasks:
           echo "エラー: dist/twitch-overlay が見つかりません"
           echo "先に 'task build:all' でビルドしてください"
           exit 1
+        fi
+      - |
+        if [ "$(uname)" = "Linux" ]; then
+          # 権限チェック
+          if ! getcap twitch-overlay 2>/dev/null | grep -q "cap_net_admin"; then
+            echo "⚠️  警告: Bluetooth権限が設定されていません"
+            echo ""
+            echo "以下のいずれかを実行してください："
+            echo "  1. task setcap         （手動実行用の権限設定）"
+            echo "  2. task service:install （systemdサービスとして実行）"
+            echo ""
+            echo "続行しますか？ [y/N]"
+            read -r response
+            if [ "$response" != "y" ] && [ "$response" != "Y" ]; then
+              exit 0
+            fi
+          fi
         fi
       - echo "twitch-overlayを起動中..."
       - exec ./twitch-overlay

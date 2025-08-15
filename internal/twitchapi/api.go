@@ -9,7 +9,6 @@ import (
 
 	"github.com/nantokaworks/twitch-overlay/internal/env"
 	"github.com/nantokaworks/twitch-overlay/internal/shared/logger"
-	"github.com/nantokaworks/twitch-overlay/internal/twitchtoken"
 	"go.uber.org/zap"
 )
 
@@ -26,22 +25,9 @@ type ChannelInfo struct {
 
 // GetStreamInfo retrieves current stream information
 func GetStreamInfo() (*StreamInfo, error) {
-	token, valid, err := twitchtoken.GetLatestToken()
-	if !valid || err != nil {
-		return nil, fmt.Errorf("failed to get valid token: %w", err)
-	}
-
 	reqURL := fmt.Sprintf("https://api.twitch.tv/helix/streams?user_id=%s", url.QueryEscape(*env.Value.TwitchUserID))
-	req, err := http.NewRequest("GET", reqURL, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Client-ID", *env.Value.ClientID)
-	req.Header.Set("Authorization", "Bearer "+token.AccessToken)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	
+	resp, err := makeAuthenticatedGetRequest(reqURL)
 	if err != nil {
 		return nil, err
 	}
@@ -76,22 +62,9 @@ func GetStreamInfo() (*StreamInfo, error) {
 
 // GetChannelInfo retrieves channel information including follower count
 func GetChannelInfo() (*ChannelInfo, error) {
-	token, valid, err := twitchtoken.GetLatestToken()
-	if !valid || err != nil {
-		return nil, fmt.Errorf("failed to get valid token: %w", err)
-	}
-
 	reqURL := fmt.Sprintf("https://api.twitch.tv/helix/channels/followers?broadcaster_id=%s", url.QueryEscape(*env.Value.TwitchUserID))
-	req, err := http.NewRequest("GET", reqURL, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Client-ID", *env.Value.ClientID)
-	req.Header.Set("Authorization", "Bearer "+token.AccessToken)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	
+	resp, err := makeAuthenticatedGetRequest(reqURL)
 	if err != nil {
 		return nil, err
 	}
@@ -157,12 +130,7 @@ type BitsLeaderboardResponse struct {
 // GetBitsLeaderboard retrieves the bits leaderboard for a specific period
 func GetBitsLeaderboard(period string) ([]*BitsLeaderboardEntry, *BitsLeaderboardResponse, error) {
 	logger.Info("Getting bits leaderboard", zap.String("period", period))
-	token, valid, err := twitchtoken.GetLatestToken()
-	if !valid || err != nil {
-		logger.Warn("No valid token available, returning empty leaderboard", zap.Error(err))
-		return nil, nil, nil // Return empty result instead of error
-	}
-
+	
 	// For "month" period, we need to specify started_at parameter
 	var reqURL string
 	if period == "month" {
@@ -178,18 +146,11 @@ func GetBitsLeaderboard(period string) ([]*BitsLeaderboardEntry, *BitsLeaderboar
 		reqURL = fmt.Sprintf("https://api.twitch.tv/helix/bits/leaderboard?count=5&period=%s&broadcaster_id=%s", 
 			url.QueryEscape(period), url.QueryEscape(*env.Value.TwitchUserID))
 	}
-	req, err := http.NewRequest("GET", reqURL, nil)
+	
+	resp, err := makeAuthenticatedGetRequest(reqURL)
 	if err != nil {
-		return nil, nil, err
-	}
-
-	req.Header.Set("Client-ID", *env.Value.ClientID)
-	req.Header.Set("Authorization", "Bearer "+token.AccessToken)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, nil, err
+		logger.Warn("Failed to get bits leaderboard, returning empty result", zap.Error(err))
+		return nil, nil, nil // Return empty result instead of error for backward compatibility
 	}
 	defer resp.Body.Close()
 
@@ -229,22 +190,9 @@ func GetBitsLeaderboard(period string) ([]*BitsLeaderboardEntry, *BitsLeaderboar
 
 // GetUserAvatar retrieves the profile image URL for a user
 func GetUserAvatar(userID string) (string, error) {
-	token, valid, err := twitchtoken.GetLatestToken()
-	if !valid || err != nil {
-		return "", fmt.Errorf("failed to get valid token: %w", err)
-	}
-
 	reqURL := fmt.Sprintf("https://api.twitch.tv/helix/users?id=%s", url.QueryEscape(userID))
-	req, err := http.NewRequest("GET", reqURL, nil)
-	if err != nil {
-		return "", err
-	}
-
-	req.Header.Set("Client-ID", *env.Value.ClientID)
-	req.Header.Set("Authorization", "Bearer "+token.AccessToken)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	
+	resp, err := makeAuthenticatedGetRequest(reqURL)
 	if err != nil {
 		return "", err
 	}

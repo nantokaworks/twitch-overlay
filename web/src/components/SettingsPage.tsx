@@ -393,6 +393,31 @@ export const SettingsPage: React.FC = () => {
     }
   };
 
+  const handleTokenRefresh = async () => {
+    try {
+      const response = await fetch(buildApiUrl('/api/twitch/refresh-token'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Token refresh failed');
+      }
+      
+      if (result.success) {
+        toast.success('トークンを更新しました');
+        // 認証状態を再取得
+        await fetchAuthStatus();
+      } else {
+        throw new Error(result.error || 'トークンの更新に失敗しました');
+      }
+    } catch (err: any) {
+      toast.error(`トークンの更新に失敗しました: ${err.message}`);
+    }
+  };
+
   const handleServerRestart = async (force: boolean = false) => {
     const confirmMessage = force 
       ? 'サーバーを強制的に再起動しますか？\n処理中のタスクがある場合は中断されます。'
@@ -951,14 +976,24 @@ export const SettingsPage: React.FC = () => {
                         </Button>
                       )}
                       {authStatus.authenticated && (
-                        <Button
-                          onClick={handleTwitchAuth}
-                          variant="outline"
-                          className="flex items-center space-x-2"
-                        >
-                          <RefreshCw className="w-4 h-4" />
-                          <span>再認証</span>
-                        </Button>
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            onClick={handleTokenRefresh}
+                            variant="outline"
+                            className="flex items-center space-x-2"
+                          >
+                            <RefreshCw className="w-4 h-4" />
+                            <span>トークンを更新</span>
+                          </Button>
+                          <Button
+                            onClick={handleTwitchAuth}
+                            variant="ghost"
+                            className="flex items-center space-x-2"
+                          >
+                            <RefreshCw className="w-4 h-4" />
+                            <span>再認証</span>
+                          </Button>
+                        </div>
                       )}
                     </div>
                   </div>

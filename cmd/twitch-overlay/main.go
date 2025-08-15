@@ -25,6 +25,64 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+// refreshTokenPeriodically はトークンの有効期限を監視し、期限の30分前に自動的にリフレッシュを行います
+func refreshTokenPeriodically(done <-chan struct{}) {
+	logger.Info("Starting token refresh goroutine")
+	
+	for {
+		select {
+		case <-done:
+			logger.Info("Stopping token refresh goroutine")
+			return
+		default:
+			token, _, err := twitchtoken.GetLatestToken()
+			if err != nil {
+				// トークンが見つからない場合は1分後に再チェック
+				time.Sleep(1 * time.Minute)
+				continue
+			}
+			
+			// 現在時刻とトークンの有効期限を比較
+			now := time.Now().Unix()
+			timeUntilExpiry := token.ExpiresAt - now
+			
+			if timeUntilExpiry <= 0 {
+				// トークンがすでに期限切れの場合、即座にリフレッシュ
+				logger.Info("Token has expired, refreshing immediately")
+				if err := token.RefreshTwitchToken(); err != nil {
+					logger.Error("Failed to refresh expired token", zap.Error(err))
+					// リフレッシュに失敗した場合は5分後に再試行
+					time.Sleep(5 * time.Minute)
+				} else {
+					logger.Info("Token refreshed successfully")
+				}
+			} else if timeUntilExpiry <= 30*60 { // 30分 = 1800秒
+				// 期限の30分前になったらリフレッシュ
+				logger.Info("Token expires in less than 30 minutes, refreshing now", 
+					zap.Int64("seconds_until_expiry", timeUntilExpiry))
+				if err := token.RefreshTwitchToken(); err != nil {
+					logger.Error("Failed to refresh token", zap.Error(err))
+					// リフレッシュに失敗した場合は5分後に再試行
+					time.Sleep(5 * time.Minute)
+				} else {
+					logger.Info("Token refreshed successfully")
+				}
+			} else {
+				// 次のチェックまでの時間を計算（期限の30分前になるまで待つ）
+				sleepDuration := time.Duration(timeUntilExpiry-30*60) * time.Second
+				// ただし、最大1時間までとする（長時間スリープを避ける）
+				if sleepDuration > time.Hour {
+					sleepDuration = time.Hour
+				}
+				logger.Debug("Next token refresh check", 
+					zap.Duration("sleep_duration", sleepDuration),
+					zap.Int64("seconds_until_expiry", timeUntilExpiry))
+				time.Sleep(sleepDuration)
+			}
+		}
+	}
+}
+
 func main() {
 	// Display version
 	fmt.Println("🖨️  Twitch Overlay " + version.String())
@@ -135,6 +193,8 @@ func main() {
 						fmt.Println("")
 						// start twitch eventsub after getting token
 						twitcheventsub.SetupEventSub(&token)
+						// Start token refresh goroutine after successful authentication
+						go refreshTokenPeriodically(done)
 						return
 					}
 					time.Sleep(1 * time.Second)
@@ -144,6 +204,8 @@ func main() {
 	} else {
 		// start twitch eventsub if token is already valid
 		twitcheventsub.SetupEventSub(&token)
+		// Start token refresh goroutine
+		go refreshTokenPeriodically(done)
 	}
 
 	// Setup signal handling for graceful shutdown

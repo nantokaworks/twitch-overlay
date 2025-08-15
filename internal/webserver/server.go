@@ -145,6 +145,7 @@ func StartWebServer(port int) {
 
 	// Twitch API endpoints
 	mux.HandleFunc("/api/twitch/verify", corsMiddleware(handleTwitchVerify))
+	mux.HandleFunc("/api/twitch/refresh-token", corsMiddleware(handleTwitchRefreshToken))
 
 	// Create a custom file server that handles SPA routing
 	fs := http.FileServer(http.Dir(staticDir))
@@ -1237,4 +1238,60 @@ func handleAuthStatus(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+}
+
+// handleTwitchRefreshToken は手動でトークンをリフレッシュするエンドポイント
+func handleTwitchRefreshToken(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// 現在のトークンを取得
+	token, _, err := twitchtoken.GetLatestToken()
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   "No token found",
+		})
+		return
+	}
+
+	// リフレッシュトークンが存在しない場合はエラー
+	if token.RefreshToken == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   "No refresh token available",
+		})
+		return
+	}
+
+	// トークンをリフレッシュ
+	if err := token.RefreshTwitchToken(); err != nil {
+		logger.Error("Failed to refresh token manually", zap.Error(err))
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   fmt.Sprintf("Failed to refresh token: %v", err),
+		})
+		return
+	}
+
+	// リフレッシュ成功後、新しいトークン情報を取得
+	newToken, isValid, _ := twitchtoken.GetLatestToken()
+	
+	logger.Info("Token refreshed manually via API")
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":       true,
+		"authenticated": isValid,
+		"expiresAt":     newToken.ExpiresAt,
+		"message":       "Token refreshed successfully",
+	})
 }
