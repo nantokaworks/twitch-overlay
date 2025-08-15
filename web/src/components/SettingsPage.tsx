@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Settings2, Bluetooth, Wifi, Zap, Eye, EyeOff, FileText, Upload, X, RefreshCw, Server, Monitor, Bug } from 'lucide-react';
+import { Settings2, Bluetooth, Wifi, Zap, Eye, EyeOff, FileText, Upload, X, RefreshCw, Server, Monitor, Bug, Radio } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
@@ -19,7 +19,8 @@ import {
   TestResponse,
   TwitchUserInfo,
   PrinterStatusInfo,
-  AuthStatus
+  AuthStatus,
+  StreamStatus
 } from '../types';
 import { buildApiUrl } from '../utils/api';
 import { toast } from 'sonner';
@@ -45,6 +46,7 @@ export const SettingsPage: React.FC = () => {
   const [printerStatusInfo, setPrinterStatusInfo] = useState<PrinterStatusInfo | null>(null);
   const [reconnectingPrinter, setReconnectingPrinter] = useState(false);
   const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
+  const [streamStatus, setStreamStatus] = useState<StreamStatus | null>(null);
 
   // デバイスのソート関数
   const sortBluetoothDevices = (devices: BluetoothDevice[]): BluetoothDevice[] => {
@@ -69,6 +71,16 @@ export const SettingsPage: React.FC = () => {
   useEffect(() => {
     fetchAllSettings();
     fetchAuthStatus();
+    fetchStreamStatus();
+  }, []);
+
+  // 配信状態の定期更新
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchStreamStatus();
+    }, 30000); // 30秒ごとに更新
+
+    return () => clearInterval(interval);
   }, []);
 
   // Twitch連携が設定済みの場合、ユーザー情報を検証
@@ -223,6 +235,16 @@ export const SettingsPage: React.FC = () => {
       setAuthStatus(data);
     } catch (err: any) {
       console.error('Failed to fetch auth status:', err);
+    }
+  };
+
+  const fetchStreamStatus = async () => {
+    try {
+      const response = await fetch(buildApiUrl('/api/stream/status'));
+      const data: StreamStatus = await response.json();
+      setStreamStatus(data);
+    } catch (err: any) {
+      console.error('Failed to fetch stream status:', err);
     }
   };
 
@@ -609,19 +631,47 @@ export const SettingsPage: React.FC = () => {
                   {featureStatus.twitch_configured && authStatus?.authenticated && twitchUserInfo && (
                     <div className="ml-5 text-sm">
                       {twitchUserInfo.verified ? (
-                        <div className="flex items-center space-x-2">
-                          <span className="text-gray-600">
-                            ユーザー: {twitchUserInfo.login} ({twitchUserInfo.display_name})
-                          </span>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={verifyTwitchConfig}
-                            disabled={verifyingTwitch}
-                            className="h-6 px-2 text-xs"
-                          >
-                            {verifyingTwitch ? '検証中...' : '検証'}
-                          </Button>
+                        <div className="space-y-1">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-gray-600">
+                              ユーザー: {twitchUserInfo.login} ({twitchUserInfo.display_name})
+                            </span>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={verifyTwitchConfig}
+                              disabled={verifyingTwitch}
+                              className="h-6 px-2 text-xs"
+                            >
+                              {verifyingTwitch ? '検証中...' : '検証'}
+                            </Button>
+                          </div>
+                          {streamStatus && (
+                            <div className="flex items-center space-x-2">
+                              {streamStatus.is_live ? (
+                                <>
+                                  <Radio className="w-4 h-4 text-red-500 animate-pulse" />
+                                  <span className="text-red-600 font-medium">配信中</span>
+                                  {streamStatus.viewer_count > 0 && (
+                                    <span className="text-gray-500">
+                                      (視聴者: {streamStatus.viewer_count}人)
+                                    </span>
+                                  )}
+                                  {streamStatus.duration_seconds && (
+                                    <span className="text-gray-500">
+                                      {Math.floor(streamStatus.duration_seconds / 3600)}時間
+                                      {Math.floor((streamStatus.duration_seconds % 3600) / 60)}分
+                                    </span>
+                                  )}
+                                </>
+                              ) : (
+                                <>
+                                  <div className="w-4 h-4 rounded-full bg-gray-400" />
+                                  <span className="text-gray-500">オフライン</span>
+                                </>
+                              )}
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <div className="flex items-center space-x-2">

@@ -41,9 +41,8 @@ tasks:
       - |
         if [ "$(uname)" = "Linux" ]; then
           echo ""
-          echo "💡 Linux環境での実行方法:"
-          echo "  - 手動実行: task setcap （Bluetooth権限設定）"
-          echo "  - サービス: task service:install （systemdサービスとして実行）"
+          echo "🔧 Linux環境のため、Bluetooth権限を設定します..."
+          task setcap || echo "⚠️  権限設定に失敗しました。手動で 'task setcap' を実行してください"
         fi
       - echo "全ビルド完了！"
       - echo "実行 → ./dist/twitch-overlay"

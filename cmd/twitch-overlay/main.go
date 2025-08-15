@@ -14,6 +14,8 @@ import (
 	"github.com/nantokaworks/twitch-overlay/internal/output"
 	"github.com/nantokaworks/twitch-overlay/internal/shared/logger"
 	"github.com/nantokaworks/twitch-overlay/internal/shared/paths"
+	"github.com/nantokaworks/twitch-overlay/internal/status"
+	"github.com/nantokaworks/twitch-overlay/internal/twitchapi"
 	"github.com/nantokaworks/twitch-overlay/internal/twitcheventsub"
 	"github.com/nantokaworks/twitch-overlay/internal/twitchtoken"
 	"github.com/nantokaworks/twitch-overlay/internal/version"
@@ -79,6 +81,53 @@ func refreshTokenPeriodically(done <-chan struct{}) {
 					zap.Int64("seconds_until_expiry", timeUntilExpiry))
 				time.Sleep(sleepDuration)
 			}
+		}
+	}
+}
+
+// checkStreamStatus は配信状態をAPIから取得して更新します
+func checkStreamStatus() {
+	// TwitchユーザーIDが設定されていない場合はスキップ
+	if env.Value.TwitchUserID == nil || *env.Value.TwitchUserID == "" {
+		return
+	}
+
+	streamInfo, err := twitchapi.GetStreamInfo()
+	if err != nil {
+		logger.Debug("Failed to get stream info", zap.Error(err))
+		return
+	}
+
+	if streamInfo.IsLive {
+		// 配信中
+		startTime := time.Now() // 本来はAPIから取得すべきだが、現在のAPIでは開始時刻が取れない
+		status.UpdateStreamStatus(true, &startTime, streamInfo.ViewerCount)
+		logger.Debug("Stream is live", zap.Int("viewers", streamInfo.ViewerCount))
+	} else {
+		// オフライン
+		status.UpdateStreamStatus(false, nil, 0)
+		logger.Debug("Stream is offline")
+	}
+}
+
+// startStreamMonitoring は定期的に配信状態をチェックします
+func startStreamMonitoring(done <-chan struct{}) {
+	logger.Info("Starting stream status monitoring")
+	
+	// 初回チェック
+	checkStreamStatus()
+	
+	// 1分ごとにチェック
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+	
+	for {
+		select {
+		case <-ticker.C:
+			checkStreamStatus()
+		case <-done:
+			logger.Info("Stopping stream status monitoring")
+			return
 		}
 	}
 }
@@ -195,6 +244,8 @@ func main() {
 						twitcheventsub.SetupEventSub(&token)
 						// Start token refresh goroutine after successful authentication
 						go refreshTokenPeriodically(done)
+						// Start stream monitoring
+						go startStreamMonitoring(done)
 						return
 					}
 					time.Sleep(1 * time.Second)
@@ -206,6 +257,8 @@ func main() {
 		twitcheventsub.SetupEventSub(&token)
 		// Start token refresh goroutine
 		go refreshTokenPeriodically(done)
+		// Start stream monitoring
+		go startStreamMonitoring(done)
 	}
 
 	// Setup signal handling for graceful shutdown

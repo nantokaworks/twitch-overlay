@@ -139,6 +139,15 @@ export interface AuthStatus {
   error?: string | null;
 }
 
+// 配信状態
+export interface StreamStatus {
+  is_live: boolean;
+  started_at?: string;
+  viewer_count: number;
+  last_checked: string;
+  duration_seconds?: number;
+}
+
 // プリンターステータス情報
 export interface PrinterStatusInfo {
   connected: boolean;

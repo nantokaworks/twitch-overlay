@@ -9,11 +9,22 @@ type FaxBroadcaster interface {
 	BroadcastFax(fax *faxmanager.Fax)
 }
 
+// MessageBroadcaster is an interface for broadcasting generic messages
+type MessageBroadcaster interface {
+	BroadcastMessage(message interface{})
+}
+
+// Broadcaster combines both interfaces
+type Broadcaster interface {
+	FaxBroadcaster
+	MessageBroadcaster
+}
+
 // Global broadcaster instance
-var globalBroadcaster FaxBroadcaster
+var globalBroadcaster Broadcaster
 
 // SetBroadcaster sets the global broadcaster instance
-func SetBroadcaster(b FaxBroadcaster) {
+func SetBroadcaster(b Broadcaster) {
 	globalBroadcaster = b
 }
 
@@ -21,5 +32,12 @@ func SetBroadcaster(b FaxBroadcaster) {
 func BroadcastFax(fax *faxmanager.Fax) {
 	if globalBroadcaster != nil {
 		globalBroadcaster.BroadcastFax(fax)
+	}
+}
+
+// Send broadcasts a generic message using the global broadcaster
+func Send(message interface{}) {
+	if globalBroadcaster != nil {
+		globalBroadcaster.BroadcastMessage(message)
 	}
 }

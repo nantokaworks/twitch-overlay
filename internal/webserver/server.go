@@ -19,6 +19,7 @@ import (
 	"github.com/nantokaworks/twitch-overlay/internal/output"
 	"github.com/nantokaworks/twitch-overlay/internal/shared/logger"
 	"github.com/nantokaworks/twitch-overlay/internal/status"
+	"github.com/nantokaworks/twitch-overlay/internal/twitchapi"
 	"github.com/nantokaworks/twitch-overlay/internal/twitcheventsub"
 	"github.com/nantokaworks/twitch-overlay/internal/twitchtoken"
 	"go.uber.org/zap"
@@ -27,6 +28,20 @@ import (
 type SSEServer struct {
 	clients map[chan string]bool
 	mu      sync.RWMutex
+}
+
+// broadcast sends data to all connected clients
+func (s *SSEServer) broadcast(data []byte) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	
+	for client := range s.clients {
+		select {
+		case client <- string(data):
+		default:
+			// Client is not ready to receive, skip
+		}
+	}
 }
 
 var (
@@ -53,9 +68,34 @@ func corsMiddleware(handler http.HandlerFunc) http.HandlerFunc {
 }
 
 // StartWebServer starts the HTTP server
+// BroadcastMessage sends a message to all connected SSE clients
+func (s *SSEServer) BroadcastMessage(message interface{}) {
+	data, err := json.Marshal(message)
+	if err != nil {
+		logger.Error("Failed to marshal SSE message", zap.Error(err))
+		return
+	}
+	s.broadcast(data)
+}
+
+// BroadcastMessage is a convenience function for the global SSE server
+func BroadcastMessage(message interface{}) {
+	if sseServer != nil {
+		sseServer.BroadcastMessage(message)
+	}
+}
+
 func StartWebServer(port int) {
 	// Register SSE server as the global broadcaster
 	broadcast.SetBroadcaster(sseServer)
+	
+	// Register stream status change callback
+	status.RegisterStatusChangeCallback(func(streamStatus status.StreamStatus) {
+		BroadcastMessage(map[string]interface{}{
+			"type": "stream_status_changed",
+			"data": streamStatus,
+		})
+	})
 
 	// Serve static files - try multiple paths
 	var staticDir string
@@ -146,6 +186,7 @@ func StartWebServer(port int) {
 	// Twitch API endpoints
 	mux.HandleFunc("/api/twitch/verify", corsMiddleware(handleTwitchVerify))
 	mux.HandleFunc("/api/twitch/refresh-token", corsMiddleware(handleTwitchRefreshToken))
+	mux.HandleFunc("/api/stream/status", corsMiddleware(handleStreamStatus))
 
 	// Create a custom file server that handles SPA routing
 	fs := http.FileServer(http.Dir(staticDir))
@@ -1234,6 +1275,40 @@ func handleAuthStatus(w http.ResponseWriter, r *http.Request) {
 		if !isValid {
 			response["error"] = "Token expired"
 		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// handleStreamStatus は現在の配信状態を返すエンドポイント
+func handleStreamStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	streamStatus := status.GetStreamStatus()
+	
+	// 追加情報を取得（視聴者数など）
+	var viewerCount int
+	if streamStatus.IsLive {
+		if streamInfo, err := twitchapi.GetStreamInfo(); err == nil && streamInfo.IsLive {
+			viewerCount = streamInfo.ViewerCount
+			status.UpdateViewerCount(viewerCount)
+		}
+	}
+
+	response := map[string]interface{}{
+		"is_live":       streamStatus.IsLive,
+		"started_at":    streamStatus.StartedAt,
+		"viewer_count":  viewerCount,
+		"last_checked":  streamStatus.LastChecked,
+	}
+
+	if streamStatus.IsLive && streamStatus.StartedAt != nil {
+		duration := time.Since(*streamStatus.StartedAt)
+		response["duration_seconds"] = int(duration.Seconds())
 	}
 
 	w.Header().Set("Content-Type", "application/json")
