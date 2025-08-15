@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Settings2, Bluetooth, Wifi, Zap } from 'lucide-react';
+import { X, Settings2, Bluetooth, Wifi } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
@@ -216,7 +216,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
         {/* タブコンテンツ */}
         <div className="overflow-y-auto" style={{ maxHeight: 'calc(90vh - 200px)' }}>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="p-6">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="general" className="flex items-center space-x-2">
                 <Settings2 className="w-4 h-4" />
                 <span>一般</span>
@@ -228,10 +228,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
               <TabsTrigger value="printer" className="flex items-center space-x-2">
                 <Bluetooth className="w-4 h-4" />
                 <span>プリンター</span>
-              </TabsTrigger>
-              <TabsTrigger value="behavior" className="flex items-center space-x-2">
-                <Zap className="w-4 h-4" />
-                <span>動作</span>
               </TabsTrigger>
             </TabsList>
 
@@ -510,10 +506,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
               </Card>
             </TabsContent>
 
-            {/* 動作タブ */}
-            <TabsContent value="behavior" className="space-y-4">
-              {/* このタブは削除されました。設定は他のタブに移動されました */}
-            </TabsContent>
           </Tabs>
         </div>
 

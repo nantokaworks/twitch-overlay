@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Settings2, Bluetooth, Wifi, Zap, Eye, EyeOff, FileText, Upload, X, RefreshCw, Server, Monitor, Bug, Radio } from 'lucide-react';
+import { Settings2, Bluetooth, Wifi, Eye, EyeOff, FileText, Upload, X, RefreshCw, Server, Monitor, Bug, Radio } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
@@ -808,7 +808,7 @@ export const SettingsPage: React.FC = () => {
 
         {/* タブコンテンツ */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-6 mb-6">
+          <TabsList className="grid w-full grid-cols-5 mb-6">
             <TabsTrigger value="general" className="flex items-center space-x-2">
               <Settings2 className="w-4 h-4" />
               <span>一般</span>
@@ -820,10 +820,6 @@ export const SettingsPage: React.FC = () => {
             <TabsTrigger value="printer" className="flex items-center space-x-2">
               <Bluetooth className="w-4 h-4" />
               <span>プリンター</span>
-            </TabsTrigger>
-            <TabsTrigger value="behavior" className="flex items-center space-x-2">
-              <Zap className="w-4 h-4" />
-              <span>動作</span>
             </TabsTrigger>
             <TabsTrigger value="logs" className="flex items-center space-x-2">
               <FileText className="w-4 h-4" />
@@ -1383,10 +1379,6 @@ export const SettingsPage: React.FC = () => {
             </Card>
           </TabsContent>
 
-          {/* 動作タブ */}
-          <TabsContent value="behavior" className="space-y-6">
-            {/* このタブは削除されました。設定は他のタブに移動されました */}
-          </TabsContent>
 
           {/* ログタブ */}
           <TabsContent value="logs" className="space-y-6">
