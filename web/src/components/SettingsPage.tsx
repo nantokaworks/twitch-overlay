@@ -22,7 +22,7 @@ import {
   AuthStatus,
   StreamStatus
 } from '../types';
-import { buildApiUrl } from '../utils/api';
+import { buildApiUrl, buildEventSourceUrl } from '../utils/api';
 import { toast } from 'sonner';
 
 export const SettingsPage: React.FC = () => {
@@ -96,6 +96,65 @@ export const SettingsPage: React.FC = () => {
       fetchPrinterStatus();
     }
   }, [featureStatus?.printer_configured]);
+  
+  // SSE接続でプリンター状態の変更をリアルタイムで受信
+  useEffect(() => {
+    let eventSource: EventSource | null = null;
+    let reconnectTimeout: NodeJS.Timeout | null = null;
+    
+    const connect = () => {
+      eventSource = new EventSource(buildEventSourceUrl('/events'));
+      
+      eventSource.onopen = () => {
+        console.log('Settings SSE connection opened');
+        if (reconnectTimeout) {
+          clearTimeout(reconnectTimeout);
+          reconnectTimeout = null;
+        }
+      };
+      
+      eventSource.onmessage = (event: MessageEvent) => {
+        try {
+          const data = JSON.parse(event.data);
+          
+          // プリンター接続/切断イベントを処理
+          if (data.type === 'printer_connected' || data.type === 'printer_disconnected') {
+            console.log('Printer status changed:', data.type);
+            // プリンター状態を再取得
+            fetchPrinterStatus();
+          }
+          
+          // 配信状態変更イベントも処理
+          if (data.type === 'stream_online' || data.type === 'stream_offline') {
+            console.log('Stream status changed:', data.type);
+            fetchStreamStatus();
+          }
+        } catch (error) {
+          console.error('Failed to parse SSE message:', error);
+        }
+      };
+      
+      eventSource.onerror = (error: Event) => {
+        console.error('Settings SSE connection error:', error);
+        eventSource?.close();
+        
+        // 3秒後に再接続を試みる
+        reconnectTimeout = setTimeout(() => {
+          console.log('Attempting to reconnect SSE...');
+          connect();
+        }, 3000);
+      };
+    };
+    
+    connect();
+    
+    return () => {
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
+      eventSource?.close();
+    };
+  }, []);
   
   // 設定読み込み時に現在のプリンターアドレスをデバイスリストに追加
   useEffect(() => {

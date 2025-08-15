@@ -1,6 +1,9 @@
 package status
 
-import "sync"
+import (
+	"sync"
+	"github.com/nantokaworks/twitch-overlay/internal/broadcast"
+)
 
 var (
 	mu                sync.RWMutex
@@ -10,8 +13,24 @@ var (
 // SetPrinterConnected sets the printer connection status
 func SetPrinterConnected(connected bool) {
 	mu.Lock()
-	defer mu.Unlock()
+	previousStatus := printerConnected
 	printerConnected = connected
+	mu.Unlock()
+	
+	// 状態が変更された場合はSSEで通知
+	if previousStatus != connected {
+		eventType := "printer_disconnected"
+		if connected {
+			eventType = "printer_connected"
+		}
+		
+		broadcast.Send(map[string]interface{}{
+			"type": eventType,
+			"data": map[string]interface{}{
+				"connected": connected,
+			},
+		})
+	}
 }
 
 // IsPrinterConnected returns the printer connection status
