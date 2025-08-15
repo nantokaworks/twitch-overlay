@@ -820,16 +820,30 @@ export const SettingsPage: React.FC = () => {
 
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
-                      <Label>デバッグ出力</Label>
+                      <Label>オフライン時自動ドライラン</Label>
                       <p className="text-sm text-gray-500">
-                        詳細なログを出力します
+                        配信オフライン時に自動でドライランモードに切り替えます
                       </p>
                     </div>
                     <Switch
-                      checked={getBooleanValue('DEBUG_OUTPUT')}
-                      onCheckedChange={(checked) => handleSettingChange('DEBUG_OUTPUT', checked)}
+                      checked={getBooleanValue('AUTO_DRY_RUN_WHEN_OFFLINE')}
+                      onCheckedChange={(checked) => handleSettingChange('AUTO_DRY_RUN_WHEN_OFFLINE', checked)}
+                      disabled={getBooleanValue('DRY_RUN_MODE')}
                     />
                   </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>デバッグ出力</Label>
+                    <p className="text-sm text-gray-500">
+                      詳細なログを出力します
+                    </p>
+                  </div>
+                  <Switch
+                    checked={getBooleanValue('DEBUG_OUTPUT')}
+                    onCheckedChange={(checked) => handleSettingChange('DEBUG_OUTPUT', checked)}
+                  />
                 </div>
               </CardContent>
             </Card>

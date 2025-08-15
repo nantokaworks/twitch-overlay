@@ -33,6 +33,7 @@ type EnvValue struct {
 	RotatePrint           bool
 	ServerPort            int
 	TimeZone              string
+	AutoDryRunWhenOffline bool
 }
 
 var Value EnvValue
@@ -147,6 +148,7 @@ func loadFromDatabase() error {
 	dryRunMode, _ := settingsManager.GetRealValue("DRY_RUN_MODE")
 	rotatePrint, _ := settingsManager.GetRealValue("ROTATE_PRINT")
 	timeZone, _ := settingsManager.GetRealValue("TIMEZONE")
+	autoDryRunWhenOffline, _ := settingsManager.GetRealValue("AUTO_DRY_RUN_WHEN_OFFLINE")
 
 	// SERVER_PORTは環境変数のまま
 	serverPortStr := getEnvOrDefault("SERVER_PORT", "8080")
@@ -170,6 +172,7 @@ func loadFromDatabase() error {
 		RotatePrint:           rotatePrint == "true",
 		ServerPort:            parseIntStr(*serverPortStr),
 		TimeZone:              timeZone,
+		AutoDryRunWhenOffline: autoDryRunWhenOffline == "true",
 	}
 
 	// 機能ステータスをチェックして警告を表示
@@ -225,6 +228,7 @@ func loadFromEnvironment() {
 	rotatePrint := getEnvOrDefault("ROTATE_PRINT", "false")
 	serverPort := getEnvOrDefault("SERVER_PORT", "8080")
 	timeZone := getEnvOrDefault("TIMEZONE", "Asia/Tokyo")
+	autoDryRunWhenOffline := getEnvOrDefault("AUTO_DRY_RUN_WHEN_OFFLINE", "false")
 
 	// Initialize the Env struct with environment variables
 	Value = EnvValue{
@@ -245,6 +249,7 @@ func loadFromEnvironment() {
 		RotatePrint:           *rotatePrint == "true",
 		ServerPort:            parseInt(serverPort),
 		TimeZone:              *timeZone,
+		AutoDryRunWhenOffline: *autoDryRunWhenOffline == "true",
 	}
 
 	fmt.Printf("Loaded environment variables (fallback mode)\n")

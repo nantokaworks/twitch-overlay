@@ -116,6 +116,10 @@ var DefaultSettings = map[string]Setting{
 		Key: "TIMEZONE", Value: "Asia/Tokyo", Type: SettingTypeNormal, Required: false,
 		Description: "Timezone for clock display",
 	},
+	"AUTO_DRY_RUN_WHEN_OFFLINE": {
+		Key: "AUTO_DRY_RUN_WHEN_OFFLINE", Value: "false", Type: SettingTypeNormal, Required: false,
+		Description: "Automatically enable dry-run mode when stream is offline",
+	},
 	
 	// フォント設定
 	"FONT_FILENAME": {

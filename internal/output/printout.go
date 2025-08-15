@@ -13,6 +13,7 @@ import (
 	"github.com/nantokaworks/twitch-overlay/internal/faxmanager"
 	"github.com/nantokaworks/twitch-overlay/internal/shared/logger"
 	"github.com/nantokaworks/twitch-overlay/internal/broadcast"
+	"github.com/nantokaworks/twitch-overlay/internal/status"
 	"go.uber.org/zap"
 )
 
@@ -20,6 +21,21 @@ var printQueue chan image.Image
 var lastPrintTime time.Time
 var lastPrintMutex sync.Mutex
 var printerMutex sync.Mutex
+
+// shouldUseDryRun determines if dry-run mode should be active
+func shouldUseDryRun() bool {
+	// If DryRunMode is explicitly set, always use it
+	if env.Value.DryRunMode {
+		return true
+	}
+	
+	// If AutoDryRunWhenOffline is enabled and stream is offline, use dry-run
+	if env.Value.AutoDryRunWhenOffline && !status.IsStreamLive() {
+		return true
+	}
+	
+	return false
+}
 
 func init() {
 	printQueue = make(chan image.Image, 100)
@@ -69,9 +85,13 @@ func init() {
 				}
 			}
 			
-			// Check for dry-run mode
-			if env.Value.DryRunMode {
-				logger.Info("Dry-run mode: skipping actual printing")
+			// Check for dry-run mode (including auto dry-run when offline)
+			if shouldUseDryRun() {
+				if env.Value.AutoDryRunWhenOffline && !status.IsStreamLive() {
+					logger.Info("Auto dry-run mode (stream offline): skipping actual printing")
+				} else {
+					logger.Info("Dry-run mode: skipping actual printing")
+				}
 				// Update last print time even in dry-run mode
 				lastPrintMutex.Lock()
 				lastPrintTime = time.Now()
@@ -243,11 +263,18 @@ func saveFaxImages(fax *faxmanager.Fax, colorImg, monoImg image.Image) error {
 		return fmt.Errorf("failed to encode mono image: %w", err)
 	}
 
-	if env.Value.DryRunMode {
-		logger.Info("Fax images saved (DRY-RUN MODE)",
-			zap.String("id", fax.ID),
-			zap.String("colorPath", fax.ColorPath),
-			zap.String("monoPath", fax.MonoPath))
+	if shouldUseDryRun() {
+		if env.Value.AutoDryRunWhenOffline && !status.IsStreamLive() {
+			logger.Info("Fax images saved (AUTO DRY-RUN: STREAM OFFLINE)",
+				zap.String("id", fax.ID),
+				zap.String("colorPath", fax.ColorPath),
+				zap.String("monoPath", fax.MonoPath))
+		} else {
+			logger.Info("Fax images saved (DRY-RUN MODE)",
+				zap.String("id", fax.ID),
+				zap.String("colorPath", fax.ColorPath),
+				zap.String("monoPath", fax.MonoPath))
+		}
 	} else {
 		logger.Info("Fax images saved",
 			zap.String("id", fax.ID),
