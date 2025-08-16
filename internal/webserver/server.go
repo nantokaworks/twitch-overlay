@@ -150,6 +150,8 @@ func StartWebServer(port int) {
 	// Server management API endpoints
 	mux.HandleFunc("/api/server/restart", corsMiddleware(handleServerRestart))
 	mux.HandleFunc("/api/server/status", corsMiddleware(handleServerStatus))
+	mux.HandleFunc("/api/bluetooth/restart", corsMiddleware(handleBluetoothRestart))
+	mux.HandleFunc("/api/service/restart", corsMiddleware(handleServiceRestart))
 
 	// Logs API endpoints
 	mux.HandleFunc("/api/logs", corsMiddleware(handleLogs))

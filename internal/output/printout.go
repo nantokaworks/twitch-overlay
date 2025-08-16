@@ -40,15 +40,30 @@ func shouldUseDryRun() bool {
 // InitializePrinter initializes the printer subsystem (including keep-alive and clock)
 // This should be called from main() after env.Value is properly initialized
 func InitializePrinter() {
+	logger.Info("[InitializePrinter] Starting printer subsystem initialization",
+		zap.Bool("keep_alive_enabled", env.Value.KeepAliveEnabled),
+		zap.Int("keep_alive_interval", env.Value.KeepAliveInterval),
+		zap.Bool("clock_enabled", env.Value.ClockEnabled),
+		zap.String("printer_address", func() string {
+			if env.Value.PrinterAddress != nil {
+				return *env.Value.PrinterAddress
+			}
+			return "<not set>"
+		}()))
+	
 	// Start keep-alive goroutine using the new implementation
+	logger.Info("[InitializePrinter] Calling StartKeepAlive()")
 	StartKeepAlive()
 	
 	// Start clock routine
 	if env.Value.ClockEnabled {
+		logger.Info("[InitializePrinter] Starting clock routine")
 		go clockRoutine()
+	} else {
+		logger.Info("[InitializePrinter] Clock routine disabled")
 	}
 	
-	logger.Info("Printer subsystem initialized", 
+	logger.Info("[InitializePrinter] Printer subsystem initialization complete", 
 		zap.Bool("keep_alive_enabled", env.Value.KeepAliveEnabled),
 		zap.Int("keep_alive_interval", env.Value.KeepAliveInterval),
 		zap.Bool("clock_enabled", env.Value.ClockEnabled))
@@ -69,6 +84,7 @@ func init() {
 			printerMutex.Lock()
 			
 			// Use existing client or create new one
+			// NOTE: SetupPrinter internally sets latestPrinter, so we don't need the return value
 			if latestPrinter == nil {
 				_, err := SetupPrinter()
 				if err != nil {
@@ -83,6 +99,7 @@ func init() {
 			if err != nil {
 				logger.Error("failed to connect printer", zap.Error(err))
 				// Try to create new client
+				// NOTE: SetupPrinter internally sets latestPrinter
 				_, err := SetupPrinter()
 				if err != nil {
 					logger.Error("failed to setup new printer", zap.Error(err))

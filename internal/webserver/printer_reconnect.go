@@ -39,10 +39,11 @@ func handlePrinterReconnect(w http.ResponseWriter, r *http.Request) {
 	// Stop keep-alive goroutine
 	output.StopKeepAlive()
 	
-	// Disconnect existing connection if any (keep BLE device)
-	output.Disconnect()
+	// Completely reset printer connection and BLE device
+	logger.Info("[Reconnect] Stopping printer and releasing BLE device")
+	output.Stop() // This disconnects AND releases BLE device
 
-	// Setup and connect to printer (reuse existing BLE device)
+	// Setup and connect to printer (create new BLE device)
 	c, err := output.SetupPrinter()
 	if err != nil {
 		logger.Error("Failed to setup printer for reconnection", zap.Error(err))

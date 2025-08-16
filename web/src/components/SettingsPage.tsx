@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Settings2, Bluetooth, Wifi, Eye, EyeOff, FileText, Upload, X, RefreshCw, Server, Monitor, Bug, Radio } from 'lucide-react';
+import { Settings2, Bluetooth, Wifi, Eye, EyeOff, FileText, Upload, X, RefreshCw, Server, Monitor, Bug, Radio, Sun, Moon } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
@@ -24,8 +24,10 @@ import {
 } from '../types';
 import { buildApiUrl, buildEventSourceUrl } from '../utils/api';
 import { toast } from 'sonner';
+import { useTheme } from '../hooks/useTheme';
 
 export const SettingsPage: React.FC = () => {
+  const { theme, toggleTheme } = useTheme();
   const [activeTab, setActiveTab] = useState('general');
   const [settings, setSettings] = useState<Record<string, any>>({});
   const [featureStatus, setFeatureStatus] = useState<FeatureStatus | null>(null);
@@ -499,6 +501,29 @@ export const SettingsPage: React.FC = () => {
     }
   };
 
+  const handleBluetoothRestart = async () => {
+    if (!confirm('Bluetoothサービスを再起動しますか？\nプリンター接続が一時的に切断されます。')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(buildApiUrl('/api/bluetooth/restart'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok) {
+        toast.success(result.message || 'Bluetoothサービスを再起動しました');
+      } else {
+        toast.error(result.message || 'Bluetoothサービスの再起動に失敗しました');
+      }
+    } catch (err) {
+      toast.error('Bluetoothサービスの再起動に失敗しました');
+    }
+  };
+
   const handleServerRestart = async (force: boolean = false) => {
     const confirmMessage = force 
       ? 'サーバーを強制的に再起動しますか？\n処理中のタスクがある場合は中断されます。'
@@ -598,15 +623,15 @@ export const SettingsPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       {/* ヘッダー */}
-      <div className="bg-white shadow-sm border-b">
+      <div className="bg-white dark:bg-gray-800 shadow-sm border-b dark:border-gray-700 transition-colors">
         <div className="max-w-6xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
-                <Settings2 className="w-6 h-6 text-gray-600" />
-                <h1 className="text-2xl font-bold">設定</h1>
+                <Settings2 className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+                <h1 className="text-2xl font-bold dark:text-white">設定</h1>
               </div>
               <div className="flex flex-wrap gap-2">
                 <Button
@@ -649,6 +674,19 @@ export const SettingsPage: React.FC = () => {
                 </Button>
               </div>
             </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={toggleTheme}
+              className="flex items-center space-x-1"
+              title="テーマを切り替え"
+            >
+              {theme === 'light' ? (
+                <Moon className="w-4 h-4" />
+              ) : (
+                <Sun className="w-4 h-4" />
+              )}
+            </Button>
           </div>
         </div>
       </div>
@@ -665,8 +703,8 @@ export const SettingsPage: React.FC = () => {
                 <div className="space-y-1">
                   <div className="flex items-center space-x-2">
                     <div className={`w-3 h-3 rounded-full ${featureStatus.twitch_configured ? 'bg-green-500' : 'bg-red-500'}`} />
-                    <span className="font-medium">Twitch連携</span>
-                    <span className="text-sm text-gray-500">
+                    <span className="font-medium dark:text-gray-200">Twitch連携</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
                       {featureStatus.twitch_configured ? '設定済み' : '未設定'}
                     </span>
                   </div>
@@ -692,7 +730,7 @@ export const SettingsPage: React.FC = () => {
                       {twitchUserInfo.verified ? (
                         <div className="space-y-1">
                           <div className="flex items-center space-x-2">
-                            <span className="text-gray-600">
+                            <span className="text-gray-600 dark:text-gray-300">
                               ユーザー: {twitchUserInfo.login} ({twitchUserInfo.display_name})
                             </span>
                             <Button
@@ -712,12 +750,12 @@ export const SettingsPage: React.FC = () => {
                                   <Radio className="w-4 h-4 text-red-500 animate-pulse" />
                                   <span className="text-red-600 font-medium">配信中</span>
                                   {streamStatus.viewer_count > 0 && (
-                                    <span className="text-gray-500">
+                                    <span className="text-gray-500 dark:text-gray-400">
                                       (視聴者: {streamStatus.viewer_count}人)
                                     </span>
                                   )}
                                   {streamStatus.duration_seconds && (
-                                    <span className="text-gray-500">
+                                    <span className="text-gray-500 dark:text-gray-400">
                                       {Math.floor(streamStatus.duration_seconds / 3600)}時間
                                       {Math.floor((streamStatus.duration_seconds % 3600) / 60)}分
                                     </span>
@@ -726,7 +764,7 @@ export const SettingsPage: React.FC = () => {
                               ) : (
                                 <>
                                   <div className="w-4 h-4 rounded-full bg-gray-400" />
-                                  <span className="text-gray-500">オフライン</span>
+                                  <span className="text-gray-500 dark:text-gray-400">オフライン</span>
                                 </>
                               )}
                             </div>
@@ -751,7 +789,7 @@ export const SettingsPage: React.FC = () => {
                     </div>
                   )}
                   {featureStatus.twitch_configured && authStatus?.authenticated && !twitchUserInfo && verifyingTwitch && (
-                    <div className="ml-5 text-sm text-gray-500">
+                    <div className="ml-5 text-sm text-gray-500 dark:text-gray-400">
                       検証中...
                     </div>
                   )}
@@ -762,15 +800,15 @@ export const SettingsPage: React.FC = () => {
                       !featureStatus.printer_configured ? 'bg-red-500' : 
                       printerStatusInfo?.connected ? 'bg-green-500' : 'bg-yellow-500'
                     }`} />
-                    <span className="font-medium">プリンター</span>
-                    <span className="text-sm text-gray-500">
+                    <span className="font-medium dark:text-gray-200">プリンター</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
                       {featureStatus.printer_configured ? '設定済み' : '未設定'}
                     </span>
                   </div>
                   {featureStatus.printer_configured && printerStatusInfo && (
                     <div className="ml-5 text-sm">
                       <div className="flex items-center space-x-2">
-                        <span className="text-gray-600">
+                        <span className="text-gray-600 dark:text-gray-300">
                           接続状態: {printerStatusInfo.connected ? '接続中' : '未接続'}
                           {printerStatusInfo.dry_run_mode && ' (DRY-RUN)'}
                         </span>
@@ -789,15 +827,15 @@ export const SettingsPage: React.FC = () => {
                 </div>
                 <div className="flex items-center space-x-2">
                   <div className={`w-3 h-3 rounded-full ${featureStatus.warnings.length === 0 ? 'bg-green-500' : 'bg-yellow-500'}`} />
-                  <span className="font-medium">警告</span>
-                  <span className="text-sm text-gray-500">
+                  <span className="font-medium dark:text-gray-200">警告</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
                     {featureStatus.warnings.length}件
                   </span>
                 </div>
               </div>
               {featureStatus.missing_settings.length > 0 && (
-                <div className="mt-4 p-3 bg-yellow-50 rounded-lg">
-                  <p className="text-sm text-yellow-800">
+                <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+                  <p className="text-sm text-yellow-800 dark:text-yellow-200">
                     <strong>未設定項目:</strong> {featureStatus.missing_settings.join(', ')}
                   </p>
                 </div>
@@ -808,7 +846,7 @@ export const SettingsPage: React.FC = () => {
 
         {/* タブコンテンツ */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-5 mb-6">
+          <TabsList className="grid w-full grid-cols-5 mb-6 dark:bg-gray-800 dark:border-gray-700">
             <TabsTrigger value="general" className="flex items-center space-x-2">
               <Settings2 className="w-4 h-4" />
               <span>一般</span>
@@ -863,7 +901,7 @@ export const SettingsPage: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
                       <Label>ドライランモード</Label>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
                         実際の印刷を行わずテストします
                       </p>
                     </div>
@@ -876,7 +914,7 @@ export const SettingsPage: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
                       <Label>オフライン時自動ドライラン</Label>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
                         配信オフライン時に自動でドライランモードに切り替えます
                       </p>
                     </div>
@@ -891,7 +929,7 @@ export const SettingsPage: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label>デバッグ出力</Label>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
                       詳細なログを出力します
                     </p>
                   </div>
@@ -904,7 +942,7 @@ export const SettingsPage: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label>時計機能</Label>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
                       定期的に時計を印刷します
                     </p>
                   </div>
@@ -939,7 +977,7 @@ export const SettingsPage: React.FC = () => {
                       onChange={(e) => handleSettingChange('CLOCK_WEIGHT', e.target.value)}
                       className="max-w-xs"
                     />
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
                       時計に表示する体重（小数点1桁）
                     </p>
                   </div>
@@ -956,7 +994,7 @@ export const SettingsPage: React.FC = () => {
                       onChange={(e) => handleSettingChange('CLOCK_WALLET', e.target.value)}
                       className="max-w-xs"
                     />
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
                       時計に表示する財布の金額（整数値）
                     </p>
                   </div>
@@ -974,8 +1012,8 @@ export const SettingsPage: React.FC = () => {
               </CardHeader>
               <CardContent className="space-y-6">
                 {!getSettingValue('FONT_FILENAME') && (
-                  <Alert>
-                    <AlertDescription className="text-yellow-700">
+                  <Alert className="dark:bg-yellow-900/20 dark:border-yellow-700">
+                    <AlertDescription className="text-yellow-700 dark:text-yellow-200">
                       ⚠️ フォントがアップロードされていません。FAXと時計機能を使用するには、フォントファイル（.ttf/.otf）をアップロードしてください。
                     </AlertDescription>
                   </Alert>
@@ -1001,7 +1039,7 @@ export const SettingsPage: React.FC = () => {
                           <Upload className="h-4 w-4" />
                           {uploadingFont ? 'アップロード中...' : 'フォントをアップロード'}
                         </Button>
-                        <span className="text-sm text-gray-500">
+                        <span className="text-sm text-gray-500 dark:text-gray-400">
                           .ttf または .otf ファイル
                         </span>
                       </div>
@@ -1036,7 +1074,7 @@ export const SettingsPage: React.FC = () => {
                             <textarea
                               value={previewText}
                               onChange={(e) => setPreviewText(e.target.value)}
-                              className="w-full p-2 border rounded-md min-h-[80px] font-mono text-sm"
+                              className="w-full p-2 border dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md min-h-[80px] font-mono text-sm"
                               placeholder="プレビューテキストを入力..."
                             />
                             <Button
@@ -1048,11 +1086,11 @@ export const SettingsPage: React.FC = () => {
                             </Button>
                           </div>
                           {previewImage && (
-                            <div className="mt-2 p-4 bg-gray-100 rounded">
+                            <div className="mt-2 p-4 bg-gray-100 dark:bg-gray-700 rounded">
                               <img 
                                 src={previewImage} 
                                 alt="Font Preview" 
-                                className="max-w-full h-auto border border-gray-300"
+                                className="max-w-full h-auto border border-gray-300 dark:border-gray-600"
                                 style={{ imageRendering: 'pixelated' }}
                               />
                             </div>
@@ -1078,10 +1116,10 @@ export const SettingsPage: React.FC = () => {
               <CardContent className="space-y-6">
                 {/* 認証状態の表示 */}
                 {authStatus && (
-                  <div className="p-4 bg-gray-50 rounded-lg border">
+                  <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border dark:border-gray-600">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h3 className="text-sm font-medium">
+                        <h3 className="text-sm font-medium dark:text-gray-200">
                           認証状態: {authStatus.authenticated ? (
                             <span className="text-green-600">認証済み</span>
                           ) : (
@@ -1089,10 +1127,10 @@ export const SettingsPage: React.FC = () => {
                           )}
                         </h3>
                         {authStatus.error && (
-                          <p className="text-sm text-gray-500 mt-1">{authStatus.error}</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{authStatus.error}</p>
                         )}
                         {authStatus.authenticated && authStatus.expiresAt && (
-                          <p className="text-sm text-gray-500 mt-1">
+                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                             有効期限: {new Date(authStatus.expiresAt * 1000).toLocaleString()}
                           </p>
                         )}
@@ -1154,7 +1192,7 @@ export const SettingsPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setShowSecrets(prev => ({ ...prev, CLIENT_ID: !prev.CLIENT_ID }))}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
                       >
                         {showSecrets['CLIENT_ID'] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
@@ -1175,7 +1213,7 @@ export const SettingsPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setShowSecrets(prev => ({ ...prev, CLIENT_SECRET: !prev.CLIENT_SECRET }))}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
                       >
                         {showSecrets['CLIENT_SECRET'] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
@@ -1196,7 +1234,7 @@ export const SettingsPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setShowSecrets(prev => ({ ...prev, TWITCH_USER_ID: !prev.TWITCH_USER_ID }))}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
                       >
                         {showSecrets['TWITCH_USER_ID'] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
@@ -1217,7 +1255,7 @@ export const SettingsPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setShowSecrets(prev => ({ ...prev, TRIGGER_CUSTOM_REWORD_ID: !prev.TRIGGER_CUSTOM_REWORD_ID }))}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
                       >
                         {showSecrets['TRIGGER_CUSTOM_REWORD_ID'] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
@@ -1294,7 +1332,7 @@ export const SettingsPage: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
                       <Label>高品質印刷</Label>
-                      <p className="text-sm text-gray-500">印刷品質を向上</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">印刷品質を向上</p>
                     </div>
                     <Switch
                       checked={getBooleanValue('BEST_QUALITY')}
@@ -1305,7 +1343,7 @@ export const SettingsPage: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
                       <Label>ディザリング</Label>
-                      <p className="text-sm text-gray-500">画像の濃淡を改善</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">画像の濃淡を改善</p>
                     </div>
                     <Switch
                       checked={getBooleanValue('DITHER')}
@@ -1316,7 +1354,7 @@ export const SettingsPage: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
                       <Label>自動回転</Label>
-                      <p className="text-sm text-gray-500">画像を自動で回転</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">画像を自動で回転</p>
                     </div>
                     <Switch
                       checked={getBooleanValue('AUTO_ROTATE')}
@@ -1327,7 +1365,7 @@ export const SettingsPage: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
                       <Label>印刷回転</Label>
-                      <p className="text-sm text-gray-500">出力を180度回転</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">出力を180度回転</p>
                     </div>
                     <Switch
                       checked={getBooleanValue('ROTATE_PRINT')}
@@ -1346,13 +1384,13 @@ export const SettingsPage: React.FC = () => {
                     value={getNumberValue('BLACK_POINT')}
                     onChange={(e) => handleSettingChange('BLACK_POINT', parseInt(e.target.value))}
                   />
-                  <p className="text-sm text-gray-500">0-255の値で黒色の判定しきい値を設定</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">0-255の値で黒色の判定しきい値を設定</p>
                 </div>
 
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label>キープアライブ</Label>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
                       プリンター接続を維持します
                     </p>
                   </div>
@@ -1397,8 +1435,8 @@ export const SettingsPage: React.FC = () => {
               <CardContent className="space-y-6">
                 {/* サーバー状態 */}
                 <div className="space-y-4">
-                  <h3 className="text-sm font-medium">サーバー状態</h3>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
+                  <h3 className="text-sm font-medium dark:text-gray-200">サーバー状態</h3>
+                  <div className="grid grid-cols-2 gap-4 text-sm dark:text-gray-300">
                     <div className="flex items-center space-x-2">
                       <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                       <span>サーバー稼働中</span>
@@ -1413,7 +1451,7 @@ export const SettingsPage: React.FC = () => {
 
                 {/* 再起動ボタン */}
                 <div className="space-y-4">
-                  <h3 className="text-sm font-medium">サーバー再起動</h3>
+                  <h3 className="text-sm font-medium dark:text-gray-200">サービス管理</h3>
                   {restarting ? (
                     <div className="space-y-4">
                       <Alert>
@@ -1425,32 +1463,51 @@ export const SettingsPage: React.FC = () => {
                           )}
                         </AlertDescription>
                       </Alert>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
                         再起動が完了すると自動的にページがリロードされます。
                       </p>
                     </div>
                   ) : (
-                    <div className="space-y-4">
-                      <p className="text-sm text-gray-600">
-                        サーバーを再起動すると、すべての接続が一時的に切断されます。
-                        処理中の印刷ジョブがある場合は完了を待ってから実行してください。
-                      </p>
-                      <div className="flex space-x-2">
+                    <div className="space-y-6">
+                      {/* アプリケーション再起動 */}
+                      <div className="border-b dark:border-gray-700 pb-4">
+                        <h4 className="text-sm font-medium mb-2 dark:text-gray-200">アプリケーション</h4>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                          twitch-overlayサービスを再起動します。すべての接続が一時的に切断されます。
+                        </p>
+                        <div className="flex space-x-2">
+                          <Button 
+                            onClick={() => handleServerRestart(false)}
+                            variant="default"
+                            className="flex items-center space-x-2"
+                          >
+                            <RefreshCw className="w-4 h-4" />
+                            <span>サーバーを再起動</span>
+                          </Button>
+                          <Button 
+                            onClick={() => handleServerRestart(true)}
+                            variant="destructive"
+                            className="flex items-center space-x-2"
+                          >
+                            <RefreshCw className="w-4 h-4" />
+                            <span>強制再起動</span>
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Bluetoothサービス再起動 */}
+                      <div className="pt-2">
+                        <h4 className="text-sm font-medium mb-2 dark:text-gray-200">Bluetoothサービス</h4>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                          HCIエラーやBluetoothデバイスがハングした場合に実行してください。
+                        </p>
                         <Button 
-                          onClick={() => handleServerRestart(false)}
-                          variant="default"
+                          onClick={handleBluetoothRestart}
+                          variant="secondary"
                           className="flex items-center space-x-2"
                         >
-                          <RefreshCw className="w-4 h-4" />
-                          <span>サーバーを再起動</span>
-                        </Button>
-                        <Button 
-                          onClick={() => handleServerRestart(true)}
-                          variant="destructive"
-                          className="flex items-center space-x-2"
-                        >
-                          <RefreshCw className="w-4 h-4" />
-                          <span>強制再起動</span>
+                          <Bluetooth className="w-4 h-4" />
+                          <span>Bluetoothサービス再起動</span>
                         </Button>
                       </div>
                     </div>
@@ -1458,8 +1515,8 @@ export const SettingsPage: React.FC = () => {
                 </div>
 
                 {/* 再起動に関する注意事項 */}
-                <Alert>
-                  <AlertDescription>
+                <Alert className="dark:bg-gray-700 dark:border-gray-600">
+                  <AlertDescription className="dark:text-gray-300">
                     <strong>注意:</strong> systemdサービスとして動作している場合、
                     サーバーは自動的に再起動されます。通常モードで動作している場合は、
                     新しいプロセスが起動されます。

@@ -143,7 +143,16 @@ func loadFromDatabase() error {
 	autoRotate, _ := settingsManager.GetRealValue("AUTO_ROTATE")
 	debugOutput, _ := settingsManager.GetRealValue("DEBUG_OUTPUT")
 	keepAliveInterval, _ := settingsManager.GetRealValue("KEEP_ALIVE_INTERVAL")
-	keepAliveEnabled, _ := settingsManager.GetRealValue("KEEP_ALIVE_ENABLED")
+	keepAliveEnabled, err := settingsManager.GetRealValue("KEEP_ALIVE_ENABLED")
+	if err != nil {
+		logger.Warn("Failed to get KEEP_ALIVE_ENABLED from settings", zap.Error(err))
+		keepAliveEnabled = "false"
+	}
+	logger.Info("[LoadSettingsFromDB] KEEP_ALIVE_ENABLED raw value from DB",
+		zap.String("raw_value", keepAliveEnabled),
+		zap.Int("length", len(keepAliveEnabled)),
+		zap.String("quoted", fmt.Sprintf("%q", keepAliveEnabled)))
+	
 	clockEnabled, _ := settingsManager.GetRealValue("CLOCK_ENABLED")
 	dryRunMode, _ := settingsManager.GetRealValue("DRY_RUN_MODE")
 	rotatePrint, _ := settingsManager.GetRealValue("ROTATE_PRINT")
@@ -154,6 +163,12 @@ func loadFromDatabase() error {
 	serverPortStr := getEnvOrDefault("SERVER_PORT", "8080")
 
 	// EnvValue構造体に設定
+	keepAliveEnabledBool := keepAliveEnabled == "true"
+	logger.Info("[LoadSettingsFromDB] KeepAliveEnabled conversion",
+		zap.String("string_value", keepAliveEnabled),
+		zap.Bool("bool_value", keepAliveEnabledBool),
+		zap.Bool("comparison_result", keepAliveEnabled == "true"))
+	
 	Value = EnvValue{
 		ClientID:              stringPtr(clientID),
 		ClientSecret:          stringPtr(clientSecret),
@@ -166,7 +181,7 @@ func loadFromDatabase() error {
 		AutoRotate:            autoRotate == "true",
 		DebugOutput:           debugOutput == "true",
 		KeepAliveInterval:     parseIntStr(keepAliveInterval),
-		KeepAliveEnabled:      keepAliveEnabled == "true",
+		KeepAliveEnabled:      keepAliveEnabledBool,
 		ClockEnabled:          clockEnabled == "true",
 		DryRunMode:            dryRunMode == "true",
 		RotatePrint:           rotatePrint == "true",

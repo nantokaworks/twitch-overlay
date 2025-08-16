@@ -149,6 +149,39 @@ func handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 			output.StartKeepAlive()
 		}()
 	}
+	
+	// KEEP_ALIVE関連の設定が変更された場合はKeepAliveを再起動
+	if _, hasKeepAliveEnabled := req["KEEP_ALIVE_ENABLED"]; hasKeepAliveEnabled {
+		logger.Info("Keep-alive enabled setting changed, restarting keep-alive")
+		go func() {
+			// パニックからの回復処理
+			defer func() {
+				if r := recover(); r != nil {
+					logger.Error("Panic during keep-alive restart", zap.Any("panic", r))
+				}
+			}()
+			
+			// Stop and restart keep-alive
+			output.StopKeepAlive()
+			time.Sleep(500 * time.Millisecond)
+			output.StartKeepAlive()
+		}()
+	} else if _, hasKeepAliveInterval := req["KEEP_ALIVE_INTERVAL"]; hasKeepAliveInterval {
+		logger.Info("Keep-alive interval setting changed, restarting keep-alive")
+		go func() {
+			// パニックからの回復処理
+			defer func() {
+				if r := recover(); r != nil {
+					logger.Error("Panic during keep-alive restart", zap.Any("panic", r))
+				}
+			}()
+			
+			// Stop and restart keep-alive with new interval
+			output.StopKeepAlive()
+			time.Sleep(500 * time.Millisecond)
+			output.StartKeepAlive()
+		}()
+	}
 
 	// 更新後の設定状態を返す
 	featureStatus, err := settingsManager.CheckFeatureStatus()
