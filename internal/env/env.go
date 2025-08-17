@@ -143,6 +143,10 @@ func loadFromDatabase() error {
 	autoRotate, _ := settingsManager.GetRealValue("AUTO_ROTATE")
 	debugOutput, _ := settingsManager.GetRealValue("DEBUG_OUTPUT")
 	keepAliveInterval, _ := settingsManager.GetRealValue("KEEP_ALIVE_INTERVAL")
+	// 環境変数で上書き
+	if envInterval := os.Getenv("KEEP_ALIVE_INTERVAL"); envInterval != "" {
+		keepAliveInterval = envInterval
+	}
 	keepAliveEnabled, err := settingsManager.GetRealValue("KEEP_ALIVE_ENABLED")
 	if err != nil {
 		logger.Warn("Failed to get KEEP_ALIVE_ENABLED from settings", zap.Error(err))

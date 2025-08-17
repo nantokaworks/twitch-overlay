@@ -240,41 +240,67 @@ func MaintainPrinterConnection() {
 	
 	printerAddress := *env.Value.PrinterAddress
 	
-	// Get current connection status (but don't rely on it)
+	// Get current connection status
 	connectionMutex.RLock()
 	currentStatus := isConnected
 	connectionMutex.RUnlock()
 	
 	logger.Info("[KeepAlive] Starting connection maintenance cycle", 
 		zap.String("address", printerAddress), 
-		zap.Bool("status_flag", currentStatus),
+		zap.Bool("was_connected", currentStatus),
 		zap.Time("timestamp", time.Now()))
 	
-	// Always try to ensure connection (don't trust the flag)
-	// Setup printer if needed
+	// Step 1: Always disconnect first to ensure clean reconnection
+	if latestPrinter != nil && currentStatus {
+		logger.Info("[KeepAlive] Step 1: Disconnecting current connection for clean reconnection")
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					logger.Warn("[KeepAlive] Recovered from panic during disconnect", zap.Any("panic", r))
+				}
+			}()
+			latestPrinter.Disconnect()
+		}()
+		connectionMutex.Lock()
+		isConnected = false
+		connectionMutex.Unlock()
+		status.SetPrinterConnected(false)
+		
+		// Small delay to ensure clean disconnect
+		time.Sleep(500 * time.Millisecond)
+		logger.Info("[KeepAlive] Step 1 completed: Disconnected successfully")
+	} else if latestPrinter == nil {
+		logger.Info("[KeepAlive] Step 1: No existing printer client, skipping disconnect")
+	} else {
+		logger.Info("[KeepAlive] Step 1: Not connected, skipping disconnect")
+	}
+	
+	// Step 2: Setup printer if needed
 	if latestPrinter == nil {
-		logger.Info("[KeepAlive] Creating new printer client")
+		logger.Info("[KeepAlive] Step 2: Creating new printer client")
 		_, err := SetupPrinter() // SetupPrinter already sets latestPrinter internally
 		if err != nil {
-			logger.Error("[KeepAlive] Failed to setup printer", 
+			logger.Error("[KeepAlive] Step 2 failed: Could not setup printer", 
 				zap.Error(err),
 				zap.Time("timestamp", time.Now()))
 			ResetConnectionStatus()
 			status.SetPrinterConnected(false)
 			return
 		}
-		// latestPrinter is already set by SetupPrinter
+		logger.Info("[KeepAlive] Step 2 completed: Printer client created")
+	} else {
+		logger.Info("[KeepAlive] Step 2: Using existing printer client")
 	}
 	
-	// Try to connect (this will check if already connected internally)
-	logger.Debug("[KeepAlive] Attempting to connect/verify connection")
+	// Step 3: Connect to printer
+	logger.Info("[KeepAlive] Step 3: Connecting to printer", zap.String("address", printerAddress))
 	err := ConnectPrinter(latestPrinter, printerAddress)
 	if err != nil {
 		errStr := err.Error()
 		
-		// If already connected, connection is fine
+		// If already connected (shouldn't happen after disconnect, but check anyway)
 		if strings.Contains(errStr, "already connected") {
-			logger.Debug("[KeepAlive] Already connected, connection verified")
+			logger.Warn("[KeepAlive] Step 3: Unexpectedly already connected after disconnect")
 			connectionMutex.Lock()
 			isConnected = true
 			connectionMutex.Unlock()
@@ -282,7 +308,7 @@ func MaintainPrinterConnection() {
 			return
 		}
 		
-		logger.Error("[KeepAlive] Connection failed", 
+		logger.Error("[KeepAlive] Step 3 failed: Connection error", 
 			zap.String("address", printerAddress), 
 			zap.Error(err),
 			zap.Time("timestamp", time.Now()))
@@ -296,14 +322,14 @@ func MaintainPrinterConnection() {
 		   strings.Contains(errStr, "input/output error") ||
 		   strings.Contains(errStr, "connection canceled") ||
 		   strings.Contains(errStr, "can't dial") {
-			logger.Warn("[KeepAlive] Detected Bluetooth error, resetting BLE device", zap.String("error_type", errStr))
+			logger.Warn("[KeepAlive] Step 3: Detected Bluetooth error, resetting BLE device", zap.String("error_type", errStr))
 			
 			// Reset BLE device
 			if latestPrinter != nil {
 				func() {
 					defer func() {
 						if r := recover(); r != nil {
-							logger.Warn("Recovered from panic during BLE reset", zap.Any("panic", r))
+							logger.Warn("[KeepAlive] Recovered from panic during BLE reset", zap.Any("panic", r))
 						}
 					}()
 					latestPrinter.Stop()
@@ -314,31 +340,30 @@ func MaintainPrinterConnection() {
 			// Wait before retry
 			time.Sleep(1 * time.Second)
 			
-			// Try to create new client and connect again
-			logger.Info("[KeepAlive] Creating new printer client after BLE reset")
+			// Step 4: Retry with new BLE device
+			logger.Info("[KeepAlive] Step 4: Creating new printer client after BLE reset")
 			_, err := SetupPrinter() // SetupPrinter already sets latestPrinter internally
 			if err != nil {
-				logger.Error("[KeepAlive] Failed to setup new printer after reset", 
+				logger.Error("[KeepAlive] Step 4 failed: Could not setup new printer after reset", 
 					zap.Error(err),
 					zap.Time("timestamp", time.Now()))
 				ResetConnectionStatus()
 				status.SetPrinterConnected(false)
 				return
 			}
-			// latestPrinter is already set by SetupPrinter
 			
 			// Final connection attempt
-			logger.Debug("[KeepAlive] Final connection attempt after reset")
+			logger.Info("[KeepAlive] Step 5: Final connection attempt after BLE reset")
 			err = ConnectPrinter(latestPrinter, printerAddress)
 			if err != nil {
-				logger.Error("[KeepAlive] Final connection attempt failed", 
+				logger.Error("[KeepAlive] Step 5 failed: Final connection attempt failed", 
 					zap.String("address", printerAddress), 
 					zap.Error(err),
 					zap.Time("timestamp", time.Now()))
 				ResetConnectionStatus()
 				status.SetPrinterConnected(false)
 			} else {
-				logger.Info("[KeepAlive] Successfully connected after BLE reset", 
+				logger.Info("[KeepAlive] Step 5 completed: Successfully reconnected after BLE reset", 
 					zap.Time("timestamp", time.Now()))
 			}
 		} else {
@@ -347,7 +372,7 @@ func MaintainPrinterConnection() {
 			status.SetPrinterConnected(false)
 		}
 	} else {
-		logger.Info("[KeepAlive] Connection established/verified successfully", 
+		logger.Info("[KeepAlive] Step 3 completed: Successfully reconnected", 
 			zap.Time("timestamp", time.Now()))
 	}
 }
@@ -397,7 +422,8 @@ func StartKeepAlive() {
 	}
 	
 	logger.Info("[StartKeepAlive] Starting keep-alive goroutine", 
-		zap.Int("interval_seconds", interval),
+		zap.Int("env_interval", env.Value.KeepAliveInterval),
+		zap.Int("actual_interval_seconds", interval),
 		zap.Time("timestamp", time.Now()))
 	keepAliveStopCh = make(chan struct{})
 	keepAliveRunning = true

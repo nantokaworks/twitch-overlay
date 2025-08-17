@@ -19,6 +19,61 @@
   - デバッグパネルではローカルモードで動作し、実際の印刷は行われない
   - `DEBUG_MODE=true`環境変数はバックエンドAPIモード用（通常は不要）
 
+## プリンター接続管理
+
+### KeepAlive機能の仕様
+- go-catprinterモジュールには組み込みのKeepAlive機能が存在しない
+- 長時間接続を維持するため、定期的にDisconnect→Reconnectを実行する必要がある
+- この処理により、Bluetooth接続の安定性を保つ
+
+### 実装上の注意事項
+- **重要**: KeepAlive処理では必ず以下の手順を実行すること
+  1. 既存接続をDisconnect
+  2. 500ms程度の待機
+  3. 再度Connectを実行
+- **最も確実な方法**: Disconnectの後、catprinterインスタンス自体を再生成してから接続
+  - これによりBLEデバイスレベルでのリセットが可能
+  - 接続エラーが頻発する場合はこの方法を採用すること
+
+### KeepAlive関連の環境変数
+- `KEEP_ALIVE_ENABLED`: KeepAlive機能の有効/無効（デフォルト: false）
+- `KEEP_ALIVE_INTERVAL`: KeepAliveの実行間隔（秒）（デフォルト: 60）
+
+## Bluetooth権限設定（Linux環境）
+
+### 権限が必要な理由
+- go-catprinterはBluetoothデバイスにアクセスするためHCIソケットを使用
+- 通常のユーザー権限ではHCIソケットにアクセスできない
+- `cap_net_raw`と`cap_net_admin`のケーパビリティが必要
+
+### 権限設定方法
+
+#### 1. 自動設定（推奨）
+```bash
+# task build:all実行時に自動的に権限設定される
+task build:all
+```
+
+#### 2. 手動設定
+```bash
+# ビルド済みバイナリに権限を付与
+sudo setcap 'cap_net_raw,cap_net_admin+eip' dist/twitch-overlay
+
+# 権限確認
+getcap dist/twitch-overlay
+```
+
+#### 3. systemdサービスとして実行
+```bash
+# サービスインストール時に適切な権限設定が行われる
+task service:install
+```
+
+### トラブルシューティング
+- `can't init hci: no devices available`エラーが出る場合は権限設定を確認
+- `bluetoothctl power on`でBluetoothアダプタの電源を確認
+- `sudo usermod -a -G bluetooth $USER`でbluetoothグループに追加
+
 ## ビルド時の注意事項
 - ビルドテストが完了したら、生成されたバイナリファイルは削除する
 - 例: `go build ./cmd/twitch-overlay && rm twitch-overlay`

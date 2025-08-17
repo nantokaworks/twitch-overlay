@@ -22,7 +22,8 @@
       "Bash(echo:*)",
       "Bash(task tunnel:heimdall:*)",
       "Bash(go mod:*)",
-      "Bash(DRY_RUN_MODE=true KEEP_ALIVE_ENABLED=true KEEP_ALIVE_INTERVAL=10 ./twitch-overlay-test)"
+      "Bash(DRY_RUN_MODE=true KEEP_ALIVE_ENABLED=true KEEP_ALIVE_INTERVAL=10 ./twitch-overlay-test)",
+      "Bash(git log:*)"
     ],
     "deny": []
   }
