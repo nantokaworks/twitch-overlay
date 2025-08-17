@@ -23,6 +23,12 @@ var (
 	keepAliveMutex sync.Mutex     // KeepAlive goroutine管理用mutex
 )
 
+// SetupPrinter creates or reuses a catprinter client instance
+// 
+// 実装方針:
+// - 既存のインスタンスがある場合は再利用（レベル1: 通常のKeepAlive処理）
+// - BLEデバイスの再取得は避け、パフォーマンスを優先
+// - インスタンスの再生成は、エラー発生時の最終手段（レベル2）として別途実行
 func SetupPrinter() (*catprinter.Client, error) {
 	// 既存のクライアントがあれば再利用（BLEデバイスの再取得を避ける）
 	if latestPrinter != nil {
@@ -33,8 +39,14 @@ func SetupPrinter() (*catprinter.Client, error) {
 			latestPrinter.Disconnect()
 			isConnected = false
 			status.SetPrinterConnected(false)
+			connectionMutex.Unlock()
+			
+			// Wait for Bluetooth disconnect to complete
+			// Disconnect直後の再接続エラーを防ぐため1秒待機
+			time.Sleep(1 * time.Second)
+		} else {
+			connectionMutex.Unlock()
 		}
-		connectionMutex.Unlock()
 		return latestPrinter, nil
 	}
 
@@ -227,6 +239,18 @@ func ResetConnectionStatus() {
 
 // MaintainPrinterConnection performs a single connection maintenance cycle
 // This is used both at startup and in the periodic loop
+//
+// 階層的な処理フロー:
+// レベル1 (通常): 既存インスタンスでDisconnect→Reconnect
+//   - Step 1: 既存接続をDisconnect
+//   - Step 2: インスタンスの確認/再利用
+//   - Step 3: Connect実行
+//
+// レベル2 (エラー時のみ): BLEデバイスごと再生成
+//   - Step 3で特定のBluetoothエラーを検出した場合のみ実行
+//   - Step 4: 既存インスタンスをStop()で完全破棄
+//   - Step 5: 新規インスタンス作成して接続
+//   - これは最終手段であり、パフォーマンスが低下するため必要最小限に留める
 func MaintainPrinterConnection() {
 	// Lock printer for exclusive access
 	printerMutex.Lock()
@@ -250,7 +274,9 @@ func MaintainPrinterConnection() {
 		zap.Bool("was_connected", currentStatus),
 		zap.Time("timestamp", time.Now()))
 	
+	// ================== レベル1: 通常のKeepAlive処理 ==================
 	// Step 1: Always disconnect first to ensure clean reconnection
+	// インスタンスは保持したまま、接続のみリフレッシュ
 	if latestPrinter != nil && currentStatus {
 		logger.Info("[KeepAlive] Step 1: Disconnecting current connection for clean reconnection")
 		func() {
@@ -266,8 +292,9 @@ func MaintainPrinterConnection() {
 		connectionMutex.Unlock()
 		status.SetPrinterConnected(false)
 		
-		// Small delay to ensure clean disconnect
-		time.Sleep(500 * time.Millisecond)
+		// Wait for Bluetooth disconnect to complete fully
+		// 1秒待機することで、Bluetooth接続が完全に切断されるのを確実にする
+		time.Sleep(1 * time.Second)
 		logger.Info("[KeepAlive] Step 1 completed: Disconnected successfully")
 	} else if latestPrinter == nil {
 		logger.Info("[KeepAlive] Step 1: No existing printer client, skipping disconnect")
@@ -276,6 +303,7 @@ func MaintainPrinterConnection() {
 	}
 	
 	// Step 2: Setup printer if needed
+	// 通常は既存インスタンスを再利用（レベル1）
 	if latestPrinter == nil {
 		logger.Info("[KeepAlive] Step 2: Creating new printer client")
 		_, err := SetupPrinter() // SetupPrinter already sets latestPrinter internally
@@ -293,6 +321,7 @@ func MaintainPrinterConnection() {
 	}
 	
 	// Step 3: Connect to printer
+	// 通常はここで成功し、レベル1の処理が完了
 	logger.Info("[KeepAlive] Step 3: Connecting to printer", zap.String("address", printerAddress))
 	err := ConnectPrinter(latestPrinter, printerAddress)
 	if err != nil {
@@ -313,7 +342,9 @@ func MaintainPrinterConnection() {
 			zap.Error(err),
 			zap.Time("timestamp", time.Now()))
 		
+		// ================== レベル2: エラー時の強制リセット ==================
 		// Check for various Bluetooth-related errors
+		// これらのエラーの場合のみ、最終手段としてBLEデバイスを再生成
 		if strings.Contains(errStr, "hci socket") || 
 		   strings.Contains(errStr, "broken pipe") ||
 		   strings.Contains(errStr, "connection reset") ||
@@ -324,7 +355,8 @@ func MaintainPrinterConnection() {
 		   strings.Contains(errStr, "can't dial") {
 			logger.Warn("[KeepAlive] Step 3: Detected Bluetooth error, resetting BLE device", zap.String("error_type", errStr))
 			
-			// Reset BLE device
+			// Reset BLE device (レベル2: 最終手段)
+			// インスタンスを完全に破棄し、BLEデバイスを解放
 			if latestPrinter != nil {
 				func() {
 					defer func() {
@@ -340,7 +372,8 @@ func MaintainPrinterConnection() {
 			// Wait before retry
 			time.Sleep(1 * time.Second)
 			
-			// Step 4: Retry with new BLE device
+			// Step 4: Retry with new BLE device (レベル2継続)
+			// 新しいインスタンスを作成（BLEデバイスも新規取得）
 			logger.Info("[KeepAlive] Step 4: Creating new printer client after BLE reset")
 			_, err := SetupPrinter() // SetupPrinter already sets latestPrinter internally
 			if err != nil {
@@ -352,7 +385,7 @@ func MaintainPrinterConnection() {
 				return
 			}
 			
-			// Final connection attempt
+			// Final connection attempt (レベル2完了)
 			logger.Info("[KeepAlive] Step 5: Final connection attempt after BLE reset")
 			err = ConnectPrinter(latestPrinter, printerAddress)
 			if err != nil {
@@ -368,6 +401,7 @@ func MaintainPrinterConnection() {
 			}
 		} else {
 			// Non-Bluetooth error
+			// レベル2の対象外のエラーは、ステータスリセットのみ
 			ResetConnectionStatus()
 			status.SetPrinterConnected(false)
 		}

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/nantokaworks/twitch-overlay/internal/env"
 	"github.com/nantokaworks/twitch-overlay/internal/output"
@@ -42,6 +43,10 @@ func handlePrinterReconnect(w http.ResponseWriter, r *http.Request) {
 	// Completely reset printer connection and BLE device
 	logger.Info("[Reconnect] Stopping printer and releasing BLE device")
 	output.Stop() // This disconnects AND releases BLE device
+
+	// Wait for Bluetooth to fully disconnect and release resources
+	// 1秒待機することで、BLEデバイスが完全に解放されるのを確実にする
+	time.Sleep(1 * time.Second)
 
 	// Setup and connect to printer (create new BLE device)
 	c, err := output.SetupPrinter()

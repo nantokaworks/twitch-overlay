@@ -26,14 +26,34 @@
 - 長時間接続を維持するため、定期的にDisconnect→Reconnectを実行する必要がある
 - この処理により、Bluetooth接続の安定性を保つ
 
-### 実装上の注意事項
-- **重要**: KeepAlive処理では必ず以下の手順を実行すること
+### KeepAlive実装の階層的アプローチ
+#### レベル1: 通常のKeepAlive処理（基本）
+- **既存のcatprinterインスタンスを再利用**してDisconnect→Reconnectを実行
+- BLEデバイスは保持したまま、接続のみをリフレッシュ
+- 最も効率的で、通常はこの方法で十分
+- 実装手順:
   1. 既存接続をDisconnect
   2. 500ms程度の待機
-  3. 再度Connectを実行
-- **最も確実な方法**: Disconnectの後、catprinterインスタンス自体を再生成してから接続
-  - これによりBLEデバイスレベルでのリセットが可能
-  - 接続エラーが頻発する場合はこの方法を採用すること
+  3. 同じインスタンスで再度Connectを実行
+
+#### レベル2: エラー時の強制リセット（最終手段）
+- **catprinterインスタンス自体を再生成**してから接続
+- BLEデバイスレベルでの完全なリセット
+- 以下のエラーが発生した場合のみ使用:
+  - `already exists`: BLEデバイスの状態不整合
+  - `connection canceled`: 接続がキャンセルされた
+  - `can't dial`: 接続確立に失敗
+  - `broken pipe`: パイプ破損
+  - その他のBluetooth関連エラー
+- 実装手順:
+  1. 既存インスタンスをStop()で完全に破棄
+  2. 新しいcatprinterインスタンスを作成
+  3. 新しいインスタンスでConnectを実行
+
+### 実装上の重要ポイント
+- **基本方針**: インスタンスの再利用を優先し、必要な場合のみ再生成
+- **パフォーマンス**: インスタンス再生成はBLEデバイスの再取得を伴うため、処理時間が長い
+- **安定性**: エラー時の再生成により、接続の信頼性を確保
 
 ### KeepAlive関連の環境変数
 - `KEEP_ALIVE_ENABLED`: KeepAlive機能の有効/無効（デフォルト: false）
@@ -78,6 +98,14 @@ task service:install
 - ビルドテストが完了したら、生成されたバイナリファイルは削除する
 - 例: `go build ./cmd/twitch-overlay && rm twitch-overlay`
 - リポジトリにバイナリファイルをコミットしない
+
+## heimdallサーバーへのデプロイ
+- heimdallへのコピーを指示された場合は、**差分コピーのみ**を行う
+- rsyncを使用して差分転送を実行:
+```bash
+rsync -avz --exclude='.git' --exclude='dist' --exclude='node_modules' --exclude='*.log' /Users/toka/Abyss/twitch-overlay/ heimdall:~/twitch-overlay/
+```
+- 全体コピーは避け、変更されたファイルのみを転送すること
 
 ## フロントエンド開発ガイドライン
 
