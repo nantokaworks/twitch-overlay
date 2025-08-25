@@ -5,6 +5,7 @@ import (
 	"image"
 	"image/png"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -51,9 +52,13 @@ func InitializePrinter() {
 			return "<not set>"
 		}()))
 	
-	// Start keep-alive goroutine using the new implementation
-	logger.Info("[InitializePrinter] Calling StartKeepAlive()")
-	StartKeepAlive()
+	// Start keep-alive goroutine if enabled
+	if env.Value.KeepAliveEnabled {
+		logger.Info("[InitializePrinter] Starting keep-alive routine")
+		go keepAliveRoutine()
+	} else {
+		logger.Info("[InitializePrinter] Keep-alive routine disabled")
+	}
 	
 	// Start clock routine
 	if env.Value.ClockEnabled {
@@ -75,7 +80,7 @@ func init() {
 	// Initialize last print time to now
 	lastPrintTime = time.Now()
 	
-	// Note: StartKeepAlive() and clockRoutine() are now called from InitializePrinter()
+	// Note: clockRoutine() is now called from InitializePrinter()
 	// after env.Value is properly initialized
 	
 	go func() {
@@ -83,35 +88,20 @@ func init() {
 			// Lock printer for exclusive access
 			printerMutex.Lock()
 			
-			// Use existing client or create new one
-			// NOTE: SetupPrinter internally sets latestPrinter, so we don't need the return value
-			if latestPrinter == nil {
-				_, err := SetupPrinter()
-				if err != nil {
-					logger.Error("failed to setup printer", zap.Error(err))
-					printerMutex.Unlock()
-					continue
-				}
+			// Setup printer if needed
+			c, err := SetupPrinter()
+			if err != nil {
+				logger.Error("failed to setup printer", zap.Error(err))
+				printerMutex.Unlock()
+				continue
 			}
 			
 			// Try to connect if not connected
-			err := ConnectPrinter(latestPrinter, *env.Value.PrinterAddress)
+			err = ConnectPrinter(c, *env.Value.PrinterAddress)
 			if err != nil {
 				logger.Error("failed to connect printer", zap.Error(err))
-				// Try to create new client
-				// NOTE: SetupPrinter internally sets latestPrinter
-				_, err := SetupPrinter()
-				if err != nil {
-					logger.Error("failed to setup new printer", zap.Error(err))
-					printerMutex.Unlock()
-					continue
-				}
-				err = ConnectPrinter(latestPrinter, *env.Value.PrinterAddress)
-				if err != nil {
-					logger.Error("failed to connect new printer", zap.Error(err))
-					printerMutex.Unlock()
-					continue
-				}
+				printerMutex.Unlock()
+				continue
 			}
 			
 			// Check for dry-run mode (including auto dry-run when offline)
@@ -132,7 +122,7 @@ func init() {
 					finalImg = rotateImage180(img)
 				}
 				
-				if err := latestPrinter.Print(finalImg, opts, false); err != nil {
+				if err := c.Print(finalImg, opts, false); err != nil {
 					logger.Error("failed to print", zap.Error(err))
 				} else {
 					// Update last print time on successful print
@@ -358,6 +348,144 @@ func clockRoutine() {
 
 
 
+
+// keepAliveRoutine maintains printer connection
+func keepAliveRoutine() {
+	ticker := time.NewTicker(1 * time.Second) // Check every second
+	defer ticker.Stop()
+	
+	for range ticker.C {
+		// First check if we need to do initial connection
+		if !IsConnected() && !HasInitialPrintBeenDone() {
+			logger.Info("Keep-alive: attempting initial printer connection")
+			
+			// Lock printer for exclusive access
+			printerMutex.Lock()
+			
+			// Setup printer if needed
+			c, err := SetupPrinter()
+			if err != nil {
+				logger.Error("Keep-alive: failed to setup printer for initial connection", zap.Error(err))
+				printerMutex.Unlock()
+				continue
+			}
+			
+			// Try to connect
+			err = ConnectPrinter(c, *env.Value.PrinterAddress)
+			if err != nil {
+				logger.Error("Keep-alive: failed initial connection to printer", zap.Error(err))
+				printerMutex.Unlock()
+				continue
+			}
+			
+			logger.Info("Keep-alive: initial connection established")
+			
+			// Mark initial print as done
+			logger.Info("Keep-alive: marking initial print as done")
+			MarkInitialPrintDone()
+			
+			// Update last print time
+			lastPrintMutex.Lock()
+			lastPrintTime = time.Now()
+			lastPrintMutex.Unlock()
+			
+			printerMutex.Unlock()
+			continue
+		}
+		
+		lastPrintMutex.Lock()
+		timeSinceLastPrint := time.Since(lastPrintTime)
+		lastPrintMutex.Unlock()
+		
+		// If more than KeepAliveInterval seconds have passed since last print
+		if timeSinceLastPrint > time.Duration(env.Value.KeepAliveInterval)*time.Second {
+			logger.Info("Keep-alive: waiting for printer access", zap.Int("seconds_since_last_print", int(timeSinceLastPrint.Seconds())))
+			
+			// Lock printer for exclusive access
+			printerMutex.Lock()
+			
+			logger.Info("Keep-alive: creating new connection")
+			
+			// Setup printer (will disconnect if connected)
+			c, err := SetupPrinter()
+			if err != nil {
+				logger.Error("Keep-alive: failed to setup printer", zap.Error(err))
+				printerMutex.Unlock()
+				continue
+			}
+			
+			err = ConnectPrinter(c, *env.Value.PrinterAddress)
+			if err != nil {
+				logger.Error("Keep-alive: failed to connect printer", zap.Error(err))
+				printerMutex.Unlock()
+				continue
+			}
+			
+			logger.Info("Keep-alive: new connection established")
+			
+			// Mark initial print as done if not already done
+			if !HasInitialPrintBeenDone() {
+				logger.Info("Keep-alive: marking initial print as done after reconnection")
+				MarkInitialPrintDone()
+			}
+			
+			// Update last print time
+			lastPrintMutex.Lock()
+			lastPrintTime = time.Now()
+			lastPrintMutex.Unlock()
+			
+			// Release printer lock
+			printerMutex.Unlock()
+		}
+	}
+}
+
+// PrintInitialClock prints initial clock on startup
+func PrintInitialClock() error {
+	now := time.Now()
+	currentTime := now.Format("15:04")
+	logger.Info("Printing initial clock (simple)", zap.String("time", currentTime))
+	
+	// Generate simple time-only image
+	img, err := GenerateTimeImageSimple(currentTime)
+	if err != nil {
+		return fmt.Errorf("failed to generate initial clock image: %w", err)
+	}
+	
+	// Save image if debug output is enabled
+	if env.Value.DebugOutput {
+		outputDir := ".output"
+		if err := os.MkdirAll(outputDir, 0755); err != nil {
+			return fmt.Errorf("failed to create output directory: %w", err)
+		}
+		
+		// Save time-only image
+		monoPath := filepath.Join(outputDir, fmt.Sprintf("%s_initial_clock.png", now.Format("20060102_150405")))
+		file, err := os.Create(monoPath)
+		if err != nil {
+			return fmt.Errorf("failed to create output file: %w", err)
+		}
+		defer file.Close()
+		if err := png.Encode(file, img); err != nil {
+			return fmt.Errorf("failed to encode image: %w", err)
+		}
+		logger.Info("Initial clock: output file saved", zap.String("path", monoPath))
+		
+		// Return early when debug output is enabled (skip print queue)
+		return nil
+	}
+	
+	// Directly add to print queue without frontend notification
+	// This is the only output that doesn't notify the frontend
+	select {
+	case printQueue <- img:
+		logger.Info("Initial clock added to print queue (no frontend notification)")
+	default:
+		return fmt.Errorf("print queue is full")
+	}
+	
+	return nil
+}
 
 // GetPrintQueueSize returns the current number of items in the print queue
 func GetPrintQueueSize() int {

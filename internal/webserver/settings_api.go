@@ -115,17 +115,14 @@ func handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 				}
 			}()
 			
-			// Stop keep-alive goroutine
-			output.StopKeepAlive()
-			
-			// 既存の接続を安全に切断
+			// 既存の接続をリセット（Stop()でBLEデバイスごと解放）
 			func() {
 				defer func() {
 					if r := recover(); r != nil {
-						logger.Warn("Recovered from panic during disconnect", zap.Any("panic", r))
+						logger.Warn("Recovered from panic during stop", zap.Any("panic", r))
 					}
 				}()
-				output.Disconnect()
+				output.Stop()
 			}()
 			
 			time.Sleep(500 * time.Millisecond) // 少し待機
@@ -133,8 +130,6 @@ func handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 			c, err := output.SetupPrinter()
 			if err != nil {
 				logger.Error("Failed to setup printer after settings change", zap.Error(err))
-				// Restart keep-alive even on error
-				output.StartKeepAlive()
 				return
 			}
 			
@@ -144,44 +139,11 @@ func handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 			} else {
 				logger.Info("Successfully reconnected to printer", zap.String("address", newAddress))
 			}
-			
-			// Restart keep-alive goroutine
-			output.StartKeepAlive()
 		}()
 	}
 	
-	// KEEP_ALIVE関連の設定が変更された場合はKeepAliveを再起動
-	if _, hasKeepAliveEnabled := req["KEEP_ALIVE_ENABLED"]; hasKeepAliveEnabled {
-		logger.Info("Keep-alive enabled setting changed, restarting keep-alive")
-		go func() {
-			// パニックからの回復処理
-			defer func() {
-				if r := recover(); r != nil {
-					logger.Error("Panic during keep-alive restart", zap.Any("panic", r))
-				}
-			}()
-			
-			// Stop and restart keep-alive
-			output.StopKeepAlive()
-			time.Sleep(500 * time.Millisecond)
-			output.StartKeepAlive()
-		}()
-	} else if _, hasKeepAliveInterval := req["KEEP_ALIVE_INTERVAL"]; hasKeepAliveInterval {
-		logger.Info("Keep-alive interval setting changed, restarting keep-alive")
-		go func() {
-			// パニックからの回復処理
-			defer func() {
-				if r := recover(); r != nil {
-					logger.Error("Panic during keep-alive restart", zap.Any("panic", r))
-				}
-			}()
-			
-			// Stop and restart keep-alive with new interval
-			output.StopKeepAlive()
-			time.Sleep(500 * time.Millisecond)
-			output.StartKeepAlive()
-		}()
-	}
+	// Note: KeepAlive functionality has been removed for simplicity
+	// Reconnection can be done manually via the web interface
 
 	// 更新後の設定状態を返す
 	featureStatus, err := settingsManager.CheckFeatureStatus()
