@@ -3,7 +3,19 @@ import { CalendarIcon, ClockIcon, LocationIcon } from './ClockIcons';
 import { useClock } from '../hooks/useClock';
 import { buildApiUrl } from '../utils/api';
 
-const ClockDisplay: React.FC = () => {
+interface ClockDisplayProps {
+  showLocation?: boolean;
+  showDate?: boolean;
+  showTime?: boolean;
+  showStats?: boolean;
+}
+
+const ClockDisplay: React.FC<ClockDisplayProps> = ({ 
+  showLocation = true, 
+  showDate = true, 
+  showTime = true, 
+  showStats = true 
+}) => {
   const { year, month, date, day, hour, min, flashing } = useClock();
   const [weight, setWeight] = useState<string>('75.4');
   const [wallet, setWallet] = useState<string>('10,387');
@@ -38,24 +50,40 @@ const ClockDisplay: React.FC = () => {
 
   return (
     <div className="clock-container text-2xl">
-      <div className="clock">
-        <LocationIcon />
-        <p className="locate">Hyogo,Japan</p>
-        <CalendarIcon />
-        <p className="clock-date">{today}</p>
-        <ClockIcon />
-        <p className="clock-hour">{hour}</p>
-        <p className="clock-separator" style={{ opacity: flashing ? 1 : 0 }}>
-          :
-        </p>
-        <p className="clock-min">{min}</p>
-      </div>
-      <div className="stats-container">
-        <span className="stats-label">おもさ</span>
-        <span className="stats-value">{weight}kg</span>
-        <span className="stats-label">さいふ</span>
-        <span className="stats-value">{wallet}えん</span>
-      </div>
+      {(showLocation || showDate || showTime) && (
+        <div className="clock">
+          {showLocation && (
+            <>
+              <LocationIcon />
+              <p className="locate">Hyogo,Japan</p>
+            </>
+          )}
+          {showDate && (
+            <>
+              <CalendarIcon />
+              <p className="clock-date">{today}</p>
+            </>
+          )}
+          {showTime && (
+            <>
+              <ClockIcon />
+              <p className="clock-hour">{hour}</p>
+              <p className="clock-separator" style={{ opacity: flashing ? 1 : 0 }}>
+                :
+              </p>
+              <p className="clock-min">{min}</p>
+            </>
+          )}
+        </div>
+      )}
+      {showStats && (
+        <div className="stats-container">
+          <span className="stats-label">おもさ</span>
+          <span className="stats-value">{weight}kg</span>
+          <span className="stats-label">さいふ</span>
+          <span className="stats-value">{wallet}えん</span>
+        </div>
+      )}
     </div>
   );
 };

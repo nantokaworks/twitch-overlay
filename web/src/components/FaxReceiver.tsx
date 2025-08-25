@@ -24,8 +24,14 @@ const FaxReceiver = ({ imageType = 'mono' }: FaxReceiverProps) => {
     }
   }, [currentFax]);
   
-  // デバッグモードの判定（URLパラメータ）
-  const isDebug = new URLSearchParams(window.location.search).get('debug') === 'true';
+  // URLパラメータの解析
+  const params = new URLSearchParams(window.location.search);
+  const isDebug = params.get('debug') === 'true';
+  const showLocation = params.get('location') !== 'false';
+  const showDate = params.get('date') !== 'false';
+  const showTime = params.get('time') !== 'false';
+  const showStats = params.get('stats') !== 'false';
+  const showFax = params.get('fax') !== 'false';
   
   // デバッグ情報をコンソールに出力
   useEffect(() => {
@@ -147,37 +153,46 @@ const FaxReceiver = ({ imageType = 'mono' }: FaxReceiverProps) => {
   return (
     <div className="h-screen text-white relative overflow-hidden" style={backgroundStyle}>
       {/* コントロールパネル */}
-      <div 
-        className="fixed z-10" 
-        style={labelStyle}
-      >
-        <div className="flex items-center h-full px-2">
-          <span
-            className={`text-outline ${
-              !isConnected ? 'text-red-500' : 
-              !isPrinterConnected ? 'text-yellow-500' : 
-              'text-green-500'
-            }`}
-            style={ledStyle}
-          >
-            ◆
-          </span>
-          <span 
-            className="text-outline" 
-            style={faxTextStyle}
-          >
-            FAX
-          </span>
+      {showFax && (
+        <div 
+          className="fixed z-10" 
+          style={labelStyle}
+        >
+          <div className="flex items-center h-full px-2">
+            <span
+              className={`text-outline ${
+                !isConnected ? 'text-red-500' : 
+                !isPrinterConnected ? 'text-yellow-500' : 
+                'text-green-500'
+              }`}
+              style={ledStyle}
+            >
+              ◆
+            </span>
+            <span 
+              className="text-outline" 
+              style={faxTextStyle}
+            >
+              FAX
+            </span>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Clock Display */}
-      <div className="fixed top-0 right-0 z-10">
-        <ClockDisplay />
-      </div>
+      {(showLocation || showDate || showTime || showStats) && (
+        <div className="fixed top-0 right-0 z-10">
+          <ClockDisplay 
+            showLocation={showLocation}
+            showDate={showDate}
+            showTime={showTime}
+            showStats={showStats}
+          />
+        </div>
+      )}
 
       {/* FAX表示エリア */}
-      {currentFax && (
+      {showFax && currentFax && (
         <FaxDisplay
           faxData={currentFax}
           onComplete={onDisplayComplete}
