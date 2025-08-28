@@ -19,20 +19,20 @@ func HandleChannelChatMessage(message twitch.EventChannelChatMessage) {
 }
 
 func HandleChannelPointsCustomRedemptionAdd(message twitch.EventChannelChannelPointsCustomRewardRedemptionAdd) {
-	if message.Reward.ID == *env.Value.TriggerCustomRewordID {
+	if message.Reward.ID != *env.Value.TriggerCustomRewordID {
 		return
 	}
 
 	// fragments := []twitch.ChatMessageFragment{
 	// 	{
 	// 		Type:      "text",
-	// 		Text:      fmt.Sprintf("🎉チャネポ %s %s", message.Reward.Title, message.UserInput),
+	// 		Text:      fmt.Sprintf("チャネポ %s %s", message.Reward.Title, message.UserInput),
 	// 		Cheermote: nil,
 	// 		Emote:     nil,
 	// 	},
 	// }
 
-	// output.PrintOut(message.User.UserName, fragments, time.Now())
+	// // output.PrintOut(message.User.UserName, fragments, time.Now())
 	logger.Info("チャネポ", zap.String("user", message.User.UserName), zap.String("reward", message.Reward.Title), zap.String("userInput", message.UserInput))
 }
 
@@ -108,7 +108,7 @@ func HandleChannelSubscriptionMessage(message twitch.EventChannelSubscriptionMes
 	} else {
 		// 初回サブスク（メッセージ付き）
 		title = "サブスクありがとう :)"
-		extra = "" // 初回は月数なし
+		extra = ""                     // 初回は月数なし
 		details = message.Message.Text // 空メッセージの場合は空文字列のまま
 	}
 
