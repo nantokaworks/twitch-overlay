@@ -281,7 +281,7 @@ const MusicPlayer = ({ playlist, enabled = true }: MusicPlayerProps) => {
             <div style={{ fontWeight: 'bold' }}>
               {player.currentTrack.title}
             </div>
-            <div style={{ opacity: 0.8 }}>
+            <div style={{ fontSize: '18px' }}>
               {player.currentTrack.artist}
             </div>
           </div>

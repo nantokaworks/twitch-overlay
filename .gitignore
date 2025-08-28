@@ -14,7 +14,7 @@ logs
 
 dist
 dist-package
-public
+/public
 tmp
 
 // Misc
