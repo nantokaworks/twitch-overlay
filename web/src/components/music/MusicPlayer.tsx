@@ -268,19 +268,20 @@ const MusicPlayer = ({ playlist, enabled = true }: MusicPlayerProps) => {
           
           {/* トラック情報 */}
           <div
+            className="text-outline"
             style={{
               position: 'fixed',
               bottom: '10px',
               left: '130px',
               zIndex: 99,
               color: 'white',
-              textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
+              fontSize: '24px',
             }}
           >
-            <div style={{ fontSize: '16px', fontWeight: 'bold' }}>
+            <div style={{ fontWeight: 'bold' }}>
               {player.currentTrack.title}
             </div>
-            <div style={{ fontSize: '14px', opacity: 0.8 }}>
+            <div style={{ opacity: 0.8 }}>
               {player.currentTrack.artist}
             </div>
           </div>

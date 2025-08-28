@@ -21,13 +21,39 @@ const MusicArtwork = ({ track, isPlaying, onPlayPause }: MusicArtworkProps) => {
     left: '20px',
     width: '100px',
     height: '100px',
-    borderRadius: '50%',
-    overflow: 'hidden',
-    backgroundColor: '#282828',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)',
     zIndex: 99,
     cursor: 'pointer',
     animation: isPlaying ? 'rotate 20s linear infinite' : 'none',
+  };
+
+  const backgroundStyle: CSSProperties = {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    imageRendering: 'pixelated',
+    zIndex: 1,
+  };
+
+  const artworkContainerStyle: CSSProperties = {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    width: '85px',
+    height: '85px',
+    borderRadius: '50%',
+    overflow: 'hidden',
+    backgroundColor: '#282828',
+    zIndex: 2,
+  };
+
+  const innerFrameStyle: CSSProperties = {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    imageRendering: 'pixelated',
+    zIndex: 3,
+    pointerEvents: 'none', // クリックイベントを透過
   };
 
   const imageStyle: CSSProperties = {
@@ -64,18 +90,35 @@ const MusicArtwork = ({ track, isPlaying, onPlayPause }: MusicArtworkProps) => {
 
   return (
     <div style={containerStyle} onClick={onPlayPause}>
-      {track.has_artwork && !imageError ? (
-        <img
-          src={buildApiUrl(`/api/music/track/${track.id}/artwork`)}
-          alt={`${track.title} artwork`}
-          style={imageStyle}
-          onError={() => setImageError(true)}
-        />
-      ) : (
-        <div style={placeholderStyle}>
-          ♪
-        </div>
-      )}
+      {/* ドット絵レコード背景（最下層） */}
+      <img
+        src="/dot_record.svg"
+        alt="Record frame"
+        style={backgroundStyle}
+      />
+      
+      {/* アートワーク（中間層） */}
+      <div style={artworkContainerStyle}>
+        {track.has_artwork && !imageError ? (
+          <img
+            src={buildApiUrl(`/api/music/track/${track.id}/artwork`)}
+            alt={`${track.title} artwork`}
+            style={imageStyle}
+            onError={() => setImageError(true)}
+          />
+        ) : (
+          <div style={placeholderStyle}>
+            ♪
+          </div>
+        )}
+      </div>
+      
+      {/* ドット絵レコード内側装飾（最上層） */}
+      <img
+        src="/dot_record_inner.svg"
+        alt="Record inner frame"
+        style={innerFrameStyle}
+      />
     </div>
   );
 };
