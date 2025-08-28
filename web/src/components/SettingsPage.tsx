@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from './ui/alert';
 import { LogViewer } from './LogViewer';
 import MusicManagerEmbed from './music/MusicManagerEmbed';
 import MusicPlayerControls from './music/MusicPlayerControls';
+import { Tooltip } from './ui/tooltip';
 import { 
   FeatureStatus, 
   BluetoothDevice, 
@@ -826,19 +827,72 @@ export const SettingsPage: React.FC = () => {
                     </div>
                   )}
                 </div>
-                <div className="flex items-center space-x-2">
-                  <div className={`w-3 h-3 rounded-full ${featureStatus.warnings.length === 0 ? 'bg-green-500' : 'bg-yellow-500'}`} />
-                  <span className="font-medium dark:text-gray-200">警告</span>
-                  <span className="text-sm text-gray-500 dark:text-gray-400">
-                    {featureStatus.warnings.length}件
-                  </span>
-                </div>
+                <Tooltip
+                  content={
+                    featureStatus.warnings.length > 0 ? (
+                      <div className="space-y-2">
+                        <div className="font-medium text-yellow-200 flex items-center">
+                          <span className="w-2 h-2 bg-yellow-400 rounded-full mr-2"></span>
+                          システム警告 ({featureStatus.warnings.length}件)
+                        </div>
+                        <div className="space-y-1">
+                          {featureStatus.warnings.map((warning, index) => (
+                            <div key={index} className="text-sm pl-4 border-l-2 border-yellow-400/30">
+                              {index + 1}. {warning}
+                            </div>
+                          ))}
+                        </div>
+                        <div className="text-xs opacity-75 pt-1 border-t border-gray-600">
+                          マウスオーバーで詳細を確認
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center space-x-2">
+                        <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                        <span className="text-sm">システムに問題はありません</span>
+                      </div>
+                    )
+                  }
+                  position="bottom"
+                  delay={200}
+                >
+                  <div className="flex items-center space-x-2 cursor-help">
+                    <div className={`w-3 h-3 rounded-full ${featureStatus.warnings.length === 0 ? 'bg-green-500' : 'bg-yellow-500'}`} />
+                    <span className="font-medium dark:text-gray-200">警告</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      {featureStatus.warnings.length}件
+                    </span>
+                  </div>
+                </Tooltip>
               </div>
               {featureStatus.missing_settings.length > 0 && (
                 <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-                  <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                    <strong>未設定項目:</strong> {featureStatus.missing_settings.join(', ')}
-                  </p>
+                  <Tooltip
+                    content={
+                      <div className="space-y-2">
+                        <div className="font-medium text-orange-200 flex items-center">
+                          <span className="w-2 h-2 bg-orange-400 rounded-full mr-2"></span>
+                          未設定項目 ({featureStatus.missing_settings.length}件)
+                        </div>
+                        <div className="space-y-1">
+                          {featureStatus.missing_settings.map((setting, index) => (
+                            <div key={index} className="text-sm pl-4 border-l-2 border-orange-400/30">
+                              • {setting}
+                            </div>
+                          ))}
+                        </div>
+                        <div className="text-xs opacity-75 pt-1 border-t border-gray-600">
+                          これらを設定すると全機能が利用できます
+                        </div>
+                      </div>
+                    }
+                    position="top"
+                    delay={200}
+                  >
+                    <p className="text-sm text-yellow-800 dark:text-yellow-200 cursor-help">
+                      <strong>未設定項目:</strong> {featureStatus.missing_settings.join(', ')}
+                    </p>
+                  </Tooltip>
                 </div>
               )}
             </CardContent>

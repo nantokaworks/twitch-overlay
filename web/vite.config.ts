@@ -15,6 +15,10 @@ export default defineConfig({
   server: {
     port: FRONTEND_PORT,
     proxy: {
+      '/api': {
+        target: `http://localhost:${BACKEND_PORT}`,
+        changeOrigin: true,
+      },
       '/events': `http://localhost:${BACKEND_PORT}`,
       '/fax': `http://localhost:${BACKEND_PORT}`,
       '/status': `http://localhost:${BACKEND_PORT}`,

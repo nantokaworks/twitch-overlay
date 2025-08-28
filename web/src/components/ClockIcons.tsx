@@ -62,7 +62,7 @@ export const ClockIcon: React.FC = () => (
     xmlns="http://www.w3.org/2000/svg"
     shapeRendering="crispEdges"
   >
-    <g id="Layer_11" data-name="Layer_1" shape-rendering="crispEdges">
+    <g id="Layer_11" data-name="Layer_1" shapeRendering="crispEdges">
       <g>
         <path
           fill="#fff"

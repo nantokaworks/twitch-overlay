@@ -10,7 +10,7 @@ import (
 )
 
 type MusicControlCommand struct {
-	Type     string `json:"type"`     // play, pause, next, previous, volume, load_playlist
+	Type     string `json:"type"`     // play, pause, stop, toggle, next, previous, volume, load_playlist
 	Value    int    `json:"value,omitempty"`
 	Playlist string `json:"playlist,omitempty"`
 }
@@ -40,6 +40,13 @@ var (
 	
 	musicStatusClients = make(map[chan MusicStatusUpdate]bool)
 	musicStatusMutex   sync.RWMutex
+	
+	// 現在の音楽再生状態
+	currentMusicState = MusicStatusUpdate{
+		IsPlaying: false,
+		Volume:    70,
+	}
+	musicStateMutex sync.RWMutex
 )
 
 // SSEクライアントを登録
@@ -47,6 +54,7 @@ func addMusicControlClient(client chan MusicControlCommand) {
 	musicControlMutex.Lock()
 	defer musicControlMutex.Unlock()
 	musicControlClients[client] = true
+	logger.Debug("Music control SSE client connected", zap.Int("total_clients", len(musicControlClients)))
 }
 
 // SSEクライアントを削除
@@ -55,6 +63,7 @@ func removeMusicControlClient(client chan MusicControlCommand) {
 	defer musicControlMutex.Unlock()
 	delete(musicControlClients, client)
 	close(client)
+	logger.Debug("Music control SSE client disconnected", zap.Int("remaining_clients", len(musicControlClients)))
 }
 
 // 全クライアントにコマンドを送信
@@ -62,13 +71,25 @@ func broadcastMusicCommand(cmd MusicControlCommand) {
 	musicControlMutex.RLock()
 	defer musicControlMutex.RUnlock()
 	
+	clientCount := len(musicControlClients)
+	logger.Info("Broadcasting music command", 
+		zap.String("command", cmd.Type), 
+		zap.Int("client_count", clientCount))
+	
+	sentCount := 0
 	for client := range musicControlClients {
 		select {
 		case client <- cmd:
+			sentCount++
 		default:
 			// クライアントがブロックされている場合はスキップ
+			logger.Warn("Music control client blocked, skipping")
 		}
 	}
+	
+	logger.Info("Music command broadcast completed", 
+		zap.Int("sent_to_clients", sentCount),
+		zap.Int("total_clients", clientCount))
 }
 
 // SSEクライアントを登録（ステータス用）
@@ -128,6 +149,54 @@ func handleMusicPause(w http.ResponseWriter, r *http.Request) {
 	
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+// POST /api/music/control/stop
+func handleMusicStop(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	cmd := MusicControlCommand{Type: "stop"}
+	broadcastMusicCommand(cmd)
+	logger.Info("Music stop command sent")
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+// POST /api/music/control/toggle
+func handleMusicToggle(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// 現在の状態を取得
+	currentState := getCurrentMusicState()
+	
+	var action string
+	var cmd MusicControlCommand
+	
+	if currentState.IsPlaying {
+		// 再生中なら停止
+		cmd = MusicControlCommand{Type: "pause"}
+		action = "pause"
+	} else {
+		// 停止中なら再生
+		cmd = MusicControlCommand{Type: "play"}
+		action = "play"
+	}
+	
+	broadcastMusicCommand(cmd)
+	logger.Info("Music toggle command sent", zap.String("action", action), zap.Bool("was_playing", currentState.IsPlaying))
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status": "ok",
+		"action": action,
+	})
 }
 
 // POST /api/music/control/next
@@ -276,12 +345,29 @@ func handleMusicStatusUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 現在の状態を更新
+	updateCurrentMusicState(status)
+
 	// 全クライアントに状態を配信
 	broadcastMusicStatus(status)
 	logger.Debug("Music status broadcasted", zap.Bool("is_playing", status.IsPlaying))
 	
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+// 現在の音楽状態を更新
+func updateCurrentMusicState(status MusicStatusUpdate) {
+	musicStateMutex.Lock()
+	defer musicStateMutex.Unlock()
+	currentMusicState = status
+}
+
+// 現在の音楽状態を取得
+func getCurrentMusicState() MusicStatusUpdate {
+	musicStateMutex.RLock()
+	defer musicStateMutex.RUnlock()
+	return currentMusicState
 }
 
 // SSE: /api/music/status/events
@@ -333,6 +419,8 @@ func RegisterMusicControlRoutes(mux *http.ServeMux) {
 	// 制御エンドポイント
 	mux.HandleFunc("/api/music/control/play", corsMiddleware(handleMusicPlay))
 	mux.HandleFunc("/api/music/control/pause", corsMiddleware(handleMusicPause))
+	mux.HandleFunc("/api/music/control/stop", corsMiddleware(handleMusicStop))
+	mux.HandleFunc("/api/music/control/toggle", corsMiddleware(handleMusicToggle))
 	mux.HandleFunc("/api/music/control/next", corsMiddleware(handleMusicNext))
 	mux.HandleFunc("/api/music/control/previous", corsMiddleware(handleMusicPrevious))
 	mux.HandleFunc("/api/music/control/volume", corsMiddleware(handleMusicVolume))

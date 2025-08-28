@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useMusicPlayer } from '../../hooks/useMusicPlayer';
 import MusicProgress from './MusicProgress';
 import MusicArtwork from './MusicArtwork';
@@ -11,6 +11,17 @@ interface MusicPlayerProps {
 
 const MusicPlayer = ({ playlist, enabled = true }: MusicPlayerProps) => {
   const player = useMusicPlayer();
+  const playerRef = useRef(player);
+  const [sseStatus, setSseStatus] = useState<'connecting' | 'connected' | 'error' | 'disconnected'>('disconnected');
+  const [lastCommand, setLastCommand] = useState<string>('');
+  
+  // デバッグモードの確認
+  const isDebug = new URLSearchParams(window.location.search).get('debug') === 'true';
+  
+  // playerの参照を更新
+  useEffect(() => {
+    playerRef.current = player;
+  }, [player]);
 
   // プレイリストの読み込み
   useEffect(() => {
@@ -34,50 +45,107 @@ const MusicPlayer = ({ playlist, enabled = true }: MusicPlayerProps) => {
   useEffect(() => {
     if (!enabled) return;
     
-    const eventSource = new EventSource(buildEventSourceUrl('/api/music/control/events'));
+    let reconnectTimer: NodeJS.Timeout;
+    let reconnectCount = 0;
+    const maxReconnectAttempts = 5;
     
-    eventSource.onmessage = (event) => {
-      try {
-        const command = JSON.parse(event.data);
-        console.log('Music control command received in overlay:', command);
+    const connectSSE = () => {
+      const sseUrl = buildEventSourceUrl('/api/music/control/events');
+      if (reconnectCount === 0) {
+        console.log('🔗 Connecting to music control SSE:', sseUrl);
+        setSseStatus('connecting');
+      }
+      
+      const eventSource = new EventSource(sseUrl);
+      
+      eventSource.onopen = () => {
+        if (reconnectCount > 0) {
+          console.log('✅ Music control SSE reconnected after', reconnectCount, 'attempts');
+        } else {
+          console.log('✅ Music control SSE connection established');
+        }
+        reconnectCount = 0; // リセット
+        setSseStatus('connected');
+      };
+      
+      eventSource.onmessage = (event) => {
+        try {
+          const command = JSON.parse(event.data);
+          console.log('Music control command received in overlay:', command);
+          setLastCommand(`${command.type} (${new Date().toLocaleTimeString()})`);
         
         switch (command.type) {
           case 'play':
-            player.play();
+            console.log('🎵 Executing PLAY command');
+            playerRef.current.play();
             break;
           case 'pause':
-            player.pause();
+            console.log('⏸️ Executing PAUSE command');
+            playerRef.current.pause();
+            break;
+          case 'stop':
+            console.log('⏹️ Executing STOP command (same as pause)');
+            playerRef.current.pause();
             break;
           case 'next':
-            player.next();
+            console.log('⏭️ Executing NEXT command');
+            playerRef.current.next();
             break;
           case 'previous':
-            player.previous();
+            console.log('⏮️ Executing PREVIOUS command');
+            playerRef.current.previous();
             break;
           case 'volume':
             if (typeof command.value === 'number') {
-              player.setVolume(command.value);
+              console.log(`🔊 Executing VOLUME command: ${command.value}%`);
+              playerRef.current.setVolume(command.value);
             }
             break;
           case 'load_playlist':
             if (command.playlist !== undefined) {
-              player.loadPlaylist(command.playlist || undefined);
+              console.log(`📂 Executing LOAD_PLAYLIST command: ${command.playlist || 'All tracks'}`);
+              playerRef.current.loadPlaylist(command.playlist || undefined);
             }
             break;
+          default:
+            console.warn(`❌ Unknown music command type: ${command.type}`);
         }
       } catch (error) {
         console.error('Failed to process music control command in overlay:', error);
       }
     };
     
-    eventSource.onerror = (error) => {
-      console.error('Music control SSE error in overlay:', error);
+      eventSource.onerror = (error) => {
+        setSseStatus('error');
+        if (reconnectCount < maxReconnectAttempts) {
+          reconnectCount++;
+          const delay = Math.min(1000 * Math.pow(2, reconnectCount - 1), 10000); // 指数バックオフ（最大10秒）
+          
+          console.warn(`⚠️ Music control SSE error (attempt ${reconnectCount}/${maxReconnectAttempts}), reconnecting in ${delay}ms`);
+          
+          eventSource.close();
+          setSseStatus('connecting');
+          reconnectTimer = setTimeout(connectSSE, delay);
+        } else {
+          console.error('❌ Music control SSE failed after max attempts:', error);
+          console.log('SSE readyState:', eventSource.readyState);
+        }
+      };
+      
+      return eventSource;
     };
     
+    const eventSource = connectSSE();
+    
     return () => {
-      eventSource.close();
+      console.log('🔌 Closing music control SSE connection');
+      setSseStatus('disconnected');
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+      }
+      eventSource?.close();
     };
-  }, [enabled, player]);
+  }, [enabled]); // playerを依存から削除して無限ループを防ぐ
   
   // 音楽状態をサーバーに送信
   useEffect(() => {
@@ -119,8 +187,51 @@ const MusicPlayer = ({ playlist, enabled = true }: MusicPlayerProps) => {
 
   if (!enabled) return null;
 
+  const getStatusColor = (status: typeof sseStatus) => {
+    switch (status) {
+      case 'connected': return '#10b981'; // green
+      case 'connecting': return '#f59e0b'; // yellow  
+      case 'error': return '#ef4444'; // red
+      case 'disconnected': return '#6b7280'; // gray
+      default: return '#6b7280';
+    }
+  };
+
+  const getStatusText = (status: typeof sseStatus) => {
+    switch (status) {
+      case 'connected': return '接続中';
+      case 'connecting': return '接続中...';
+      case 'error': return 'エラー';
+      case 'disconnected': return '切断';
+      default: return '不明';
+    }
+  };
+
   return (
     <>
+      {/* デバッグ情報 - 右上 */}
+      {isDebug && (
+        <div
+          style={{
+            position: 'fixed',
+            top: '10px',
+            right: '10px',
+            zIndex: 100,
+            backgroundColor: 'rgba(0,0,0,0.8)',
+            color: 'white',
+            padding: '8px 12px',
+            borderRadius: '6px',
+            fontSize: '12px',
+            fontFamily: 'monospace',
+            border: `2px solid ${getStatusColor(sseStatus)}`,
+          }}
+        >
+          <div>SSE: <span style={{ color: getStatusColor(sseStatus) }}>{getStatusText(sseStatus)}</span></div>
+          {lastCommand && <div>Last: {lastCommand}</div>}
+          <div>Playing: {player.isPlaying ? '▶️' : '⏸️'}</div>
+        </div>
+      )}
+      
       {/* プログレスバー - 最下部 */}
       <MusicProgress
         progress={player.progress}
