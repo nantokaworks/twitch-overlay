@@ -15,6 +15,7 @@ require (
 require (
 	github.com/JuulLabs-OSS/cbgo v0.0.1 // indirect
 	github.com/coder/websocket v1.8.12 // indirect
+	github.com/dhowden/tag v0.0.0-20240417053706-3d75831295e8 // indirect
 	github.com/disintegration/imaging v1.6.2 // indirect
 	github.com/go-ble/ble v0.0.0-20240122180141-8c5522f54333 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect

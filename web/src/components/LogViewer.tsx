@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Download, Trash2, Play, Pause, Search } from 'lucide-react';
+import { Download, Trash2, Play, Pause } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -142,7 +142,7 @@ export const LogViewer: React.FC<LogViewerProps> = ({ embedded = false }) => {
       minute: '2-digit', 
       second: '2-digit',
       fractionalSecondDigits: 3 
-    });
+    } as any);
   };
 
   const containerClass = embedded ? '' : 'container mx-auto p-4';

@@ -3,6 +3,7 @@ import { useFaxQueue } from '../hooks/useFaxQueue';
 import FaxDisplay from './FaxDisplay';
 import DebugPanel from './DebugPanel';
 import ClockDisplay from './ClockDisplay';
+import MusicPlayer from './music/MusicPlayer';
 import { LAYOUT } from '../constants/layout';
 import { buildApiUrl, buildEventSourceUrl } from '../utils/api';
 import type { FaxReceiverProps, FaxData, FaxState, ServerStatus, DynamicStyles } from '../types';
@@ -32,6 +33,8 @@ const FaxReceiver = ({ imageType = 'mono' }: FaxReceiverProps) => {
   const showTime = params.get('time') !== 'false';
   const showStats = params.get('stats') !== 'false';
   const showFax = params.get('fax') !== 'false';
+  const showMusic = params.get('music') !== 'false';
+  const playlistName = params.get('playlist') || undefined;
   
   // デバッグ情報をコンソールに出力
   useEffect(() => {
@@ -208,6 +211,11 @@ const FaxReceiver = ({ imageType = 'mono' }: FaxReceiverProps) => {
         <DebugPanel onSendFax={addToQueue} />
       )}
 
+      {/* 音楽プレイヤー */}
+      <MusicPlayer 
+        enabled={showMusic}
+        playlist={playlistName || undefined}
+      />
     </div>
   );
 };

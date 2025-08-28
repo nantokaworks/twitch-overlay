@@ -131,6 +131,10 @@ func StartWebServer(port int) {
 	// Create a new ServeMux for better routing control
 	mux := http.NewServeMux()
 
+	// Music API endpoints
+	RegisterMusicRoutes(mux)
+	RegisterMusicControlRoutes(mux)
+
 	// Settings API endpoints - 最初に登録してAPIが優先されるようにする
 	mux.HandleFunc("/api/settings/v2", corsMiddleware(handleSettingsV2))
 	mux.HandleFunc("/api/settings/status", corsMiddleware(handleSettingsStatus))

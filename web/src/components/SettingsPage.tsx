@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Settings2, Bluetooth, Wifi, Eye, EyeOff, FileText, Upload, X, RefreshCw, Server, Monitor, Bug, Radio, Sun, Moon } from 'lucide-react';
+import { Settings2, Bluetooth, Wifi, Eye, EyeOff, FileText, Upload, X, RefreshCw, Server, Monitor, Bug, Radio, Sun, Moon, Music } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
@@ -9,12 +9,13 @@ import { Switch } from './ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Alert, AlertDescription } from './ui/alert';
 import { LogViewer } from './LogViewer';
+import MusicManagerEmbed from './music/MusicManagerEmbed';
+import MusicPlayerControls from './music/MusicPlayerControls';
 import { 
   FeatureStatus, 
   BluetoothDevice, 
   SettingsResponse,
   UpdateSettingsRequest,
-  UpdateSettingsResponse,
   ScanResponse,
   TestResponse,
   TwitchUserInfo,
@@ -846,7 +847,7 @@ export const SettingsPage: React.FC = () => {
 
         {/* タブコンテンツ */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-5 mb-6 dark:bg-gray-800 dark:border-gray-700">
+          <TabsList className="grid w-full grid-cols-7 mb-6 dark:bg-gray-800 dark:border-gray-700">
             <TabsTrigger value="general" className="flex items-center space-x-2">
               <Settings2 className="w-4 h-4" />
               <span>一般</span>
@@ -859,6 +860,10 @@ export const SettingsPage: React.FC = () => {
               <Bluetooth className="w-4 h-4" />
               <span>プリンター</span>
             </TabsTrigger>
+            <TabsTrigger value="music" className="flex items-center space-x-2">
+              <Music className="w-4 h-4" />
+              <span>音楽</span>
+            </TabsTrigger>
             <TabsTrigger value="logs" className="flex items-center space-x-2">
               <FileText className="w-4 h-4" />
               <span>ログ</span>
@@ -866,6 +871,10 @@ export const SettingsPage: React.FC = () => {
             <TabsTrigger value="system" className="flex items-center space-x-2">
               <Server className="w-4 h-4" />
               <span>システム</span>
+            </TabsTrigger>
+            <TabsTrigger value="api" className="flex items-center space-x-2">
+              <Bug className="w-4 h-4" />
+              <span>API</span>
             </TabsTrigger>
           </TabsList>
 
@@ -1417,6 +1426,34 @@ export const SettingsPage: React.FC = () => {
             </Card>
           </TabsContent>
 
+          {/* 音楽タブ */}
+          <TabsContent value="music" className="space-y-6">
+            {/* プレイヤーコントロール */}
+            <Card>
+              <CardHeader>
+                <CardTitle>プレイヤーコントロール</CardTitle>
+                <CardDescription>
+                  音楽の再生をコントロールします
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <MusicPlayerControls />
+              </CardContent>
+            </Card>
+            
+            {/* 音楽管理 */}
+            <Card>
+              <CardHeader>
+                <CardTitle>音楽管理</CardTitle>
+                <CardDescription>
+                  配信中の音楽を管理します。URLパラメータ ?playlist=プレイリスト名 で特定のプレイリストを再生できます。
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <MusicManagerEmbed />
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* ログタブ */}
           <TabsContent value="logs" className="space-y-6">
@@ -1520,6 +1557,222 @@ export const SettingsPage: React.FC = () => {
                     <strong>注意:</strong> systemdサービスとして動作している場合、
                     サーバーは自動的に再起動されます。通常モードで動作している場合は、
                     新しいプロセスが起動されます。
+                  </AlertDescription>
+                </Alert>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* APIタブ */}
+          <TabsContent value="api" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Music API エンドポイント一覧</CardTitle>
+                <CardDescription>
+                  音楽機能で利用可能なAPIエンドポイントの一覧です
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Track管理API */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold dark:text-white">Track管理</h3>
+                  <div className="space-y-3">
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs font-mono rounded">POST</span>
+                        <span className="font-mono text-sm dark:text-gray-300">/api/music/upload</span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">ファイルアップロード (MP3/WAV/M4A/OGG)</p>
+                    </div>
+                    
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs font-mono rounded">GET</span>
+                        <span className="font-mono text-sm dark:text-gray-300">/api/music/tracks</span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">全トラック取得</p>
+                    </div>
+                    
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs font-mono rounded">GET</span>
+                        <span className="font-mono text-sm dark:text-gray-300">/api/music/track/{`{id}`}</span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">トラック情報取得</p>
+                    </div>
+                    
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs font-mono rounded">GET</span>
+                        <span className="font-mono text-sm dark:text-gray-300">/api/music/track/{`{id}`}/audio</span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">音声ファイル取得 (ストリーミング対応)</p>
+                    </div>
+                    
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs font-mono rounded">GET</span>
+                        <span className="font-mono text-sm dark:text-gray-300">/api/music/track/{`{id}`}/artwork</span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">アートワーク画像取得</p>
+                    </div>
+                    
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="px-2 py-1 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-xs font-mono rounded">DELETE</span>
+                        <span className="font-mono text-sm dark:text-gray-300">/api/music/track/{`{id}`}</span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">トラック削除</p>
+                    </div>
+                    
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="px-2 py-1 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-xs font-mono rounded">DELETE</span>
+                        <span className="font-mono text-sm dark:text-gray-300">/api/music/track/all</span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">全トラック削除</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Playlist管理API */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold dark:text-white">Playlist管理</h3>
+                  <div className="space-y-3">
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs font-mono rounded">GET</span>
+                        <span className="font-mono text-sm dark:text-gray-300">/api/music/playlists</span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">全プレイリスト取得</p>
+                    </div>
+                    
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs font-mono rounded">POST</span>
+                        <span className="font-mono text-sm dark:text-gray-300">/api/music/playlist</span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">プレイリスト作成</p>
+                    </div>
+                    
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs font-mono rounded">GET</span>
+                        <span className="font-mono text-sm dark:text-gray-300">/api/music/playlist/{`{id}`}</span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">プレイリスト取得</p>
+                    </div>
+                    
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs font-mono rounded">GET</span>
+                        <span className="font-mono text-sm dark:text-gray-300">/api/music/playlist/{`{id}`}/tracks</span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">プレイリストトラック取得</p>
+                    </div>
+                    
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="px-2 py-1 bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 text-xs font-mono rounded">PUT</span>
+                        <span className="font-mono text-sm dark:text-gray-300">/api/music/playlist/{`{id}`}</span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">プレイリスト更新 (add_track, remove_track, reorder_track)</p>
+                    </div>
+                    
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="px-2 py-1 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-xs font-mono rounded">DELETE</span>
+                        <span className="font-mono text-sm dark:text-gray-300">/api/music/playlist/{`{id}`}</span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">プレイリスト削除</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* リモート制御API */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold dark:text-white">リモート制御</h3>
+                  <div className="space-y-3">
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs font-mono rounded">POST</span>
+                        <span className="font-mono text-sm dark:text-gray-300">/api/music/control/play</span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">音楽再生</p>
+                    </div>
+                    
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs font-mono rounded">POST</span>
+                        <span className="font-mono text-sm dark:text-gray-300">/api/music/control/pause</span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">音楽一時停止</p>
+                    </div>
+                    
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs font-mono rounded">POST</span>
+                        <span className="font-mono text-sm dark:text-gray-300">/api/music/control/next</span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">次の曲</p>
+                    </div>
+                    
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs font-mono rounded">POST</span>
+                        <span className="font-mono text-sm dark:text-gray-300">/api/music/control/previous</span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">前の曲</p>
+                    </div>
+                    
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs font-mono rounded">POST</span>
+                        <span className="font-mono text-sm dark:text-gray-300">/api/music/control/volume</span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">音量変更 (body: {`{"volume": 0-100}`})</p>
+                    </div>
+                    
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs font-mono rounded">POST</span>
+                        <span className="font-mono text-sm dark:text-gray-300">/api/music/control/load</span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">プレイリスト読み込み (body: {`{"playlist": "name"}`})</p>
+                    </div>
+                    
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 text-xs font-mono rounded">SSE</span>
+                        <span className="font-mono text-sm dark:text-gray-300">/api/music/control/events</span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">コマンド受信 (Server-Sent Events)</p>
+                    </div>
+                    
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs font-mono rounded">POST</span>
+                        <span className="font-mono text-sm dark:text-gray-300">/api/music/status/update</span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">状態更新 (オーバーレイ→サーバー)</p>
+                    </div>
+                    
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 text-xs font-mono rounded">SSE</span>
+                        <span className="font-mono text-sm dark:text-gray-300">/api/music/status/events</span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">状態受信 (Server-Sent Events)</p>
+                    </div>
+                  </div>
+                </div>
+
+                <Alert className="dark:bg-gray-700 dark:border-gray-600">
+                  <AlertDescription className="dark:text-gray-300">
+                    <strong>ℹ️ 使用方法:</strong>
+                    <br />• Track/Playlist管理: Settings画面の音楽タブから操作
+                    <br />• リモート制御: Settings画面からオーバーレイの音楽プレイヤーを制御
+                    <br />• URLパラメータ: ?playlist=name でプレイリスト指定可能
                   </AlertDescription>
                 </Alert>
               </CardContent>

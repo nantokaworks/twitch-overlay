@@ -11,6 +11,7 @@ import (
 	"github.com/nantokaworks/twitch-overlay/internal/env"
 	"github.com/nantokaworks/twitch-overlay/internal/fontmanager"
 	localdb "github.com/nantokaworks/twitch-overlay/internal/localdb"
+	"github.com/nantokaworks/twitch-overlay/internal/music"
 	"github.com/nantokaworks/twitch-overlay/internal/output"
 	"github.com/nantokaworks/twitch-overlay/internal/shared/logger"
 	"github.com/nantokaworks/twitch-overlay/internal/shared/paths"
@@ -149,6 +150,11 @@ func main() {
 		log.Fatal(err)
 	}
 	defer db.Close()
+
+	// init music database
+	if err := music.InitMusicDB(); err != nil {
+		logger.Error("Failed to initialize music database", zap.Error(err))
+	}
 
 	// init font manager
 	if err := fontmanager.Initialize(); err != nil {
