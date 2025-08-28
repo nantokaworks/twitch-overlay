@@ -23,12 +23,31 @@ const MusicPlayer = ({ playlist, enabled = true }: MusicPlayerProps) => {
     playerRef.current = player;
   }, [player]);
 
-  // プレイリストの読み込み
+  // 初期化時に保存された状態を復元
   useEffect(() => {
-    if (enabled) {
+    if (enabled && !playlist) {
+      // URLパラメータでプレイリストが指定されていない場合、保存されたプレイリストを復元
+      const savedPlaylistName = localStorage.getItem('musicPlayer.playlistName');
+      if (savedPlaylistName) {
+        const parsedName = JSON.parse(savedPlaylistName);
+        console.log('🔄 Restoring saved playlist:', parsedName || 'All tracks');
+        player.loadPlaylist(parsedName);
+      } else {
+        // 初回起動時はすべてのトラックを読み込む
+        player.loadPlaylist(undefined);
+      }
+    } else if (enabled && playlist) {
+      // URLパラメータで指定されている場合はそれを優先
       player.loadPlaylist(playlist);
     }
-  }, [playlist, enabled]);
+  }, [enabled]); // 初回のみ実行
+  
+  // プレイリストの変更を監視
+  useEffect(() => {
+    if (enabled && playlist !== undefined) {
+      player.loadPlaylist(playlist);
+    }
+  }, [playlist]);
 
   // 手動スタートのため、自動再生は無効化
   // useEffect(() => {

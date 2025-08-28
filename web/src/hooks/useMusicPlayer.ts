@@ -14,22 +14,77 @@ interface UseMusicPlayerReturn extends MusicPlayerState {
   clearHistory: () => void;
 }
 
+// localStorage キー
+const STORAGE_KEYS = {
+  PLAYLIST_NAME: 'musicPlayer.playlistName',
+  VOLUME: 'musicPlayer.volume',
+  CURRENT_TRACK_ID: 'musicPlayer.currentTrackId',
+  PLAY_HISTORY: 'musicPlayer.playHistory',
+  WAS_PLAYING: 'musicPlayer.wasPlaying',
+} as const;
+
+// localStorageから値を安全に取得
+const getFromStorage = <T>(key: string, defaultValue: T): T => {
+  try {
+    const stored = localStorage.getItem(key);
+    return stored ? JSON.parse(stored) : defaultValue;
+  } catch {
+    return defaultValue;
+  }
+};
+
+// localStorageに値を保存
+const saveToStorage = (key: string, value: any): void => {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (error) {
+    console.error('Failed to save to localStorage:', error);
+  }
+};
+
 export const useMusicPlayer = (): UseMusicPlayerReturn => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const handleNextRef = useRef<(() => void) | null>(null);
+  const isInitializedRef = useRef(false);
+  
+  // 保存された値を初期値として使用
   const [state, setState] = useState<MusicPlayerState>({
     isPlaying: false,
     currentTrack: null,
     playlist: [],
-    playlistName: null,
+    playlistName: getFromStorage(STORAGE_KEYS.PLAYLIST_NAME, null),
     progress: 0,
     currentTime: 0,
     duration: 0,
-    volume: 70,
+    volume: getFromStorage(STORAGE_KEYS.VOLUME, 70),
     isLoading: false,
-    playHistory: [],
+    playHistory: getFromStorage(STORAGE_KEYS.PLAY_HISTORY, []),
   });
 
+  // 状態をlocalStorageに保存
+  useEffect(() => {
+    if (!isInitializedRef.current) return;
+    
+    // プレイリスト名を保存
+    if (state.playlistName !== undefined) {
+      saveToStorage(STORAGE_KEYS.PLAYLIST_NAME, state.playlistName);
+    }
+    
+    // 音量を保存
+    saveToStorage(STORAGE_KEYS.VOLUME, state.volume);
+    
+    // 現在のトラックIDを保存
+    if (state.currentTrack) {
+      saveToStorage(STORAGE_KEYS.CURRENT_TRACK_ID, state.currentTrack.id);
+    }
+    
+    // 再生履歴を保存
+    saveToStorage(STORAGE_KEYS.PLAY_HISTORY, state.playHistory);
+    
+    // 再生状態を保存（ページ離脱時の復元用）
+    saveToStorage(STORAGE_KEYS.WAS_PLAYING, state.isPlaying);
+  }, [state.playlistName, state.volume, state.currentTrack?.id, state.playHistory, state.isPlaying]);
+  
   // オーディオ要素の初期化
   useEffect(() => {
     audioRef.current = new Audio();
@@ -247,19 +302,51 @@ export const useMusicPlayer = (): UseMusicPlayerReturn => {
         ...prev,
         playlist: tracks,
         isLoading: false,
-        playHistory: [], // プレイリスト変更時に履歴をリセット
+        playHistory: prev.playHistory.filter(id => 
+          tracks.some(track => track.id === id)
+        ), // プレイリストに存在するトラックのみ履歴に保持
       }));
 
-      // 自動的に最初の曲を選択（ランダム）
-      if (tracks.length > 0 && state.isPlaying) {
-        const firstTrack = tracks[Math.floor(Math.random() * tracks.length)];
-        loadTrack(firstTrack);
+      // 保存されたトラックを復元、もしくは最初の曲を選択
+      if (tracks.length > 0) {
+        const savedTrackId = getFromStorage(STORAGE_KEYS.CURRENT_TRACK_ID, null);
+        const wasPlaying = getFromStorage(STORAGE_KEYS.WAS_PLAYING, false);
+        
+        if (savedTrackId && !isInitializedRef.current) {
+          // 初回起動時のみ、保存されたトラックを復元
+          const savedTrack = tracks.find(t => t.id === savedTrackId);
+          if (savedTrack) {
+            console.log('🔄 Restoring saved track:', savedTrack.title);
+            loadTrack(savedTrack);
+            // 前回再生中だった場合は自動再生（ブラウザポリシーで制限される可能性あり）
+            if (wasPlaying) {
+              setTimeout(() => {
+                audioRef.current?.play().catch(() => {
+                  console.log('Auto-play blocked by browser policy');
+                });
+              }, 500);
+            }
+          } else {
+            // 保存されたトラックが見つからない場合はランダム選択
+            const firstTrack = tracks[Math.floor(Math.random() * tracks.length)];
+            loadTrack(firstTrack);
+          }
+        } else if (!state.currentTrack) {
+          // 現在のトラックがない場合はランダム選択
+          const firstTrack = tracks[Math.floor(Math.random() * tracks.length)];
+          loadTrack(firstTrack);
+        }
+        
+        // 初期化完了フラグを立てる
+        if (!isInitializedRef.current) {
+          isInitializedRef.current = true;
+        }
       }
     } catch (error) {
       console.error('Failed to load playlist:', error);
       setState(prev => ({ ...prev, isLoading: false }));
     }
-  }, [loadTrack, state.isPlaying]);
+  }, [loadTrack]);
 
   // 履歴クリア
   const clearHistory = useCallback(() => {
