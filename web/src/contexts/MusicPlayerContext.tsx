@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect } from 'react';
 import { useMusicPlayer } from '../hooks/useMusicPlayer';
 import { buildEventSourceUrl } from '../utils/api';
+import { useSettings } from './SettingsContext';
 import type { Track, MusicPlayerState } from '../types/music';
 
 interface MusicPlayerContextValue extends MusicPlayerState {
@@ -18,7 +19,8 @@ interface MusicPlayerContextValue extends MusicPlayerState {
 const MusicPlayerContext = createContext<MusicPlayerContextValue | null>(null);
 
 export const MusicPlayerProvider = ({ children }: { children: React.ReactNode }) => {
-  const player = useMusicPlayer();
+  const { settings } = useSettings();
+  const player = useMusicPlayer(settings?.music_volume);
 
   // APIからの制御を受け付ける
   useEffect(() => {

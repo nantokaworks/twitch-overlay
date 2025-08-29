@@ -1,0 +1,16 @@
+{
+  "music_enabled": true,
+  "music_playlist": null,
+  "music_volume": 50,
+  "music_auto_play": true,
+  "fax_enabled": true,
+  "fax_animation_speed": 1,
+  "clock_enabled": true,
+  "clock_format": "24h",
+  "location_enabled": false,
+  "date_enabled": false,
+  "time_enabled": true,
+  "stats_enabled": false,
+  "show_debug_info": false,
+  "updated_at": "2025-08-29T13:24:33.165028+09:00"
+}

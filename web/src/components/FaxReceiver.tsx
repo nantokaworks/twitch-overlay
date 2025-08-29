@@ -6,9 +6,10 @@ import ClockDisplay from './ClockDisplay';
 import MusicPlayer from './music/MusicPlayer';
 import { LAYOUT } from '../constants/layout';
 import { buildApiUrl, buildEventSourceUrl } from '../utils/api';
-import type { FaxReceiverProps, FaxData, FaxState, ServerStatus, DynamicStyles } from '../types';
+import { useSettings } from '../contexts/SettingsContext';
+import type { FaxData, FaxState, ServerStatus, DynamicStyles } from '../types';
 
-const FaxReceiver = ({ imageType = 'mono' }: FaxReceiverProps) => {
+const FaxReceiver = () => {
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [isPrinterConnected, setIsPrinterConnected] = useState<boolean>(false);
   const [labelPosition, setLabelPosition] = useState<number>(0);
@@ -25,16 +26,24 @@ const FaxReceiver = ({ imageType = 'mono' }: FaxReceiverProps) => {
     }
   }, [currentFax]);
   
-  // URLパラメータの解析
+  // Settings from context
+  const { settings } = useSettings();
+  
+  // URLパラメータからデバッグモードだけ取得
   const params = new URLSearchParams(window.location.search);
   const isDebug = params.get('debug') === 'true';
-  const showLocation = params.get('location') !== 'false';
-  const showDate = params.get('date') !== 'false';
-  const showTime = params.get('time') !== 'false';
-  const showStats = params.get('stats') !== 'false';
-  const showFax = params.get('fax') !== 'false';
-  const showMusic = params.get('music') !== 'false';
-  const playlistName = params.get('playlist') || undefined;
+  
+  // 設定から表示状態を取得（設定がない場合はデフォルト値）
+  const showFax = settings?.fax_enabled ?? true;
+  const showMusic = settings?.music_enabled ?? true;
+  const showClock = settings?.clock_enabled ?? true;
+  const playlistName = settings?.music_playlist || undefined;
+  
+  // 時計表示用
+  const showLocation = settings?.location_enabled ?? true;
+  const showDate = settings?.date_enabled ?? true;
+  const showTime = settings?.time_enabled ?? true;
+  const showStats = settings?.stats_enabled ?? true;
   
   // デバッグ情報をコンソールに出力
   useEffect(() => {
@@ -199,7 +208,7 @@ const FaxReceiver = ({ imageType = 'mono' }: FaxReceiverProps) => {
         <FaxDisplay
           faxData={currentFax}
           onComplete={onDisplayComplete}
-          imageType={imageType}
+          imageType="mono"
           onLabelPositionUpdate={setLabelPosition}
           onAnimationStateChange={setIsAnimating}
           onStateChange={setFaxState}

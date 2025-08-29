@@ -43,12 +43,12 @@ const saveToStorage = (key: string, value: any): void => {
   }
 };
 
-export const useMusicPlayer = (): UseMusicPlayerReturn => {
+export const useMusicPlayer = (initialVolume?: number): UseMusicPlayerReturn => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const handleNextRef = useRef<(() => void) | null>(null);
   const isInitializedRef = useRef(false);
   
-  // 保存された値を初期値として使用
+  // 保存された値を初期値として使用（Settingsからの音量を優先）
   const [state, setState] = useState<MusicPlayerState>({
     isPlaying: false,
     currentTrack: null,
@@ -57,7 +57,7 @@ export const useMusicPlayer = (): UseMusicPlayerReturn => {
     progress: 0,
     currentTime: 0,
     duration: 0,
-    volume: getFromStorage(STORAGE_KEYS.VOLUME, 70),
+    volume: initialVolume ?? getFromStorage(STORAGE_KEYS.VOLUME, 70),
     isLoading: false,
     playHistory: getFromStorage(STORAGE_KEYS.PLAY_HISTORY, []),
   });
@@ -86,11 +86,19 @@ export const useMusicPlayer = (): UseMusicPlayerReturn => {
     saveToStorage(STORAGE_KEYS.WAS_PLAYING, state.isPlaying);
   }, [state.playlistName, state.volume, state.currentTrack?.id, state.playHistory, state.isPlaying]);
   
+  // Settingsからの音量変更を反映
+  useEffect(() => {
+    if (initialVolume !== undefined && audioRef.current) {
+      audioRef.current.volume = initialVolume / 100;
+      setState(prev => ({ ...prev, volume: initialVolume }));
+    }
+  }, [initialVolume]);
+
   // オーディオ要素の初期化
   useEffect(() => {
     audioRef.current = new Audio();
     audioRef.current.crossOrigin = 'anonymous'; // CORS対応
-    audioRef.current.volume = state.volume / 100;
+    audioRef.current.volume = (initialVolume ?? state.volume) / 100;
 
     // イベントリスナー設定
     const audio = audioRef.current;

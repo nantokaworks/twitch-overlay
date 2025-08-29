@@ -135,6 +135,7 @@ func StartWebServer(port int) {
 	RegisterMusicRoutes(mux)
 	RegisterMusicControlRoutes(mux)
 	RegisterPlaybackRoutes(mux)
+	RegisterOverlaySettingsRoutes(mux)
 
 	// Settings API endpoints - 最初に登録してAPIが優先されるようにする
 	mux.HandleFunc("/api/settings/v2", corsMiddleware(handleSettingsV2))

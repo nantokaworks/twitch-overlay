@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Settings2, Bluetooth, Wifi, Eye, EyeOff, FileText, Upload, X, RefreshCw, Server, Monitor, Bug, Radio, Sun, Moon, Music } from 'lucide-react';
+import { Settings2, Bluetooth, Wifi, Eye, EyeOff, FileText, Upload, X, RefreshCw, Server, Monitor, Bug, Radio, Sun, Moon, Music, Layers, Play, Pause, SkipForward, SkipBack, Volume2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
@@ -10,8 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Alert, AlertDescription } from './ui/alert';
 import { LogViewer } from './LogViewer';
 import MusicManagerEmbed from './music/MusicManagerEmbed';
-import MusicPlayerControls from './music/MusicPlayerControls';
 import { Tooltip } from './ui/tooltip';
+import { useSettings } from '../contexts/SettingsContext';
 import { 
   FeatureStatus, 
   BluetoothDevice, 
@@ -24,13 +24,26 @@ import {
   AuthStatus,
   StreamStatus
 } from '../types';
+import type { Playlist, Track } from '../types/music';
 import { buildApiUrl, buildEventSourceUrl } from '../utils/api';
 import { toast } from 'sonner';
 import { useTheme } from '../hooks/useTheme';
 
+// タブ状態を保存するキー
+const SETTINGS_TAB_KEY = 'settingsPage.activeTab';
+
 export const SettingsPage: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
-  const [activeTab, setActiveTab] = useState('general');
+  const { settings: overlaySettings, updateSettings: updateOverlaySettings } = useSettings();
+  
+  // localStorageから保存されたタブを取得、なければ'general'
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      return localStorage.getItem(SETTINGS_TAB_KEY) || 'general';
+    } catch {
+      return 'general';
+    }
+  });
   const [settings, setSettings] = useState<Record<string, any>>({});
   const [featureStatus, setFeatureStatus] = useState<FeatureStatus | null>(null);
   const [bluetoothDevices, setBluetoothDevices] = useState<BluetoothDevice[]>([]);
@@ -51,6 +64,24 @@ export const SettingsPage: React.FC = () => {
   const [reconnectingPrinter, setReconnectingPrinter] = useState(false);
   const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
   const [streamStatus, setStreamStatus] = useState<StreamStatus | null>(null);
+  
+  // 音楽プレイヤー制御用の状態
+  const [playlists, setPlaylists] = useState<Playlist[]>([]);
+  const [musicStatus, setMusicStatus] = useState<{
+    is_playing: boolean;
+    current_track?: Track;
+    progress: number;
+    current_time: number;
+    duration: number;
+    volume: number;
+    playlist_name?: string;
+  }>({
+    is_playing: false,
+    progress: 0,
+    current_time: 0,
+    duration: 0,
+    volume: 70
+  });
 
   // デバイスのソート関数
   const sortBluetoothDevices = (devices: BluetoothDevice[]): BluetoothDevice[] => {
@@ -70,6 +101,15 @@ export const SettingsPage: React.FC = () => {
       return a.mac_address.localeCompare(b.mac_address);
     });
   };
+
+  // activeTabが変更されたときにlocalStorageに保存
+  useEffect(() => {
+    try {
+      localStorage.setItem(SETTINGS_TAB_KEY, activeTab);
+    } catch (error) {
+      console.error('Failed to save active tab:', error);
+    }
+  }, [activeTab]);
 
   // 設定データの取得
   useEffect(() => {
@@ -100,6 +140,38 @@ export const SettingsPage: React.FC = () => {
       fetchPrinterStatus();
     }
   }, [featureStatus?.printer_configured]);
+  
+  // プレイリスト一覧を取得
+  useEffect(() => {
+    fetch(buildApiUrl('/api/music/playlists'))
+      .then(res => res.json())
+      .then(data => {
+        setPlaylists(data.playlists || []);
+      })
+      .catch(console.error);
+  }, []);
+  
+  // オーバーレイからの音楽状態を受信
+  useEffect(() => {
+    const eventSource = new EventSource(buildEventSourceUrl('/api/music/status/events'));
+    
+    eventSource.onmessage = (event) => {
+      try {
+        const status = JSON.parse(event.data);
+        setMusicStatus(status);
+      } catch (error) {
+        console.error('Failed to parse music status:', error);
+      }
+    };
+    
+    eventSource.onerror = (error) => {
+      console.error('Music status SSE error:', error);
+    };
+    
+    return () => {
+      eventSource.close();
+    };
+  }, []);
   
   // SSE接続でプリンター状態の変更をリアルタイムで受信
   useEffect(() => {
@@ -171,6 +243,32 @@ export const SettingsPage: React.FC = () => {
       }]);
     }
   }, [settings]);
+
+  // 音楽リモートコントロール関数
+  const sendMusicControlCommand = async (endpoint: string, body?: any) => {
+    try {
+      const options: RequestInit = {
+        method: 'POST'
+      };
+      
+      // Only add headers and body if needed
+      if (body) {
+        options.headers = { 'Content-Type': 'application/json' };
+        options.body = JSON.stringify(body);
+      }
+      
+      await fetch(buildApiUrl(`/api/music/control/${endpoint}`), options);
+    } catch (error) {
+      console.error(`Failed to send ${endpoint} command:`, error);
+    }
+  };
+
+  // 時間フォーマット
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   const fetchAllSettings = async () => {
     try {
@@ -901,7 +999,7 @@ export const SettingsPage: React.FC = () => {
 
         {/* タブコンテンツ */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-7 mb-6 dark:bg-gray-800 dark:border-gray-700">
+          <TabsList className="grid w-full grid-cols-8 mb-6 dark:bg-gray-800 dark:border-gray-700">
             <TabsTrigger value="general" className="flex items-center space-x-2">
               <Settings2 className="w-4 h-4" />
               <span>一般</span>
@@ -917,6 +1015,10 @@ export const SettingsPage: React.FC = () => {
             <TabsTrigger value="music" className="flex items-center space-x-2">
               <Music className="w-4 h-4" />
               <span>音楽</span>
+            </TabsTrigger>
+            <TabsTrigger value="overlay" className="flex items-center space-x-2">
+              <Layers className="w-4 h-4" />
+              <span>オーバーレイ</span>
             </TabsTrigger>
             <TabsTrigger value="logs" className="flex items-center space-x-2">
               <FileText className="w-4 h-4" />
@@ -1013,54 +1115,6 @@ export const SettingsPage: React.FC = () => {
                     checked={getBooleanValue('CLOCK_ENABLED')}
                     onCheckedChange={(checked) => handleSettingChange('CLOCK_ENABLED', checked)}
                   />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* 時計表示設定カード */}
-            <Card>
-              <CardHeader>
-                <CardTitle>時計表示設定</CardTitle>
-                <CardDescription>
-                  時計に表示される数値を設定します（配信ネタ用）
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="clock_weight">体重（kg）</Label>
-                    <Input
-                      id="clock_weight"
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      max="999.9"
-                      placeholder="75.4"
-                      value={getSettingValue('CLOCK_WEIGHT') || '75.4'}
-                      onChange={(e) => handleSettingChange('CLOCK_WEIGHT', e.target.value)}
-                      className="max-w-xs"
-                    />
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      時計に表示する体重（小数点1桁）
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="clock_wallet">さいふ（円）</Label>
-                    <Input
-                      id="clock_wallet"
-                      type="number"
-                      min="0"
-                      max="9999999"
-                      placeholder="10387"
-                      value={getSettingValue('CLOCK_WALLET') || '10387'}
-                      onChange={(e) => handleSettingChange('CLOCK_WALLET', e.target.value)}
-                      className="max-w-xs"
-                    />
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      時計に表示する財布の金額（整数値）
-                    </p>
-                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -1482,19 +1536,6 @@ export const SettingsPage: React.FC = () => {
 
           {/* 音楽タブ */}
           <TabsContent value="music" className="space-y-6">
-            {/* プレイヤーコントロール */}
-            <Card>
-              <CardHeader>
-                <CardTitle>プレイヤーコントロール</CardTitle>
-                <CardDescription>
-                  音楽の再生をコントロールします
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <MusicPlayerControls />
-              </CardContent>
-            </Card>
-            
             {/* 音楽管理 */}
             <Card>
               <CardHeader>
@@ -1507,6 +1548,406 @@ export const SettingsPage: React.FC = () => {
                 <MusicManagerEmbed />
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* オーバーレイタブ */}
+          <TabsContent value="overlay">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {/* 音楽プレイヤー設定 */}
+              <Card>
+              <CardHeader>
+                <CardTitle>音楽プレイヤー</CardTitle>
+                <CardDescription>
+                  画面左下に表示される音楽プレイヤーの設定
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="music-enabled" className="flex flex-col">
+                    <span>プレイヤーを表示</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      音楽プレイヤーの表示/非表示を切り替えます
+                    </span>
+                  </Label>
+                  <Switch
+                    id="music-enabled"
+                    checked={overlaySettings?.music_enabled ?? true}
+                    onCheckedChange={(checked) => 
+                      updateOverlaySettings({ music_enabled: checked })
+                    }
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="music-auto-play" className="flex flex-col">
+                    <span>自動再生</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      ページ読み込み時に自動的に再生を開始します
+                    </span>
+                  </Label>
+                  <Switch
+                    id="music-auto-play"
+                    checked={overlaySettings?.music_auto_play ?? false}
+                    onCheckedChange={(checked) => 
+                      updateOverlaySettings({ music_auto_play: checked })
+                    }
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* 音楽プレイヤーコントロール */}
+            <Card>
+              <CardHeader>
+                <CardTitle>再生コントロール</CardTitle>
+                <CardDescription>
+                  オーバーレイの音楽プレイヤーをリモート操作します
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                  
+                  {/* 現在の曲情報 */}
+                  {musicStatus.current_track ? (
+                    <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        {/* アートワーク */}
+                        <div className="w-12 h-12 flex-shrink-0">
+                          {musicStatus.current_track.has_artwork ? (
+                            <img
+                              src={buildApiUrl(`/api/music/track/${musicStatus.current_track.id}/artwork`)}
+                              alt={musicStatus.current_track.title}
+                              className="w-full h-full object-cover rounded"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gray-200 dark:bg-gray-700 rounded flex items-center justify-center">
+                              <Music className="w-5 h-5 text-gray-400" />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* 曲情報 */}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{musicStatus.current_track.title}</p>
+                          <p className="text-xs text-gray-500 truncate">
+                            {musicStatus.current_track.artist} • {formatTime(musicStatus.current_time)} / {formatTime(musicStatus.duration)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-4 text-center text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <Music className="w-8 h-8 mx-auto mb-1 opacity-50" />
+                      <p className="text-sm">再生中の曲はありません</p>
+                    </div>
+                  )}
+
+                  {/* コントロールボタン */}
+                  <div className="flex items-center justify-center gap-1">
+                    <Button
+                      onClick={() => sendMusicControlCommand('previous')}
+                      size="sm"
+                      variant="outline"
+                      disabled={!musicStatus.current_track}
+                      className="h-9 w-9"
+                    >
+                      <SkipBack className="w-3.5 h-3.5" />
+                    </Button>
+                    
+                    <Button
+                      onClick={() => sendMusicControlCommand(musicStatus.is_playing ? 'pause' : 'play')}
+                      size="sm"
+                      className="h-9 w-9"
+                      disabled={!musicStatus.current_track && !musicStatus.is_playing}
+                    >
+                      {musicStatus.is_playing ? (
+                        <Pause className="w-4 h-4" />
+                      ) : (
+                        <Play className="w-4 h-4 ml-0.5" />
+                      )}
+                    </Button>
+                    
+                    <Button
+                      onClick={() => sendMusicControlCommand('next')}
+                      size="sm"
+                      variant="outline"
+                      disabled={!musicStatus.current_track}
+                      className="h-9 w-9"
+                    >
+                      <SkipForward className="w-3.5 h-3.5" />
+                    </Button>
+                    
+                    <Button
+                      onClick={() => sendMusicControlCommand('stop')}
+                      size="sm"
+                      variant="outline"
+                      className="ml-2 h-9 w-9"
+                      disabled={!musicStatus.current_track}
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+
+                  {/* プログレスバー（表示のみ） */}
+                  {musicStatus.current_track && (
+                    <div className="space-y-1">
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+                        <div
+                          className="bg-blue-500 h-full transition-all duration-200"
+                          style={{ width: `${musicStatus.progress}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-center text-gray-500">
+                        ※ シークはオーバーレイ側で操作してください
+                      </p>
+                    </div>
+                  )}
+
+                  {/* リアルタイムボリューム */}
+                  <div className="flex items-center gap-3">
+                    <Volume2 className="w-4 h-4 text-gray-500" />
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={musicStatus.volume}
+                      onChange={(e) => {
+                        const volume = Number(e.target.value);
+                        sendMusicControlCommand('volume', { volume });
+                        // 設定にも保存
+                        updateOverlaySettings({ music_volume: volume });
+                      }}
+                      className="flex-1"
+                    />
+                    <span className="text-sm text-gray-500 w-10 text-right">
+                      {musicStatus.volume}%
+                    </span>
+                  </div>
+
+                  {/* プレイリスト選択 */}
+                  <div className="space-y-2">
+                    <Label htmlFor="playlist-select">プレイリスト</Label>
+                    <Select
+                      value={musicStatus.playlist_name || 'all'}
+                      onValueChange={(value) => sendMusicControlCommand('load', { playlist: value === 'all' ? undefined : value })}
+                    >
+                      <SelectTrigger id="playlist-select">
+                        <SelectValue placeholder="すべての曲" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">すべての曲</SelectItem>
+                        {playlists.map(playlist => (
+                          <SelectItem key={playlist.id} value={playlist.name}>
+                            {playlist.name} ({playlist.track_count}曲)
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+              </CardContent>
+            </Card>
+
+            {/* FAX表示設定 */}
+            <Card>
+              <CardHeader>
+                <CardTitle>FAX表示</CardTitle>
+                <CardDescription>
+                  FAX受信時のアニメーション設定
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                      <Label htmlFor="fax-enabled" className="flex flex-col">
+                        <span>FAXアニメーションを表示</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          FAX受信時にアニメーションを表示します
+                        </span>
+                      </Label>
+                      <Switch
+                        id="fax-enabled"
+                        checked={overlaySettings?.fax_enabled ?? true}
+                        onCheckedChange={(checked) => 
+                          updateOverlaySettings({ fax_enabled: checked })
+                        }
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="fax-speed">
+                        アニメーション速度: {((overlaySettings?.fax_animation_speed ?? 1.0) * 100).toFixed(0)}%
+                      </Label>
+                      <input
+                        type="range"
+                        id="fax-speed"
+                        min="50"
+                        max="200"
+                        value={(overlaySettings?.fax_animation_speed ?? 1.0) * 100}
+                        onChange={(e) => 
+                          updateOverlaySettings({ fax_animation_speed: parseInt(e.target.value) / 100 })
+                        }
+                        className="w-full"
+                      />
+                    </div>
+              </CardContent>
+            </Card>
+
+            {/* 時計表示設定 */}
+            <Card>
+              <CardHeader>
+                <CardTitle>時計表示</CardTitle>
+                <CardDescription>
+                  画面右上に表示される時計と統計情報の設定
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                      <Label htmlFor="clock-enabled" className="flex flex-col">
+                        <span>時計エリアを表示</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          画面右上の時計エリア全体の表示/非表示
+                        </span>
+                      </Label>
+                      <Switch
+                        id="clock-enabled"
+                        checked={overlaySettings?.clock_enabled ?? true}
+                        onCheckedChange={(checked) => 
+                          updateOverlaySettings({ clock_enabled: checked })
+                        }
+                      />
+                    </div>
+
+                    {/* 時計エリアが有効な場合の個別設定 */}
+                    {(overlaySettings?.clock_enabled ?? true) && (
+                      <div className="space-y-4 pl-4 border-l-2 border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="location-enabled">場所 (Tokyo, JP)</Label>
+                          <Switch
+                            id="location-enabled"
+                            checked={overlaySettings?.location_enabled ?? true}
+                            onCheckedChange={(checked) => 
+                              updateOverlaySettings({ location_enabled: checked })
+                            }
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="date-enabled">日付</Label>
+                          <Switch
+                            id="date-enabled"
+                            checked={overlaySettings?.date_enabled ?? true}
+                            onCheckedChange={(checked) => 
+                              updateOverlaySettings({ date_enabled: checked })
+                            }
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="time-enabled">時刻</Label>
+                          <Switch
+                            id="time-enabled"
+                            checked={overlaySettings?.time_enabled ?? true}
+                            onCheckedChange={(checked) => 
+                              updateOverlaySettings({ time_enabled: checked })
+                            }
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      <Label htmlFor="clock-format">時刻表示形式</Label>
+                      <Select
+                        value={overlaySettings?.clock_format ?? '24h'}
+                        onValueChange={(value: '12h' | '24h') => 
+                          updateOverlaySettings({ clock_format: value })
+                        }
+                      >
+                        <SelectTrigger id="clock-format">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="24h">24時間表記</SelectItem>
+                          <SelectItem value="12h">12時間表記 (AM/PM)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="stats-enabled" className="flex flex-col">
+                        <span>統計情報を表示</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          時計と一緒に統計情報（体重・財布など）を表示します
+                        </span>
+                      </Label>
+                      <Switch
+                        id="stats-enabled"
+                        checked={overlaySettings?.stats_enabled ?? true}
+                        onCheckedChange={(checked) => 
+                          updateOverlaySettings({ stats_enabled: checked })
+                        }
+                      />
+                    </div>
+
+                    {/* 統計情報の値設定 */}
+                    {(overlaySettings?.stats_enabled ?? true) && (
+                      <div className="space-y-4 pl-4 border-l-2 border-gray-200 dark:border-gray-700">
+                        <div className="space-y-2">
+                          <Label htmlFor="clock-weight">体重 (kg)</Label>
+                          <Input
+                            id="clock-weight"
+                            type="number"
+                            step="0.1"
+                            min="0.1"
+                            max="999.9"
+                            value={getSettingValue('CLOCK_WEIGHT') || '75.4'}
+                            onChange={(e) => handleSettingChange('CLOCK_WEIGHT', e.target.value)}
+                            placeholder="75.4"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="clock-wallet">財布 (円)</Label>
+                          <Input
+                            id="clock-wallet"
+                            type="number"
+                            min="0"
+                            max="9999999"
+                            value={getSettingValue('CLOCK_WALLET') || '10387'}
+                            onChange={(e) => handleSettingChange('CLOCK_WALLET', e.target.value)}
+                            placeholder="10387"
+                          />
+                        </div>
+                      </div>
+                    )}
+              </CardContent>
+            </Card>
+
+            {/* デバッグ情報 */}
+            <Card>
+              <CardHeader>
+                <CardTitle>デバッグ情報</CardTitle>
+                <CardDescription>
+                  開発用のデバッグ機能
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="show-debug-info" className="flex flex-col">
+                      <span>デバッグ情報を表示</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        開発用のデバッグ情報を表示します
+                      </span>
+                    </Label>
+                    <Switch
+                      id="show-debug-info"
+                      checked={overlaySettings?.show_debug_info ?? false}
+                      onCheckedChange={(checked) => 
+                        updateOverlaySettings({ show_debug_info: checked })
+                      }
+                    />
+                  </div>
+              </CardContent>
+            </Card>
+            </div>
           </TabsContent>
 
           {/* ログタブ */}

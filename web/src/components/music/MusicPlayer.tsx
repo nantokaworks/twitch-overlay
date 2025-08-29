@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useMusicPlayerContext } from '../../contexts/MusicPlayerContext';
 import { buildApiUrl } from '../../utils/api';
+import { useSettings } from '../../contexts/SettingsContext';
 import MusicArtwork from './MusicArtwork';
 import MusicProgress from './MusicProgress';
 
@@ -9,8 +10,9 @@ interface MusicPlayerProps {
   enabled?: boolean;
 }
 
-const MusicPlayer = ({ playlist, enabled = true }: MusicPlayerProps) => {
+const MusicPlayer = ({ playlist: propPlaylist, enabled: propEnabled }: MusicPlayerProps) => {
   const player = useMusicPlayerContext();
+  const { settings } = useSettings();
   const [debugPanelPosition, setDebugPanelPosition] = useState({ x: window.innerWidth - 200, y: 10 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
@@ -18,6 +20,9 @@ const MusicPlayer = ({ playlist, enabled = true }: MusicPlayerProps) => {
   // デバッグモードの確認
   const isDebug = new URLSearchParams(window.location.search).get('debug') === 'true';
   
+  // Settings からプレイリストと有効状態を取得（propが優先）
+  const enabled = propEnabled ?? (settings?.music_enabled ?? true);
+  const playlist = propPlaylist ?? settings?.music_playlist ?? undefined;
 
   // 初期化時に保存された状態を復元
   useEffect(() => {
