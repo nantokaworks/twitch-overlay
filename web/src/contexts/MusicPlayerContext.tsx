@@ -65,7 +65,7 @@ export const MusicPlayerProvider = ({ children }: { children: React.ReactNode })
     return () => {
       eventSource.close();
     };
-  }, []);
+  }, [player.play, player.pause, player.next, player.previous, player.setVolume, player.loadPlaylist]);
 
   return (
     <MusicPlayerContext.Provider value={player}>

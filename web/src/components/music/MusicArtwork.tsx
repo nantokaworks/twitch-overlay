@@ -1,14 +1,16 @@
 import { CSSProperties, useEffect, useState } from 'react';
 import type { Track } from '../../types/music';
 import { buildApiUrl } from '../../utils/api';
+import MusicVisualizer from './MusicVisualizer';
 
 interface MusicArtworkProps {
   track: Track;
   isPlaying: boolean;
   onPlayPause: () => void;
+  audioElement?: HTMLAudioElement | null;
 }
 
-const MusicArtwork = ({ track, isPlaying, onPlayPause }: MusicArtworkProps) => {
+const MusicArtwork = ({ track, isPlaying, onPlayPause, audioElement }: MusicArtworkProps) => {
   const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
@@ -23,6 +25,12 @@ const MusicArtwork = ({ track, isPlaying, onPlayPause }: MusicArtworkProps) => {
     height: '100px',
     zIndex: 99,
     cursor: 'pointer',
+  };
+  
+  const rotatingContainerStyle: CSSProperties = {
+    position: 'relative',
+    width: '100%',
+    height: '100%',
     animation: isPlaying ? 'rotate 20s linear infinite' : 'none',
   };
 
@@ -86,28 +94,40 @@ const MusicArtwork = ({ track, isPlaying, onPlayPause }: MusicArtworkProps) => {
 
   return (
     <div style={containerStyle} onClick={onPlayPause}>
-      {/* アートワーク（SVGマスク適用） */}
-      <div style={artworkContainerStyle}>
-        {track.has_artwork && !imageError ? (
-          <img
-            src={buildApiUrl(`/api/music/track/${track.id}/artwork`)}
-            alt={`${track.title} artwork`}
-            style={imageStyle}
-            onError={() => setImageError(true)}
-          />
-        ) : (
-          <div style={placeholderStyle}>
-            ♪
-          </div>
-        )}
-      </div>
+      {/* Visualizer（固定位置、回転しない） */}
+      {audioElement && (
+        <MusicVisualizer 
+          audioElement={audioElement} 
+          isPlaying={isPlaying}
+          artworkUrl={track.has_artwork && !imageError ? buildApiUrl(`/api/music/track/${track.id}/artwork`) : undefined}
+        />
+      )}
       
-      {/* ドット絵レコード内側装飾（最上層） */}
-      <img
-        src="/dot_record_inner.svg"
-        alt="Record inner frame"
-        style={innerFrameStyle}
-      />
+      {/* 回転するコンテナ（アートワークとフレーム） */}
+      <div style={rotatingContainerStyle}>
+        {/* アートワーク（SVGマスク適用） */}
+        <div style={artworkContainerStyle}>
+          {track.has_artwork && !imageError ? (
+            <img
+              src={buildApiUrl(`/api/music/track/${track.id}/artwork`)}
+              alt={`${track.title} artwork`}
+              style={imageStyle}
+              onError={() => setImageError(true)}
+            />
+          ) : (
+            <div style={placeholderStyle}>
+              ♪
+            </div>
+          )}
+        </div>
+        
+        {/* ドット絵レコード内側装飾（最上層） */}
+        <img
+          src="/dot_record_inner.svg"
+          alt="Record inner frame"
+          style={innerFrameStyle}
+        />
+      </div>
     </div>
   );
 };

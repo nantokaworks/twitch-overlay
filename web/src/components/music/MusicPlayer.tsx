@@ -171,6 +171,7 @@ const MusicPlayer = ({ playlist, enabled = true }: MusicPlayerProps) => {
             track={player.currentTrack}
             isPlaying={player.isPlaying}
             onPlayPause={() => player.isPlaying ? player.pause() : player.play()}
+            audioElement={player.audioElement}
           />
           
           {/* トラック情報 */}

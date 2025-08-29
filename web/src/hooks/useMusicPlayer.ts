@@ -12,6 +12,7 @@ interface UseMusicPlayerReturn extends MusicPlayerState {
   loadPlaylist: (playlistName?: string) => Promise<void>;
   loadTrack: (track: Track) => void;
   clearHistory: () => void;
+  audioElement: HTMLAudioElement | null;
 }
 
 // localStorage キー
@@ -88,6 +89,7 @@ export const useMusicPlayer = (): UseMusicPlayerReturn => {
   // オーディオ要素の初期化
   useEffect(() => {
     audioRef.current = new Audio();
+    audioRef.current.crossOrigin = 'anonymous'; // CORS対応
     audioRef.current.volume = state.volume / 100;
 
     // イベントリスナー設定
@@ -364,5 +366,6 @@ export const useMusicPlayer = (): UseMusicPlayerReturn => {
     loadPlaylist,
     loadTrack,
     clearHistory,
+    audioElement: audioRef.current,
   };
 };
