@@ -3,10 +3,10 @@ import { buildApiUrl } from '../utils/api';
 import type { FaxData } from '../types';
 
 interface DebugPanelProps {
-  onSendFax: (faxData: FaxData) => void;
+  onSendFax?: (faxData: FaxData) => void;
 }
 
-const DebugPanel = ({ onSendFax }: DebugPanelProps) => {
+const DebugPanel = ({}: DebugPanelProps) => {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [username, setUsername] = useState<string>('DebugUser');
   const [userInput, setUserInput] = useState<string>('');

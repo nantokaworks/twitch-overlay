@@ -60,17 +60,13 @@ const MusicPlayerControls = () => {
   const sendControlCommand = async (endpoint: string, body?: any) => {
     try {
       const options: RequestInit = {
-        method: 'POST',
-        headers: body ? { 'Content-Type': 'application/json' } : undefined,
-        body: body ? JSON.stringify(body) : undefined
+        method: 'POST'
       };
       
-      // Remove undefined headers to avoid exactOptionalPropertyTypes issue
-      if (!options.headers) {
-        delete options.headers;
-      }
-      if (!options.body) {
-        delete options.body;
+      // Only add headers and body if needed
+      if (body) {
+        options.headers = { 'Content-Type': 'application/json' };
+        options.body = JSON.stringify(body);
       }
       
       await fetch(buildApiUrl(`/api/music/control/${endpoint}`), options);

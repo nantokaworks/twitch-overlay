@@ -1,8 +1,8 @@
-import { useEffect, useState, useRef } from 'react';
-import { useMusicPlayer } from '../../hooks/useMusicPlayer';
-import MusicProgress from './MusicProgress';
+import { useEffect, useState } from 'react';
+import { useMusicPlayerContext } from '../../contexts/MusicPlayerContext';
+import { buildApiUrl } from '../../utils/api';
 import MusicArtwork from './MusicArtwork';
-import { buildEventSourceUrl, buildApiUrl } from '../../utils/api';
+import MusicProgress from './MusicProgress';
 
 interface MusicPlayerProps {
   playlist?: string | undefined;
@@ -10,18 +10,14 @@ interface MusicPlayerProps {
 }
 
 const MusicPlayer = ({ playlist, enabled = true }: MusicPlayerProps) => {
-  const player = useMusicPlayer();
-  const playerRef = useRef(player);
-  const [sseStatus, setSseStatus] = useState<'connecting' | 'connected' | 'error' | 'disconnected'>('disconnected');
-  const [lastCommand, setLastCommand] = useState<string>('');
+  const player = useMusicPlayerContext();
+  const [debugPanelPosition, setDebugPanelPosition] = useState({ x: window.innerWidth - 200, y: 10 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   
   // デバッグモードの確認
   const isDebug = new URLSearchParams(window.location.search).get('debug') === 'true';
   
-  // playerの参照を更新
-  useEffect(() => {
-    playerRef.current = player;
-  }, [player]);
 
   // 初期化時に保存された状態を復元
   useEffect(() => {
@@ -60,111 +56,37 @@ const MusicPlayer = ({ playlist, enabled = true }: MusicPlayerProps) => {
   //   }
   // }, [enabled, player.playlist.length]);
   
-  // SSEでリモート制御を受信（オーバーレイ側のみ）
+  // ドラッグハンドラー
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    setDragStart({
+      x: e.clientX - debugPanelPosition.x,
+      y: e.clientY - debugPanelPosition.y
+    });
+  };
+
   useEffect(() => {
-    if (!enabled) return;
-    
-    let reconnectTimer: NodeJS.Timeout;
-    let reconnectCount = 0;
-    const maxReconnectAttempts = 5;
-    
-    const connectSSE = () => {
-      const sseUrl = buildEventSourceUrl('/api/music/control/events');
-      if (reconnectCount === 0) {
-        console.log('🔗 Connecting to music control SSE:', sseUrl);
-        setSseStatus('connecting');
-      }
-      
-      const eventSource = new EventSource(sseUrl);
-      
-      eventSource.onopen = () => {
-        if (reconnectCount > 0) {
-          console.log('✅ Music control SSE reconnected after', reconnectCount, 'attempts');
-        } else {
-          console.log('✅ Music control SSE connection established');
-        }
-        reconnectCount = 0; // リセット
-        setSseStatus('connected');
-      };
-      
-      eventSource.onmessage = (event) => {
-        try {
-          const command = JSON.parse(event.data);
-          console.log('Music control command received in overlay:', command);
-          setLastCommand(`${command.type} (${new Date().toLocaleTimeString()})`);
-        
-        switch (command.type) {
-          case 'play':
-            console.log('🎵 Executing PLAY command');
-            playerRef.current.play();
-            break;
-          case 'pause':
-            console.log('⏸️ Executing PAUSE command');
-            playerRef.current.pause();
-            break;
-          case 'stop':
-            console.log('⏹️ Executing STOP command (same as pause)');
-            playerRef.current.pause();
-            break;
-          case 'next':
-            console.log('⏭️ Executing NEXT command');
-            playerRef.current.next();
-            break;
-          case 'previous':
-            console.log('⏮️ Executing PREVIOUS command');
-            playerRef.current.previous();
-            break;
-          case 'volume':
-            if (typeof command.value === 'number') {
-              console.log(`🔊 Executing VOLUME command: ${command.value}%`);
-              playerRef.current.setVolume(command.value);
-            }
-            break;
-          case 'load_playlist':
-            if (command.playlist !== undefined) {
-              console.log(`📂 Executing LOAD_PLAYLIST command: ${command.playlist || 'All tracks'}`);
-              playerRef.current.loadPlaylist(command.playlist || undefined);
-            }
-            break;
-          default:
-            console.warn(`❌ Unknown music command type: ${command.type}`);
-        }
-      } catch (error) {
-        console.error('Failed to process music control command in overlay:', error);
-      }
+    if (!isDragging) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      setDebugPanelPosition({
+        x: e.clientX - dragStart.x,
+        y: e.clientY - dragStart.y
+      });
     };
-    
-      eventSource.onerror = (error) => {
-        setSseStatus('error');
-        if (reconnectCount < maxReconnectAttempts) {
-          reconnectCount++;
-          const delay = Math.min(1000 * Math.pow(2, reconnectCount - 1), 10000); // 指数バックオフ（最大10秒）
-          
-          console.warn(`⚠️ Music control SSE error (attempt ${reconnectCount}/${maxReconnectAttempts}), reconnecting in ${delay}ms`);
-          
-          eventSource.close();
-          setSseStatus('connecting');
-          reconnectTimer = setTimeout(connectSSE, delay);
-        } else {
-          console.error('❌ Music control SSE failed after max attempts:', error);
-          console.log('SSE readyState:', eventSource.readyState);
-        }
-      };
-      
-      return eventSource;
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
     };
-    
-    const eventSource = connectSSE();
-    
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
     return () => {
-      console.log('🔌 Closing music control SSE connection');
-      setSseStatus('disconnected');
-      if (reconnectTimer) {
-        clearTimeout(reconnectTimer);
-      }
-      eventSource?.close();
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [enabled]); // playerを依存から削除して無限ループを防ぐ
+  }, [isDragging, dragStart]);
   
   // 音楽状態をサーバーに送信
   useEffect(() => {
@@ -206,35 +128,16 @@ const MusicPlayer = ({ playlist, enabled = true }: MusicPlayerProps) => {
 
   if (!enabled) return null;
 
-  const getStatusColor = (status: typeof sseStatus) => {
-    switch (status) {
-      case 'connected': return '#10b981'; // green
-      case 'connecting': return '#f59e0b'; // yellow  
-      case 'error': return '#ef4444'; // red
-      case 'disconnected': return '#6b7280'; // gray
-      default: return '#6b7280';
-    }
-  };
-
-  const getStatusText = (status: typeof sseStatus) => {
-    switch (status) {
-      case 'connected': return '接続中';
-      case 'connecting': return '接続中...';
-      case 'error': return 'エラー';
-      case 'disconnected': return '切断';
-      default: return '不明';
-    }
-  };
-
   return (
     <>
-      {/* デバッグ情報 - 右上 */}
+      {/* デバッグ情報 - ドラッグ可能 */}
       {isDebug && (
         <div
+          onMouseDown={handleMouseDown}
           style={{
             position: 'fixed',
-            top: '10px',
-            right: '10px',
+            top: `${debugPanelPosition.y}px`,
+            left: `${debugPanelPosition.x}px`,
             zIndex: 100,
             backgroundColor: 'rgba(0,0,0,0.8)',
             color: 'white',
@@ -242,12 +145,16 @@ const MusicPlayer = ({ playlist, enabled = true }: MusicPlayerProps) => {
             borderRadius: '6px',
             fontSize: '12px',
             fontFamily: 'monospace',
-            border: `2px solid ${getStatusColor(sseStatus)}`,
+            border: '2px solid #10b981',
+            cursor: isDragging ? 'grabbing' : 'grab',
+            userSelect: 'none',
+            opacity: isDragging ? 0.8 : 1,
+            transition: isDragging ? 'none' : 'opacity 0.2s',
           }}
         >
-          <div>SSE: <span style={{ color: getStatusColor(sseStatus) }}>{getStatusText(sseStatus)}</span></div>
-          {lastCommand && <div>Last: {lastCommand}</div>}
           <div>Playing: {player.isPlaying ? '▶️' : '⏸️'}</div>
+          <div>Track: {player.currentTrack?.title || 'None'}</div>
+          <div>Volume: {player.volume}%</div>
         </div>
       )}
       
@@ -271,8 +178,8 @@ const MusicPlayer = ({ playlist, enabled = true }: MusicPlayerProps) => {
             className="text-outline"
             style={{
               position: 'fixed',
-              bottom: '10px',
-              left: '130px',
+              bottom: '26px',
+              left: '140px',
               zIndex: 99,
               color: 'white',
               fontSize: '24px',
@@ -281,7 +188,7 @@ const MusicPlayer = ({ playlist, enabled = true }: MusicPlayerProps) => {
             <div style={{ fontWeight: 'bold' }}>
               {player.currentTrack.title}
             </div>
-            <div style={{ fontSize: '18px' }}>
+            <div style={{ fontSize: '12px', marginTop: '10px' }}>
               {player.currentTrack.artist}
             </div>
           </div>

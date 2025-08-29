@@ -1,6 +1,6 @@
-import { CSSProperties, useState, useEffect } from 'react';
-import { buildApiUrl } from '../../utils/api';
+import { CSSProperties, useEffect, useState } from 'react';
 import type { Track } from '../../types/music';
+import { buildApiUrl } from '../../utils/api';
 
 interface MusicArtworkProps {
   track: Track;
@@ -26,25 +26,21 @@ const MusicArtwork = ({ track, isPlaying, onPlayPause }: MusicArtworkProps) => {
     animation: isPlaying ? 'rotate 20s linear infinite' : 'none',
   };
 
-  const backgroundStyle: CSSProperties = {
+  const artworkContainerStyle: CSSProperties = {
     position: 'absolute',
     width: '100%',
     height: '100%',
-    imageRendering: 'pixelated',
-    zIndex: 1,
-  };
-
-  const artworkContainerStyle: CSSProperties = {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: 'translate(-50%, -50%)',
-    width: '92px',
-    height: '92px',
-    borderRadius: '50%',
     overflow: 'hidden',
     backgroundColor: '#282828',
-    zIndex: 2,
+    maskImage: 'url(/dot_record_mask.svg)',
+    maskSize: '100% 100%',
+    maskRepeat: 'no-repeat',
+    maskPosition: 'center',
+    WebkitMaskImage: 'url(/dot_record_mask.svg)',
+    WebkitMaskSize: '100% 100%',
+    WebkitMaskRepeat: 'no-repeat',
+    WebkitMaskPosition: 'center',
+    zIndex: 1,
   };
 
   const innerFrameStyle: CSSProperties = {
@@ -52,7 +48,7 @@ const MusicArtwork = ({ track, isPlaying, onPlayPause }: MusicArtworkProps) => {
     width: '100%',
     height: '100%',
     imageRendering: 'pixelated',
-    zIndex: 3,
+    zIndex: 2,
     pointerEvents: 'none', // クリックイベントを透過
   };
 
@@ -90,14 +86,7 @@ const MusicArtwork = ({ track, isPlaying, onPlayPause }: MusicArtworkProps) => {
 
   return (
     <div style={containerStyle} onClick={onPlayPause}>
-      {/* ドット絵レコード背景（最下層） */}
-      <img
-        src="/dot_record.svg"
-        alt="Record frame"
-        style={backgroundStyle}
-      />
-      
-      {/* アートワーク（中間層） */}
+      {/* アートワーク（SVGマスク適用） */}
       <div style={artworkContainerStyle}>
         {track.has_artwork && !imageError ? (
           <img
