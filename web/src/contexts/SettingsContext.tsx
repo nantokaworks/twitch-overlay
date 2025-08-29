@@ -19,9 +19,6 @@ interface OverlaySettings {
   time_enabled: boolean;
   stats_enabled: boolean;
   
-  // その他の表示設定
-  show_debug_info: boolean;
-  
   updated_at: string;
 }
 

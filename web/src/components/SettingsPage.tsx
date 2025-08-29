@@ -1867,11 +1867,23 @@ export const SettingsPage: React.FC = () => {
                       </Select>
                     </div>
 
+              </CardContent>
+            </Card>
+
+            {/* 統計情報 */}
+            <Card>
+              <CardHeader>
+                <CardTitle>統計情報</CardTitle>
+                <CardDescription>
+                  時計エリアに表示される統計情報の設定
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
                     <div className="flex items-center justify-between">
                       <Label htmlFor="stats-enabled" className="flex flex-col">
                         <span>統計情報を表示</span>
                         <span className="text-xs text-gray-500 dark:text-gray-400">
-                          時計と一緒に統計情報（体重・財布など）を表示します
+                          体重・財布などの情報を表示します
                         </span>
                       </Label>
                       <Switch
@@ -1885,7 +1897,7 @@ export const SettingsPage: React.FC = () => {
 
                     {/* 統計情報の値設定 */}
                     {(overlaySettings?.stats_enabled ?? true) && (
-                      <div className="space-y-4 pl-4 border-l-2 border-gray-200 dark:border-gray-700">
+                      <div className="space-y-4">
                         <div className="space-y-2">
                           <Label htmlFor="clock-weight">体重 (kg)</Label>
                           <Input
@@ -1897,6 +1909,7 @@ export const SettingsPage: React.FC = () => {
                             value={getSettingValue('CLOCK_WEIGHT') || '75.4'}
                             onChange={(e) => handleSettingChange('CLOCK_WEIGHT', e.target.value)}
                             placeholder="75.4"
+                            className="max-w-xs"
                           />
                         </div>
 
@@ -1910,37 +1923,11 @@ export const SettingsPage: React.FC = () => {
                             value={getSettingValue('CLOCK_WALLET') || '10387'}
                             onChange={(e) => handleSettingChange('CLOCK_WALLET', e.target.value)}
                             placeholder="10387"
+                            className="max-w-xs"
                           />
                         </div>
                       </div>
                     )}
-              </CardContent>
-            </Card>
-
-            {/* デバッグ情報 */}
-            <Card>
-              <CardHeader>
-                <CardTitle>デバッグ情報</CardTitle>
-                <CardDescription>
-                  開発用のデバッグ機能
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="show-debug-info" className="flex flex-col">
-                      <span>デバッグ情報を表示</span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                        開発用のデバッグ情報を表示します
-                      </span>
-                    </Label>
-                    <Switch
-                      id="show-debug-info"
-                      checked={overlaySettings?.show_debug_info ?? false}
-                      onCheckedChange={(checked) => 
-                        updateOverlaySettings({ show_debug_info: checked })
-                      }
-                    />
-                  </div>
               </CardContent>
             </Card>
             </div>

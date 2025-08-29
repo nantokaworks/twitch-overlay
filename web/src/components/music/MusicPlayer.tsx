@@ -13,7 +13,7 @@ interface MusicPlayerProps {
 const MusicPlayer = ({ playlist: propPlaylist }: MusicPlayerProps) => {
   const player = useMusicPlayerContext();
   const { settings } = useSettings();
-  const [debugPanelPosition, setDebugPanelPosition] = useState({ x: window.innerWidth - 200, y: 10 });
+  const [debugPanelPosition, setDebugPanelPosition] = useState({ x: 10, y: window.innerHeight / 2 - 50 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [animationState, setAnimationState] = useState<'entering' | 'idle' | 'exiting'>('idle');
