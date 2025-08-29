@@ -115,10 +115,13 @@ export const useMusicPlayer = (initialVolume?: number): UseMusicPlayerReturn => 
     };
 
     const handleEnded = () => {
-      // 自動的に次の曲へ（refを通じて呼び出し）
-      if (handleNextRef.current) {
-        handleNextRef.current();
-      }
+      // 2秒のインターバルを設けてから次の曲へ
+      setState(prev => ({ ...prev, isPlaying: false }));
+      setTimeout(() => {
+        if (handleNextRef.current) {
+          handleNextRef.current();
+        }
+      }, 2000);
     };
 
     const handleLoadedMetadata = () => {
@@ -231,17 +234,28 @@ export const useMusicPlayer = (initialVolume?: number): UseMusicPlayerReturn => 
 
   // 次の曲
   const handleNext = useCallback(() => {
-    const nextTrack = getNextRandomTrack();
-    if (nextTrack) {
-      // 現在のトラックを履歴に追加
-      if (state.currentTrack) {
-        setState(prev => ({
-          ...prev,
-          playHistory: [...prev.playHistory, state.currentTrack!.id],
-        }));
-      }
-      loadTrack(nextTrack);
+    // 一旦停止して少し待つ
+    if (audioRef.current) {
+      audioRef.current.pause();
     }
+    setState(prev => ({ ...prev, isPlaying: false }));
+    
+    setTimeout(() => {
+      const nextTrack = getNextRandomTrack();
+      if (nextTrack) {
+        // 現在のトラックを履歴に追加
+        if (state.currentTrack) {
+          setState(prev => ({
+            ...prev,
+            playHistory: [...prev.playHistory, state.currentTrack!.id],
+            isPlaying: true,
+          }));
+        } else {
+          setState(prev => ({ ...prev, isPlaying: true }));
+        }
+        loadTrack(nextTrack);
+      }
+    }, 500); // next/prevボタンは少し短めのインターバル
   }, [getNextRandomTrack, loadTrack, state.currentTrack]);
   
   // handleNextの参照を更新
@@ -251,17 +265,26 @@ export const useMusicPlayer = (initialVolume?: number): UseMusicPlayerReturn => 
 
   // 前の曲（履歴から）
   const previous = useCallback(() => {
-    if (state.playHistory.length > 0) {
-      const lastTrackId = state.playHistory[state.playHistory.length - 1];
-      const track = state.playlist.find(t => t.id === lastTrackId);
-      if (track) {
-        setState(prev => ({
-          ...prev,
-          playHistory: prev.playHistory.slice(0, -1),
-        }));
-        loadTrack(track);
-      }
+    // 一旦停止して少し待つ
+    if (audioRef.current) {
+      audioRef.current.pause();
     }
+    setState(prev => ({ ...prev, isPlaying: false }));
+    
+    setTimeout(() => {
+      if (state.playHistory.length > 0) {
+        const lastTrackId = state.playHistory[state.playHistory.length - 1];
+        const track = state.playlist.find(t => t.id === lastTrackId);
+        if (track) {
+          setState(prev => ({
+            ...prev,
+            playHistory: prev.playHistory.slice(0, -1),
+            isPlaying: true,
+          }));
+          loadTrack(track);
+        }
+      }
+    }, 500); // next/prevボタンは少し短めのインターバル
   }, [state.playHistory, state.playlist, loadTrack]);
 
   // シーク

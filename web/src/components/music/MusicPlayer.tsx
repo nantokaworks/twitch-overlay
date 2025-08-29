@@ -19,6 +19,9 @@ const MusicPlayer = ({ playlist: propPlaylist, enabled: propEnabled }: MusicPlay
   const [animationState, setAnimationState] = useState<'entering' | 'idle' | 'exiting'>('idle');
   const [displayTrack, setDisplayTrack] = useState<typeof player.currentTrack>(null);
   const prevTrackIdRef = useRef<string | null>(null);
+  const rotationRef = useRef<number>(0);
+  const [rotation, setRotation] = useState<number>(0);
+  const animationFrameRef = useRef<number>();
   
   // デバッグモードの確認
   const isDebug = new URLSearchParams(window.location.search).get('debug') === 'true';
@@ -168,6 +171,31 @@ const MusicPlayer = ({ playlist: propPlaylist, enabled: propEnabled }: MusicPlay
     };
   }, [enabled, player.isPlaying, player.currentTrack?.id, player.progress, player.volume, player.playlistName, buildApiUrl]);
 
+  // 回転アニメーションの管理
+  useEffect(() => {
+    let lastTime = performance.now();
+    
+    const updateRotation = (currentTime: number) => {
+      if (player.isPlaying) {
+        const deltaTime = currentTime - lastTime;
+        // 20秒で360度 = 18度/秒
+        const degreesPerMs = 360 / 20000;
+        rotationRef.current = (rotationRef.current + deltaTime * degreesPerMs) % 360;
+        setRotation(rotationRef.current);
+      }
+      lastTime = currentTime;
+      animationFrameRef.current = requestAnimationFrame(updateRotation);
+    };
+    
+    animationFrameRef.current = requestAnimationFrame(updateRotation);
+    
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [player.isPlaying]);
+
   if (!enabled) return null;
 
   return (
@@ -223,6 +251,7 @@ const MusicPlayer = ({ playlist: propPlaylist, enabled: propEnabled }: MusicPlay
             isPlaying={player.isPlaying}
             onPlayPause={() => player.isPlaying ? player.pause() : player.play()}
             audioElement={player.audioElement}
+            rotation={rotation}
           />
           
           {/* トラック情報 */}

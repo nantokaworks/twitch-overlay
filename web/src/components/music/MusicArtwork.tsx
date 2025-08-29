@@ -8,9 +8,10 @@ interface MusicArtworkProps {
   isPlaying: boolean;
   onPlayPause: () => void;
   audioElement?: HTMLAudioElement | null;
+  rotation?: number;
 }
 
-const MusicArtwork = ({ track, isPlaying, onPlayPause, audioElement }: MusicArtworkProps) => {
+const MusicArtwork = ({ track, isPlaying, onPlayPause, audioElement, rotation = 0 }: MusicArtworkProps) => {
   const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
@@ -31,7 +32,7 @@ const MusicArtwork = ({ track, isPlaying, onPlayPause, audioElement }: MusicArtw
     position: 'relative',
     width: '100%',
     height: '100%',
-    animation: isPlaying ? 'rotate 20s linear infinite' : 'none',
+    transform: `rotate(${rotation}deg)`,
   };
 
   const artworkContainerStyle: CSSProperties = {
@@ -77,20 +78,6 @@ const MusicArtwork = ({ track, isPlaying, onPlayPause, audioElement }: MusicArtw
     fontSize: '40px',
   };
 
-  // CSSアニメーション定義
-  useEffect(() => {
-    const style = document.createElement('style');
-    style.textContent = `
-      @keyframes rotate {
-        from { transform: rotate(0deg); }
-        to { transform: rotate(360deg); }
-      }
-    `;
-    document.head.appendChild(style);
-    return () => {
-      document.head.removeChild(style);
-    };
-  }, []);
 
   return (
     <div style={containerStyle} onClick={onPlayPause}>
