@@ -55,6 +55,22 @@ func SetupDB(dbPath string) (*sql.DB, error) {
 	db.Exec(`ALTER TABLE settings ADD COLUMN is_required BOOLEAN NOT NULL DEFAULT false`)
 	db.Exec(`ALTER TABLE settings ADD COLUMN description TEXT`)
 
+	// playback_stateテーブルを追加
+	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS playback_state (
+		id INTEGER PRIMARY KEY,
+		track_id TEXT NOT NULL,
+		position REAL NOT NULL DEFAULT 0,
+		duration REAL NOT NULL DEFAULT 0,
+		playback_status TEXT NOT NULL DEFAULT 'stopped',
+		is_playing BOOLEAN NOT NULL DEFAULT false,
+		volume INTEGER NOT NULL DEFAULT 70,
+		playlist_name TEXT,
+		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+	)`)
+	if err != nil {
+		return nil, err
+	}
+
 	return db, nil
 }
 
