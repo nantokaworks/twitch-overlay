@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Settings2, Bluetooth, Wifi, Eye, EyeOff, FileText, Upload, X, RefreshCw, Server, Monitor, Bug, Radio, Sun, Moon, Music, Layers, Play, Pause, SkipForward, SkipBack, Volume2 } from 'lucide-react';
+import { Settings2, Bluetooth, Wifi, Eye, EyeOff, FileText, Upload, X, RefreshCw, Server, Monitor, Bug, Radio, Sun, Moon, Music, Layers, Play, Pause, SkipForward, SkipBack, Volume2, Square } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
@@ -1571,50 +1571,7 @@ export const SettingsPage: React.FC = () => {
 
           {/* オーバーレイタブ */}
           <TabsContent value="overlay">
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-              {/* 音楽プレイヤー設定 */}
-              <Card>
-              <CardHeader>
-                <CardTitle>音楽プレイヤー</CardTitle>
-                <CardDescription>
-                  画面左下に表示される音楽プレイヤーの設定
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="music-enabled" className="flex flex-col">
-                    <span>プレイヤーを表示</span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      音楽プレイヤーの表示/非表示を切り替えます
-                    </span>
-                  </Label>
-                  <Switch
-                    id="music-enabled"
-                    checked={overlaySettings?.music_enabled ?? true}
-                    onCheckedChange={(checked) => 
-                      updateOverlaySettings({ music_enabled: checked })
-                    }
-                  />
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="music-auto-play" className="flex flex-col">
-                    <span>自動再生</span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      ページ読み込み時に自動的に再生を開始します
-                    </span>
-                  </Label>
-                  <Switch
-                    id="music-auto-play"
-                    checked={overlaySettings?.music_auto_play ?? false}
-                    onCheckedChange={(checked) => 
-                      updateOverlaySettings({ music_auto_play: checked })
-                    }
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* 音楽プレイヤーコントロール */}
             <Card>
               <CardHeader>
@@ -1676,7 +1633,7 @@ export const SettingsPage: React.FC = () => {
                       onClick={() => sendMusicControlCommand(musicStatus.is_playing ? 'pause' : 'play')}
                       size="sm"
                       className="h-9 w-9"
-                      disabled={!musicStatus.current_track && !musicStatus.is_playing}
+                      disabled={false}
                     >
                       {musicStatus.is_playing ? (
                         <Pause className="w-4 h-4" />
@@ -1701,8 +1658,9 @@ export const SettingsPage: React.FC = () => {
                       variant="outline"
                       className="ml-2 h-9 w-9"
                       disabled={!musicStatus.current_track}
+                      title="停止"
                     >
-                      <X className="w-3.5 h-3.5" />
+                      <Square className="w-3.5 h-3.5" />
                     </Button>
                   </div>
 

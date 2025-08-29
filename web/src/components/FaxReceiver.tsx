@@ -35,7 +35,6 @@ const FaxReceiver = () => {
   
   // 設定から表示状態を取得（設定がない場合はデフォルト値）
   const showFax = settings?.fax_enabled ?? true;
-  const showMusic = settings?.music_enabled ?? true;
   const showClock = settings?.clock_enabled ?? true;
   const playlistName = settings?.music_playlist || undefined;
   
@@ -222,7 +221,6 @@ const FaxReceiver = () => {
 
       {/* 音楽プレイヤー */}
       <MusicPlayer 
-        enabled={showMusic}
         playlist={playlistName || undefined}
       />
     </div>

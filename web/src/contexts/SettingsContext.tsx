@@ -3,10 +3,8 @@ import { buildApiUrl } from '../utils/api';
 
 interface OverlaySettings {
   // 音楽プレイヤー設定
-  music_enabled: boolean;
   music_playlist: string | null;
   music_volume: number;
-  music_auto_play: boolean;
   
   // FAX表示設定
   fax_enabled: boolean;

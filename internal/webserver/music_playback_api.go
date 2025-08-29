@@ -13,13 +13,14 @@ import (
 
 // PlaybackState represents the current playback state
 type PlaybackState struct {
-	TrackID      string    `json:"track_id"`
-	Position     float64   `json:"position"`      // 秒
-	Duration     float64   `json:"duration"`      
-	IsPlaying    bool      `json:"is_playing"`
-	Volume       int       `json:"volume"`
-	PlaylistName *string   `json:"playlist_name"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	TrackID        string    `json:"track_id"`
+	Position       float64   `json:"position"`      // 秒
+	Duration       float64   `json:"duration"`      
+	PlaybackStatus string    `json:"playback_status,omitempty"` // playing, paused, stopped
+	IsPlaying      bool      `json:"is_playing"`    // 互換性のため残す
+	Volume         int       `json:"volume"`
+	PlaylistName   *string   `json:"playlist_name"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 var (
@@ -79,6 +80,7 @@ func handlePlaybackStateUpdate(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("Updated playback state",
 		zap.String("track_id", state.TrackID),
 		zap.Float64("position", state.Position),
+		zap.String("playback_status", state.PlaybackStatus),
 		zap.Bool("is_playing", state.IsPlaying))
 
 	w.WriteHeader(http.StatusOK)

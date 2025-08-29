@@ -7,6 +7,7 @@ import type { Track, MusicPlayerState } from '../types/music';
 interface MusicPlayerContextValue extends MusicPlayerState {
   play: () => void;
   pause: () => void;
+  stop: () => void;
   next: () => void;
   previous: () => void;
   seek: (time: number) => void;
@@ -14,6 +15,7 @@ interface MusicPlayerContextValue extends MusicPlayerState {
   loadPlaylist: (playlistName?: string) => Promise<void>;
   loadTrack: (track: Track) => void;
   clearHistory: () => void;
+  audioElement: HTMLAudioElement | null;
 }
 
 const MusicPlayerContext = createContext<MusicPlayerContextValue | null>(null);
@@ -37,6 +39,9 @@ export const MusicPlayerProvider = ({ children }: { children: React.ReactNode })
             break;
           case 'pause':
             player.pause();
+            break;
+          case 'stop':
+            player.stop();
             break;
           case 'next':
             player.next();
@@ -72,7 +77,7 @@ export const MusicPlayerProvider = ({ children }: { children: React.ReactNode })
     return () => {
       eventSource.close();
     };
-  }, [player.play, player.pause, player.next, player.previous, player.setVolume, player.loadPlaylist]);
+  }, [player.play, player.pause, player.stop, player.next, player.previous, player.setVolume, player.loadPlaylist]);
 
   return (
     <MusicPlayerContext.Provider value={player}>

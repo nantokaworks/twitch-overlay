@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Button } from '../ui/button';
-import { Play, Pause, SkipForward, SkipBack, Volume2, Music } from 'lucide-react';
+import { Play, Pause, Square, SkipForward, SkipBack, Volume2, Music } from 'lucide-react';
 import { buildApiUrl, buildEventSourceUrl } from '../../utils/api';
 import type { Playlist, Track } from '../../types/music';
 
 interface MusicStatus {
-  is_playing: boolean;
+  playback_status?: 'playing' | 'paused' | 'stopped';
+  is_playing: boolean; // 互換性のため残す
   current_track?: Track;
   progress: number;
   current_time: number;
@@ -17,6 +18,7 @@ interface MusicStatus {
 const MusicPlayerControls = () => {
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [musicStatus, setMusicStatus] = useState<MusicStatus>({
+    playback_status: 'stopped',
     is_playing: false,
     progress: 0,
     current_time: 0,
@@ -41,6 +43,10 @@ const MusicPlayerControls = () => {
     eventSource.onmessage = (event) => {
       try {
         const status = JSON.parse(event.data);
+        // playback_statusがない場合はis_playingから推測
+        if (!status.playback_status) {
+          status.playback_status = status.is_playing ? 'playing' : (status.current_track ? 'paused' : 'stopped');
+        }
         setMusicStatus(status);
       } catch (error) {
         console.error('Failed to parse music status:', error);
@@ -82,6 +88,11 @@ const MusicPlayerControls = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // 現在の再生状態を取得（playback_statusを優先）
+  const playbackStatus = musicStatus.playback_status || 
+    (musicStatus.is_playing ? 'playing' : 
+     musicStatus.current_track ? 'paused' : 'stopped');
+
   return (
     <div className="space-y-6">
       {/* 現在の曲情報 */}
@@ -117,7 +128,7 @@ const MusicPlayerControls = () => {
       ) : (
         <div className="p-8 text-center text-gray-500 dark:text-gray-400">
           <Music className="w-12 h-12 mx-auto mb-3 opacity-50" />
-          <p>再生中の曲はありません</p>
+          <p>{playbackStatus === 'stopped' ? '停止中' : '再生中の曲はありません'}</p>
         </div>
       )}
 
@@ -132,11 +143,11 @@ const MusicPlayerControls = () => {
         </Button>
         
         <Button
-          onClick={() => sendControlCommand(musicStatus.is_playing ? 'pause' : 'play')}
+          onClick={() => sendControlCommand(playbackStatus === 'playing' ? 'pause' : 'play')}
           size="icon"
           className="w-12 h-12"
         >
-          {musicStatus.is_playing ? (
+          {playbackStatus === 'playing' ? (
             <Pause className="w-5 h-5" />
           ) : (
             <Play className="w-5 h-5 ml-0.5" />
@@ -149,6 +160,15 @@ const MusicPlayerControls = () => {
           variant="outline"
         >
           <SkipForward className="w-4 h-4" />
+        </Button>
+        
+        <Button
+          onClick={() => sendControlCommand('stop')}
+          size="icon"
+          variant="outline"
+          title="停止"
+        >
+          <Square className="w-4 h-4" />
         </Button>
       </div>
 
@@ -205,7 +225,8 @@ const MusicPlayerControls = () => {
         <div>
           <span className="text-gray-500">ステータス:</span>
           <span className="ml-2 font-medium">
-            {musicStatus.is_playing ? 'Playing' : 'Paused'}
+            {playbackStatus === 'playing' ? '再生中' : 
+             playbackStatus === 'paused' ? '一時停止' : '停止'}
           </span>
         </div>
         <div>

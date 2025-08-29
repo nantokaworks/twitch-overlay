@@ -17,13 +17,14 @@ type MusicControlCommand struct {
 }
 
 type MusicStatusUpdate struct {
-	IsPlaying    bool    `json:"is_playing"`
-	CurrentTrack *Track  `json:"current_track,omitempty"`
-	Progress     float64 `json:"progress"`
-	CurrentTime  float64 `json:"current_time"`
-	Duration     float64 `json:"duration"`
-	Volume       int     `json:"volume"`
-	PlaylistName *string `json:"playlist_name,omitempty"`
+	PlaybackStatus string  `json:"playback_status,omitempty"` // playing, paused, stopped
+	IsPlaying      bool    `json:"is_playing"` // 互換性のため残す
+	CurrentTrack   *Track  `json:"current_track,omitempty"`
+	Progress       float64 `json:"progress"`
+	CurrentTime    float64 `json:"current_time"`
+	Duration       float64 `json:"duration"`
+	Volume         int     `json:"volume"`
+	PlaylistName   *string `json:"playlist_name,omitempty"`
 }
 
 type Track struct {

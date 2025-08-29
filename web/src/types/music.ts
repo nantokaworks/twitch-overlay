@@ -21,8 +21,11 @@ export interface PlaylistTrack extends Track {
   position: number;
 }
 
+export type PlaybackStatus = 'playing' | 'paused' | 'stopped';
+
 export interface MusicPlayerState {
-  isPlaying: boolean;
+  playbackStatus: PlaybackStatus;
+  isPlaying: boolean; // 互換性のため残す（playbackStatus === 'playing'と同じ）
   currentTrack: Track | null;
   playlist: Track[];
   playlistName: string | null;

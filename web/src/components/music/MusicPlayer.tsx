@@ -8,10 +8,9 @@ import MusicProgress from './MusicProgress';
 
 interface MusicPlayerProps {
   playlist?: string | undefined;
-  enabled?: boolean;
 }
 
-const MusicPlayer = ({ playlist: propPlaylist, enabled: propEnabled }: MusicPlayerProps) => {
+const MusicPlayer = ({ playlist: propPlaylist }: MusicPlayerProps) => {
   const player = useMusicPlayerContext();
   const { settings } = useSettings();
   const [debugPanelPosition, setDebugPanelPosition] = useState({ x: window.innerWidth - 200, y: 10 });
@@ -22,15 +21,17 @@ const MusicPlayer = ({ playlist: propPlaylist, enabled: propEnabled }: MusicPlay
   const prevTrackIdRef = useRef<string | null>(null);
   const rotationRef = useRef<number>(0);
   const [rotation, setRotation] = useState<number>(0);
-  const animationFrameRef = useRef<number>();
+  const animationFrameRef = useRef<number | undefined>(undefined);
   const [showTypewriter, setShowTypewriter] = useState(false);
   
   // デバッグモードの確認
   const isDebug = new URLSearchParams(window.location.search).get('debug') === 'true';
   
-  // Settings からプレイリストと有効状態を取得（propが優先）
-  const enabled = propEnabled ?? (settings?.music_enabled ?? true);
+  // Settings からプレイリストを取得（propが優先）
   const playlist = propPlaylist ?? settings?.music_playlist ?? undefined;
+  
+  // 停止状態の場合はプレイヤーを非表示にする
+  const shouldShowPlayer = player.playbackStatus !== 'stopped';
 
   // トラック変更時のアニメーション制御
   useEffect(() => {
@@ -72,7 +73,7 @@ const MusicPlayer = ({ playlist: propPlaylist, enabled: propEnabled }: MusicPlay
   
   // 初期化時に保存された状態を復元
   useEffect(() => {
-    if (enabled && !playlist) {
+    if (!playlist) {
       // URLパラメータでプレイリストが指定されていない場合、保存されたプレイリストを復元
       const savedPlaylistName = localStorage.getItem('musicPlayer.playlistName');
       if (savedPlaylistName) {
@@ -83,15 +84,15 @@ const MusicPlayer = ({ playlist: propPlaylist, enabled: propEnabled }: MusicPlay
         // 初回起動時はすべてのトラックを読み込む
         player.loadPlaylist(undefined);
       }
-    } else if (enabled && playlist) {
+    } else if (playlist) {
       // URLパラメータで指定されている場合はそれを優先
       player.loadPlaylist(playlist);
     }
-  }, [enabled]); // 初回のみ実行
+  }, []); // 初回のみ実行
   
   // プレイリストの変更を監視
   useEffect(() => {
-    if (enabled && playlist !== undefined) {
+    if (playlist !== undefined) {
       player.loadPlaylist(playlist);
     }
   }, [playlist]);
@@ -141,15 +142,14 @@ const MusicPlayer = ({ playlist: propPlaylist, enabled: propEnabled }: MusicPlay
   
   // 音楽状態をサーバーに送信
   useEffect(() => {
-    if (!enabled) return;
-    
     const sendMusicStatus = async () => {
       try {
         await fetch(buildApiUrl('/api/music/status/update'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            is_playing: player.isPlaying,
+            playback_status: player.playbackStatus,
+            is_playing: player.isPlaying, // 互換性のため
             current_track: player.currentTrack,
             progress: player.progress,
             current_time: player.currentTime,
@@ -175,7 +175,7 @@ const MusicPlayer = ({ playlist: propPlaylist, enabled: propEnabled }: MusicPlay
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [enabled, player.isPlaying, player.currentTrack?.id, player.progress, player.volume, player.playlistName, buildApiUrl]);
+  }, [player.playbackStatus, player.isPlaying, player.currentTrack?.id, player.progress, player.volume, player.playlistName, buildApiUrl]);
 
   // 回転アニメーションの管理
   useEffect(() => {
@@ -202,8 +202,6 @@ const MusicPlayer = ({ playlist: propPlaylist, enabled: propEnabled }: MusicPlay
     };
   }, [player.isPlaying]);
 
-  if (!enabled) return null;
-
   return (
     <>
       {/* デバッグ情報 - ドラッグ可能 */}
@@ -228,20 +226,22 @@ const MusicPlayer = ({ playlist: propPlaylist, enabled: propEnabled }: MusicPlay
             transition: isDragging ? 'none' : 'opacity 0.2s',
           }}
         >
-          <div>Playing: {player.isPlaying ? '▶️' : '⏸️'}</div>
+          <div>Status: {player.playbackStatus === 'playing' ? '▶️' : player.playbackStatus === 'paused' ? '⏸️' : '⏹️'}</div>
           <div>Track: {player.currentTrack?.title || 'None'}</div>
           <div>Volume: {player.volume}%</div>
         </div>
       )}
       
-      {/* プログレスバー - 最下部 */}
-      <MusicProgress
-        progress={player.progress}
-        isPlaying={player.isPlaying}
-      />
+      {/* プログレスバー - 最下部（停止時は非表示） */}
+      {shouldShowPlayer && (
+        <MusicProgress
+          progress={player.progress}
+          isPlaying={player.isPlaying}
+        />
+      )}
       
-      {/* アートワーク＋トラック情報 - 左下 */}
-      {displayTrack && (
+      {/* アートワーク＋トラック情報 - 左下（停止時は非表示） */}
+      {shouldShowPlayer && displayTrack && (
         <div
           className={animationState === 'entering' ? 'music-info-entering' : animationState === 'exiting' ? 'music-info-exiting' : ''}
           style={{
