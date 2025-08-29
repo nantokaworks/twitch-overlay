@@ -54,6 +54,11 @@ export const MusicPlayerProvider = ({ children }: { children: React.ReactNode })
               player.loadPlaylist(command.playlist);
             }
             break;
+          case 'seek':
+            if (typeof command.time === 'number') {
+              player.seek(command.time);
+            }
+            break;
         }
       } catch (error) {
         console.error('Failed to process music control command:', error);

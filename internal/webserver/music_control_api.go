@@ -10,9 +10,10 @@ import (
 )
 
 type MusicControlCommand struct {
-	Type     string `json:"type"`     // play, pause, stop, toggle, next, previous, volume, load_playlist
-	Value    int    `json:"value,omitempty"`
-	Playlist string `json:"playlist,omitempty"`
+	Type     string  `json:"type"`     // play, pause, stop, toggle, next, previous, volume, seek, load_playlist
+	Value    int     `json:"value,omitempty"`
+	Time     float64 `json:"time,omitempty"`
+	Playlist string  `json:"playlist,omitempty"`
 }
 
 type MusicStatusUpdate struct {
@@ -261,6 +262,33 @@ func handleMusicVolume(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
+// POST /api/music/control/seek
+func handleMusicSeek(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Time float64 `json:"time"`
+	}
+	
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	cmd := MusicControlCommand{
+		Type: "seek",
+		Time: req.Time,
+	}
+	broadcastMusicCommand(cmd)
+	logger.Info("Music seek command sent", zap.Float64("time", req.Time))
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
 // POST /api/music/control/load
 func handleMusicLoad(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -424,6 +452,7 @@ func RegisterMusicControlRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/music/control/next", corsMiddleware(handleMusicNext))
 	mux.HandleFunc("/api/music/control/previous", corsMiddleware(handleMusicPrevious))
 	mux.HandleFunc("/api/music/control/volume", corsMiddleware(handleMusicVolume))
+	mux.HandleFunc("/api/music/control/seek", corsMiddleware(handleMusicSeek))
 	mux.HandleFunc("/api/music/control/load", corsMiddleware(handleMusicLoad))
 	
 	// SSEエンドポイント

@@ -262,6 +262,10 @@ export const SettingsPage: React.FC = () => {
       console.error(`Failed to send ${endpoint} command:`, error);
     }
   };
+  
+  const handleSeek = (time: number) => {
+    sendMusicControlCommand('seek', { time });
+  };
 
   // 時間フォーマット
   const formatTime = (seconds: number) => {
@@ -1702,18 +1706,21 @@ export const SettingsPage: React.FC = () => {
                     </Button>
                   </div>
 
-                  {/* プログレスバー（表示のみ） */}
+                  {/* シークバー */}
                   {musicStatus.current_track && (
-                    <div className="space-y-1">
-                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
-                        <div
-                          className="bg-blue-500 h-full transition-all duration-200"
-                          style={{ width: `${musicStatus.progress}%` }}
-                        />
+                    <div className="space-y-2">
+                      <input
+                        type="range"
+                        min="0"
+                        max={musicStatus.duration}
+                        value={musicStatus.current_time}
+                        onChange={(e) => handleSeek(Number(e.target.value))}
+                        className="w-full"
+                      />
+                      <div className="flex justify-between text-xs text-gray-500">
+                        <span>{formatTime(musicStatus.current_time)}</span>
+                        <span>{formatTime(musicStatus.duration)}</span>
                       </div>
-                      <p className="text-xs text-center text-gray-500">
-                        ※ シークはオーバーレイ側で操作してください
-                      </p>
                     </div>
                   )}
 
