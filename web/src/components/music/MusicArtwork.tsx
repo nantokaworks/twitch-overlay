@@ -18,7 +18,7 @@ const MusicArtwork = ({ track, isPlaying, onPlayPause, audioElement }: MusicArtw
   }, [track.id]);
 
   const containerStyle: CSSProperties = {
-    position: 'fixed',
+    position: 'relative',
     bottom: '20px',
     left: '20px',
     width: '100px',

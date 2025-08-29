@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useMusicPlayerContext } from '../../contexts/MusicPlayerContext';
 import { buildApiUrl } from '../../utils/api';
 import { useSettings } from '../../contexts/SettingsContext';
@@ -16,6 +16,9 @@ const MusicPlayer = ({ playlist: propPlaylist, enabled: propEnabled }: MusicPlay
   const [debugPanelPosition, setDebugPanelPosition] = useState({ x: window.innerWidth - 200, y: 10 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [animationState, setAnimationState] = useState<'entering' | 'idle' | 'exiting'>('idle');
+  const [displayTrack, setDisplayTrack] = useState<typeof player.currentTrack>(null);
+  const prevTrackIdRef = useRef<string | null>(null);
   
   // デバッグモードの確認
   const isDebug = new URLSearchParams(window.location.search).get('debug') === 'true';
@@ -24,6 +27,40 @@ const MusicPlayer = ({ playlist: propPlaylist, enabled: propEnabled }: MusicPlay
   const enabled = propEnabled ?? (settings?.music_enabled ?? true);
   const playlist = propPlaylist ?? settings?.music_playlist ?? undefined;
 
+  // トラック変更時のアニメーション制御
+  useEffect(() => {
+    // 新しいトラックが選択された時
+    if (player.currentTrack && player.currentTrack.id !== prevTrackIdRef.current) {
+      if (prevTrackIdRef.current !== null) {
+        // 前のトラックがある場合は退場アニメーション
+        setAnimationState('exiting');
+        setTimeout(() => {
+          setDisplayTrack(player.currentTrack);
+          setAnimationState('entering');
+          setTimeout(() => {
+            setAnimationState('idle');
+          }, 600);
+        }, 400);
+      } else {
+        // 初回は登場アニメーションのみ
+        setDisplayTrack(player.currentTrack);
+        setAnimationState('entering');
+        setTimeout(() => {
+          setAnimationState('idle');
+        }, 600);
+      }
+      prevTrackIdRef.current = player.currentTrack?.id || null;
+    } else if (!player.currentTrack && prevTrackIdRef.current !== null) {
+      // トラックが無くなった時
+      setAnimationState('exiting');
+      setTimeout(() => {
+        setDisplayTrack(null);
+        setAnimationState('idle');
+      }, 400);
+      prevTrackIdRef.current = null;
+    }
+  }, [player.currentTrack?.id]);
+  
   // 初期化時に保存された状態を復元
   useEffect(() => {
     if (enabled && !playlist) {
@@ -170,10 +207,19 @@ const MusicPlayer = ({ playlist: propPlaylist, enabled: propEnabled }: MusicPlay
       />
       
       {/* アートワーク＋トラック情報 - 左下 */}
-      {player.currentTrack && (
-        <>
+      {displayTrack && (
+        <div
+          className={animationState === 'entering' ? 'music-info-entering' : animationState === 'exiting' ? 'music-info-exiting' : ''}
+          style={{
+            position: 'fixed',
+            bottom: 0,
+            left: 0,
+            display: 'flex',
+            alignItems: 'flex-end',
+          }}
+        >
           <MusicArtwork
-            track={player.currentTrack}
+            track={displayTrack}
             isPlaying={player.isPlaying}
             onPlayPause={() => player.isPlaying ? player.pause() : player.play()}
             audioElement={player.audioElement}
@@ -183,22 +229,22 @@ const MusicPlayer = ({ playlist: propPlaylist, enabled: propEnabled }: MusicPlay
           <div
             className="text-outline"
             style={{
-              position: 'fixed',
+              position: 'relative',
               bottom: '26px',
-              left: '140px',
+              left: '40px',
               zIndex: 99,
               color: 'white',
               fontSize: '24px',
             }}
           >
             <div style={{ fontWeight: 'bold' }}>
-              {player.currentTrack.title}
+              {displayTrack.title}
             </div>
             <div style={{ fontSize: '12px', marginTop: '10px' }}>
-              {player.currentTrack.artist}
+              {displayTrack.artist}
             </div>
           </div>
-        </>
+        </div>
       )}
     </>
   );
