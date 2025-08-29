@@ -7,10 +7,11 @@
   "fax_animation_speed": 1,
   "clock_enabled": true,
   "clock_format": "24h",
+  "clock_show_icons": false,
   "location_enabled": false,
   "date_enabled": false,
   "time_enabled": true,
   "stats_enabled": false,
   "show_debug_info": false,
-  "updated_at": "2025-08-29T13:24:33.165028+09:00"
+  "updated_at": "2025-08-29T14:09:06.451389+09:00"
 }

@@ -83,6 +83,12 @@ body {
   image-rendering: crisp-edges;
 }
 
+.icon-placeholder {
+  width: 1px;
+  height: 42px; /* アイコン36px + 上マージン6px */
+  display: inline-block;
+}
+
 .locate {
   margin: 0px;
   text-shadow:

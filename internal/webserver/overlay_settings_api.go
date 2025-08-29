@@ -28,6 +28,7 @@ type OverlaySettings struct {
 	// 時計表示設定
 	ClockEnabled    bool   `json:"clock_enabled"`
 	ClockFormat     string `json:"clock_format"` // "12h" or "24h"
+	ClockShowIcons  bool   `json:"clock_show_icons"`
 	LocationEnabled bool   `json:"location_enabled"`
 	DateEnabled     bool   `json:"date_enabled"`
 	TimeEnabled     bool   `json:"time_enabled"`
@@ -64,6 +65,7 @@ func InitOverlaySettings() {
 		FaxAnimationSpeed: 1.0,
 		ClockEnabled:      true,
 		ClockFormat:       "24h",
+		ClockShowIcons:    true,
 		LocationEnabled:   true,
 		DateEnabled:       true,
 		TimeEnabled:       true,
@@ -76,6 +78,16 @@ func InitOverlaySettings() {
 	if data, err := os.ReadFile(overlaySettingsFile); err == nil {
 		var settings OverlaySettings
 		if err := json.Unmarshal(data, &settings); err == nil {
+			// 新しいフィールドのデフォルト値を適用（後方互換性のため）
+			if settings.ClockFormat == "" {
+				settings.ClockFormat = "24h"
+			}
+			// ClockShowIconsはbool型なので、JSONに存在しない場合はfalseになる
+			// 既存ユーザーのためにtrueをデフォルトにする
+			if !settings.ClockShowIcons && settings.UpdatedAt.Before(time.Now().Add(-24*time.Hour)) {
+				settings.ClockShowIcons = true
+			}
+			
 			overlaySettingsMutex.Lock()
 			currentOverlaySettings = &settings
 			overlaySettingsMutex.Unlock()
@@ -83,7 +95,8 @@ func InitOverlaySettings() {
 			logger.Info("Restored overlay settings",
 				zap.Bool("music_enabled", settings.MusicEnabled),
 				zap.Bool("fax_enabled", settings.FaxEnabled),
-				zap.Bool("clock_enabled", settings.ClockEnabled))
+				zap.Bool("clock_enabled", settings.ClockEnabled),
+				zap.Bool("clock_show_icons", settings.ClockShowIcons))
 			return
 		}
 	}

@@ -15,6 +15,7 @@ interface OverlaySettings {
   // 時計表示設定
   clock_enabled: boolean;
   clock_format: '12h' | '24h';
+  clock_show_icons: boolean;
   location_enabled: boolean;
   date_enabled: boolean;
   time_enabled: boolean;

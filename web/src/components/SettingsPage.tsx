@@ -1116,6 +1116,21 @@ export const SettingsPage: React.FC = () => {
                     onCheckedChange={(checked) => handleSettingChange('CLOCK_ENABLED', checked)}
                   />
                 </div>
+
+                {getBooleanValue('CLOCK_ENABLED') && (
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label>アイコン表示</Label>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        時計にアイコンを表示します
+                      </p>
+                    </div>
+                    <Switch
+                      checked={getBooleanValue('CLOCK_SHOW_ICONS')}
+                      onCheckedChange={(checked) => handleSettingChange('CLOCK_SHOW_ICONS', checked)}
+                    />
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -1818,6 +1833,22 @@ export const SettingsPage: React.FC = () => {
                     {/* 時計エリアが有効な場合の個別設定 */}
                     {(overlaySettings?.clock_enabled ?? true) && (
                       <div className="space-y-4 pl-4 border-l-2 border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="clock-show-icons" className="flex flex-col">
+                            <span>アイコンを表示</span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                              各項目の左側にアイコンを表示します
+                            </span>
+                          </Label>
+                          <Switch
+                            id="clock-show-icons"
+                            checked={overlaySettings?.clock_show_icons ?? true}
+                            onCheckedChange={(checked) => 
+                              updateOverlaySettings({ clock_show_icons: checked })
+                            }
+                          />
+                        </div>
+
                         <div className="flex items-center justify-between">
                           <Label htmlFor="location-enabled">場所 (Tokyo, JP)</Label>
                           <Switch

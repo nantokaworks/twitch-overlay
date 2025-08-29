@@ -297,6 +297,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                       onCheckedChange={(checked) => handleSettingChange('CLOCK_ENABLED', checked)}
                     />
                   </div>
+
+                  {getBooleanValue('CLOCK_ENABLED') && (
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label>アイコン表示</Label>
+                        <p className="text-sm text-gray-500">
+                          時計にアイコンを表示します
+                        </p>
+                      </div>
+                      <Switch
+                        checked={getBooleanValue('CLOCK_SHOW_ICONS')}
+                        onCheckedChange={(checked) => handleSettingChange('CLOCK_SHOW_ICONS', checked)}
+                      />
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

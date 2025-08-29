@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { CalendarIcon, ClockIcon, LocationIcon } from './ClockIcons';
+import React, { useEffect, useState } from 'react';
+import { useSettings } from '../contexts/SettingsContext';
 import { useClock } from '../hooks/useClock';
 import { buildApiUrl } from '../utils/api';
+import { CalendarIcon, ClockIcon, LocationIcon } from './ClockIcons';
 
 interface ClockDisplayProps {
   showLocation?: boolean;
@@ -17,10 +18,12 @@ const ClockDisplay: React.FC<ClockDisplayProps> = ({
   showStats = true 
 }) => {
   const { year, month, date, day, hour, min, flashing } = useClock();
+  const { settings: overlaySettings } = useSettings();
   const [weight, setWeight] = useState<string>('75.4');
   const [wallet, setWallet] = useState<string>('10,387');
 
   const today = `${year}.${month}.${date} ${day}`;
+  const showIcons = overlaySettings?.clock_show_icons ?? true;
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -54,19 +57,19 @@ const ClockDisplay: React.FC<ClockDisplayProps> = ({
         <div className="clock">
           {showLocation && (
             <>
-              <LocationIcon />
+              {showIcons ? <LocationIcon /> : <div className="icon-placeholder" />}
               <p className="locate">Hyogo,Japan</p>
             </>
           )}
           {showDate && (
             <>
-              <CalendarIcon />
+              {showIcons ? <CalendarIcon /> : <div className="icon-placeholder" />}
               <p className="clock-date">{today}</p>
             </>
           )}
           {showTime && (
             <>
-              <ClockIcon />
+              {showIcons ? <ClockIcon /> : <div className="icon-placeholder" />}
               <p className="clock-hour">{hour}</p>
               <p className="clock-separator" style={{ opacity: flashing ? 1 : 0 }}>
                 :

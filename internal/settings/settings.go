@@ -108,6 +108,10 @@ var DefaultSettings = map[string]Setting{
 		Key: "CLOCK_WALLET", Value: "10387", Type: SettingTypeNormal, Required: false,
 		Description: "Wallet amount to display on clock (yen)",
 	},
+	"CLOCK_SHOW_ICONS": {
+		Key: "CLOCK_SHOW_ICONS", Value: "true", Type: SettingTypeNormal, Required: false,
+		Description: "Show icons in clock display",
+	},
 	"DEBUG_OUTPUT": {
 		Key: "DEBUG_OUTPUT", Value: "false", Type: SettingTypeNormal, Required: false,
 		Description: "Enable debug output",
@@ -354,7 +358,7 @@ func ValidateSetting(key, value string) error {
 				return fmt.Errorf("must be an integer between 0 and 9999999")
 			}
 		}
-	case "DRY_RUN_MODE", "BEST_QUALITY", "DITHER", "AUTO_ROTATE", "ROTATE_PRINT", "KEEP_ALIVE_ENABLED", "CLOCK_ENABLED", "DEBUG_OUTPUT":
+	case "DRY_RUN_MODE", "BEST_QUALITY", "DITHER", "AUTO_ROTATE", "ROTATE_PRINT", "KEEP_ALIVE_ENABLED", "CLOCK_ENABLED", "CLOCK_SHOW_ICONS", "DEBUG_OUTPUT":
 		// boolean値のチェック
 		if value != "true" && value != "false" {
 			return fmt.Errorf("must be 'true' or 'false'")
