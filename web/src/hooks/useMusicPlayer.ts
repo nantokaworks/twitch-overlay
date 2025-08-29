@@ -183,7 +183,7 @@ export const useMusicPlayer = (initialVolume?: number): UseMusicPlayerReturn => 
   }, [state.playlist, state.playHistory, state.currentTrack]);
 
   // トラックを読み込む
-  const loadTrack = useCallback((track: Track) => {
+  const loadTrack = useCallback((track: Track, autoPlay: boolean = false) => {
     if (!audioRef.current) return;
 
     setState(prev => ({
@@ -197,8 +197,8 @@ export const useMusicPlayer = (initialVolume?: number): UseMusicPlayerReturn => 
     audioRef.current.src = buildApiUrl(`/api/music/track/${track.id}/audio`);
     audioRef.current.load();
 
-    // 自動再生が有効な場合
-    if (state.isPlaying) {
+    // 自動再生が有効な場合（autoPlayパラメータまたは既存のstate.isPlaying）
+    if (autoPlay || state.isPlaying) {
       audioRef.current.play().catch(err => {
         console.error('Failed to auto-play:', err);
         setState(prev => ({ ...prev, isPlaying: false }));
@@ -253,7 +253,7 @@ export const useMusicPlayer = (initialVolume?: number): UseMusicPlayerReturn => 
         } else {
           setState(prev => ({ ...prev, isPlaying: true }));
         }
-        loadTrack(nextTrack);
+        loadTrack(nextTrack, true); // 明示的にautoPlay=trueを指定
       }
     }, 500); // next/prevボタンは少し短めのインターバル
   }, [getNextRandomTrack, loadTrack, state.currentTrack]);
@@ -281,7 +281,7 @@ export const useMusicPlayer = (initialVolume?: number): UseMusicPlayerReturn => 
             playHistory: prev.playHistory.slice(0, -1),
             isPlaying: true,
           }));
-          loadTrack(track);
+          loadTrack(track, true); // 明示的にautoPlay=trueを指定
         }
       }
     }, 500); // next/prevボタンは少し短めのインターバル

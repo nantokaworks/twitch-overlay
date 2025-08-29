@@ -1,7 +1,8 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMusicPlayerContext } from '../../contexts/MusicPlayerContext';
-import { buildApiUrl } from '../../utils/api';
 import { useSettings } from '../../contexts/SettingsContext';
+import { buildApiUrl } from '../../utils/api';
+import TypewriterText from '../TypewriterText';
 import MusicArtwork from './MusicArtwork';
 import MusicProgress from './MusicProgress';
 
@@ -22,6 +23,7 @@ const MusicPlayer = ({ playlist: propPlaylist, enabled: propEnabled }: MusicPlay
   const rotationRef = useRef<number>(0);
   const [rotation, setRotation] = useState<number>(0);
   const animationFrameRef = useRef<number>();
+  const [showTypewriter, setShowTypewriter] = useState(false);
   
   // デバッグモードの確認
   const isDebug = new URLSearchParams(window.location.search).get('debug') === 'true';
@@ -37,9 +39,11 @@ const MusicPlayer = ({ playlist: propPlaylist, enabled: propEnabled }: MusicPlay
       if (prevTrackIdRef.current !== null) {
         // 前のトラックがある場合は退場アニメーション
         setAnimationState('exiting');
+        setShowTypewriter(false);
         setTimeout(() => {
           setDisplayTrack(player.currentTrack);
           setAnimationState('entering');
+          setShowTypewriter(true);
           setTimeout(() => {
             setAnimationState('idle');
           }, 600);
@@ -48,6 +52,7 @@ const MusicPlayer = ({ playlist: propPlaylist, enabled: propEnabled }: MusicPlay
         // 初回は登場アニメーションのみ
         setDisplayTrack(player.currentTrack);
         setAnimationState('entering');
+        setShowTypewriter(true);
         setTimeout(() => {
           setAnimationState('idle');
         }, 600);
@@ -56,6 +61,7 @@ const MusicPlayer = ({ playlist: propPlaylist, enabled: propEnabled }: MusicPlay
     } else if (!player.currentTrack && prevTrackIdRef.current !== null) {
       // トラックが無くなった時
       setAnimationState('exiting');
+      setShowTypewriter(false);
       setTimeout(() => {
         setDisplayTrack(null);
         setAnimationState('idle');
@@ -259,18 +265,34 @@ const MusicPlayer = ({ playlist: propPlaylist, enabled: propEnabled }: MusicPlay
             className="text-outline"
             style={{
               position: 'relative',
-              bottom: '26px',
+              bottom: '28px',
               left: '40px',
               zIndex: 99,
               color: 'white',
               fontSize: '24px',
             }}
           >
-            <div style={{ fontWeight: 'bold' }}>
-              {displayTrack.title}
+            <div style={{ fontWeight: 'bold', minHeight: '24px' }}>
+              {showTypewriter ? (
+                <TypewriterText 
+                  text={displayTrack.title}
+                  speed={50}
+                  delay={100}
+                />
+              ) : (
+                displayTrack.title
+              )}
             </div>
-            <div style={{ fontSize: '12px', marginTop: '10px' }}>
-              {displayTrack.artist}
+            <div style={{ fontSize: '10px', marginTop: '10px', minHeight: '12px' }}>
+              {showTypewriter ? (
+                <TypewriterText 
+                  text={displayTrack.artist}
+                  speed={50}
+                  delay={100 + (displayTrack.title.length * 50)}
+                />
+              ) : (
+                displayTrack.artist || '\u00A0'
+              )}
             </div>
           </div>
         </div>
