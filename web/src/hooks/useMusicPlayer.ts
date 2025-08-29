@@ -275,6 +275,68 @@ export const useMusicPlayer = (): UseMusicPlayerReturn => {
     setState(prev => ({ ...prev, volume: clampedVolume }));
   }, []);
 
+  // サーバーから再生状態を復元
+  const restoreServerState = useCallback(async (tracks: Track[]) => {
+    try {
+      const response = await fetch(buildApiUrl('/api/music/state/get'));
+      if (!response.ok) return;
+      
+      const savedState = await response.json();
+      console.log('🔄 Restoring server playback state:', savedState);
+      
+      // 保存されたトラックを探す
+      const savedTrack = tracks.find(t => t.id === savedState.track_id);
+      if (savedTrack && audioRef.current) {
+        console.log('🎵 Found saved track:', savedTrack.title);
+        console.log('📍 Saved position:', savedState.position);
+        
+        // stateを直接更新（loadTrackを経由しない）
+        setState(prev => ({
+          ...prev,
+          currentTrack: savedTrack,
+          isLoading: true,
+          // 位置をリセットしない
+          currentTime: savedState.position || 0,
+          progress: savedState.duration ? (savedState.position / savedState.duration) * 100 : 0,
+          duration: savedState.duration || 0
+        }));
+        
+        // audio要素を直接操作
+        audioRef.current.src = buildApiUrl(`/api/music/track/${savedTrack.id}/audio`);
+        audioRef.current.load();
+        
+        // メタデータ読み込み後に位置を復元
+        audioRef.current.addEventListener('loadedmetadata', () => {
+          if (savedState.position > 0 && audioRef.current && 
+              savedState.position < audioRef.current.duration) {
+            audioRef.current.currentTime = savedState.position;
+            console.log(`⏯️ Resuming from ${savedState.position.toFixed(1)}s`);
+            
+            // stateも更新
+            setState(prev => ({
+              ...prev,
+              isLoading: false,
+              duration: audioRef.current!.duration
+            }));
+          }
+          
+          // 音量も復元
+          if (savedState.volume !== undefined && audioRef.current) {
+            audioRef.current.volume = savedState.volume / 100;
+            setState(prev => ({ ...prev, volume: savedState.volume }));
+          }
+        }, { once: true });
+        
+        // エラー時の処理
+        audioRef.current.addEventListener('error', () => {
+          setState(prev => ({ ...prev, isLoading: false }));
+        }, { once: true });
+      }
+    } catch (error) {
+      console.log('No saved playback state or failed to restore:', error);
+    }
+  }, []);
+
   // プレイリスト読み込み
   const loadPlaylist = useCallback(async (playlistName?: string) => {
     setState(prev => ({ ...prev, isLoading: true }));
@@ -311,37 +373,38 @@ export const useMusicPlayer = (): UseMusicPlayerReturn => {
 
       // 保存されたトラックを復元、もしくは最初の曲を選択
       if (tracks.length > 0) {
-        const savedTrackId = getFromStorage(STORAGE_KEYS.CURRENT_TRACK_ID, null);
-        const wasPlaying = getFromStorage(STORAGE_KEYS.WAS_PLAYING, false);
-        
-        if (savedTrackId && !isInitializedRef.current) {
-          // 初回起動時のみ、保存されたトラックを復元
-          const savedTrack = tracks.find(t => t.id === savedTrackId);
-          if (savedTrack) {
-            console.log('🔄 Restoring saved track:', savedTrack.title);
-            loadTrack(savedTrack);
-            // 前回再生中だった場合は自動再生（ブラウザポリシーで制限される可能性あり）
-            if (wasPlaying) {
-              setTimeout(() => {
-                audioRef.current?.play().catch(() => {
-                  console.log('Auto-play blocked by browser policy');
-                });
-              }, 500);
+        // サーバーから状態を復元を優先
+        if (!isInitializedRef.current) {
+          await restoreServerState(tracks);
+          isInitializedRef.current = true;
+        } else {
+          // 既に初期化済みの場合はローカルストレージから復元
+          const savedTrackId = getFromStorage(STORAGE_KEYS.CURRENT_TRACK_ID, null);
+          const wasPlaying = getFromStorage(STORAGE_KEYS.WAS_PLAYING, false);
+          
+          if (savedTrackId) {
+            const savedTrack = tracks.find(t => t.id === savedTrackId);
+            if (savedTrack) {
+              console.log('🔄 Restoring saved track:', savedTrack.title);
+              loadTrack(savedTrack);
+              // 前回再生中だった場合は自動再生（ブラウザポリシーで制限される可能性あり）
+              if (wasPlaying) {
+                setTimeout(() => {
+                  audioRef.current?.play().catch(() => {
+                    console.log('Auto-play blocked by browser policy');
+                  });
+                }, 500);
+              }
+            } else {
+              // 保存されたトラックが見つからない場合はランダム選択
+              const firstTrack = tracks[Math.floor(Math.random() * tracks.length)];
+              loadTrack(firstTrack);
             }
-          } else {
-            // 保存されたトラックが見つからない場合はランダム選択
+          } else if (!state.currentTrack) {
+            // 現在のトラックがない場合はランダム選択
             const firstTrack = tracks[Math.floor(Math.random() * tracks.length)];
             loadTrack(firstTrack);
           }
-        } else if (!state.currentTrack) {
-          // 現在のトラックがない場合はランダム選択
-          const firstTrack = tracks[Math.floor(Math.random() * tracks.length)];
-          loadTrack(firstTrack);
-        }
-        
-        // 初期化完了フラグを立てる
-        if (!isInitializedRef.current) {
-          isInitializedRef.current = true;
         }
       }
     } catch (error) {
@@ -355,10 +418,54 @@ export const useMusicPlayer = (): UseMusicPlayerReturn => {
     setState(prev => ({ ...prev, playHistory: [] }));
   }, []);
 
+  // サーバーに再生状態を送信
+  const updateServerState = useCallback(async () => {
+    if (!state.currentTrack || !audioRef.current) return;
+    
+    try {
+      await fetch(buildApiUrl('/api/music/state/update'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          track_id: state.currentTrack.id,
+          position: audioRef.current.currentTime,
+          duration: audioRef.current.duration,
+          is_playing: state.isPlaying,
+          volume: state.volume,
+          playlist_name: state.playlistName
+        })
+      });
+    } catch (error) {
+      // サイレントに失敗（ログのみ）
+      console.log('Failed to update server state:', error);
+    }
+  }, [state.currentTrack, state.isPlaying, state.volume, state.playlistName]);
+
+  // 定期的に状態を送信（再生中のみ）
+  useEffect(() => {
+    if (state.isPlaying && state.currentTrack) {
+      const interval = setInterval(updateServerState, 10000); // 10秒ごと
+      return () => clearInterval(interval);
+    }
+  }, [state.isPlaying, state.currentTrack, updateServerState]);
+
+  // 一時停止時にも状態を送信
+  const pauseWithStateUpdate = useCallback(() => {
+    pause();
+    updateServerState();
+  }, [pause, updateServerState]);
+
+  // トラック変更時にも状態を送信
+  useEffect(() => {
+    if (state.currentTrack) {
+      updateServerState();
+    }
+  }, [state.currentTrack?.id]); // IDが変わったときのみ
+
   return {
     ...state,
     play,
-    pause,
+    pause: pauseWithStateUpdate, // 一時停止時に状態も送信
     next: handleNext,
     previous,
     seek,
