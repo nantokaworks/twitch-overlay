@@ -349,16 +349,14 @@ export const useMusicPlayer = (initialVolume?: number): UseMusicPlayerReturn => 
         console.log('🎵 Found saved track:', savedTrack.title);
         console.log('📍 Saved position:', savedState.position);
         
-        // playback_statusを優先、なければis_playingから判定
-        const playbackStatus: PlaybackStatus = 
-          savedState.playback_status || 
-          (savedState.is_playing ? 'playing' : 'paused');
+        // リロード時は常に一時停止状態で復元（再生位置は保持）
+        const playbackStatus: PlaybackStatus = 'paused';
         
         // stateを直接更新（loadTrackを経由しない）
         setState(prev => ({
           ...prev,
           playbackStatus,
-          isPlaying: playbackStatus === 'playing',
+          isPlaying: false, // 常に一時停止で復元
           currentTrack: savedTrack,
           isLoading: true,
           // 位置をリセットしない
