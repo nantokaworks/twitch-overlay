@@ -23,6 +23,9 @@ const MusicPlayer = ({ playlist: propPlaylist }: MusicPlayerProps) => {
   const [rotation, setRotation] = useState<number>(0);
   const animationFrameRef = useRef<number | undefined>(undefined);
   const [showTypewriter, setShowTypewriter] = useState(false);
+  const rotationSpeedRef = useRef<number>(1); // 回転速度の倍率（1 = 通常速度、0 = 停止）
+  const decelerationStartTimeRef = useRef<number | null>(null);
+  const [isTrackEnding, setIsTrackEnding] = useState(false); // 曲終了による停止かどうか
   
   // デバッグモードの確認
   const isDebug = new URLSearchParams(window.location.search).get('debug') === 'true';
@@ -37,6 +40,8 @@ const MusicPlayer = ({ playlist: propPlaylist }: MusicPlayerProps) => {
   useEffect(() => {
     // 新しいトラックが選択された時
     if (player.currentTrack && player.currentTrack.id !== prevTrackIdRef.current) {
+      // 新しい曲が始まったらフラグをリセット
+      setIsTrackEnding(false);
       if (prevTrackIdRef.current !== null) {
         // 前のトラックがある場合は退場アニメーション
         setAnimationState('exiting');
@@ -177,18 +182,61 @@ const MusicPlayer = ({ playlist: propPlaylist }: MusicPlayerProps) => {
     };
   }, [player.playbackStatus, player.isPlaying, player.currentTrack?.id, player.progress, player.volume, player.playlistName, buildApiUrl]);
 
+  // 曲終了が近づいたことを検知
+  useEffect(() => {
+    // 曲の残り時間が3秒以下になったら曲終了フラグを立てる（3秒かけて減速）
+    if (player.duration > 0 && player.currentTime > 0) {
+      const remainingTime = player.duration - player.currentTime;
+      if (remainingTime <= 3.0 && player.isPlaying && !isTrackEnding) {
+        console.log('🎵 Track ending in 3 seconds, starting deceleration');
+        setIsTrackEnding(true);
+      }
+    }
+  }, [player.currentTime, player.duration, player.isPlaying, isTrackEnding]);
+
   // 回転アニメーションの管理
   useEffect(() => {
     let lastTime = performance.now();
+    const DECELERATION_DURATION = 3000; // 3秒で減速
     
     const updateRotation = (currentTime: number) => {
-      if (player.isPlaying) {
-        const deltaTime = currentTime - lastTime;
-        // 20秒で360度 = 18度/秒
+      const deltaTime = currentTime - lastTime;
+      
+      // 再生状態に応じて速度を調整
+      if (player.isPlaying && !isTrackEnding) {
+        // 再生中かつ曲終了ではない：通常速度
+        rotationSpeedRef.current = 1;
+        decelerationStartTimeRef.current = null;
+      } else if (isTrackEnding && rotationSpeedRef.current > 0) {
+        // 曲終了による停止：3秒かけて減速
+        if (decelerationStartTimeRef.current === null) {
+          decelerationStartTimeRef.current = currentTime;
+        }
+        
+        const elapsedTime = currentTime - decelerationStartTimeRef.current;
+        if (elapsedTime < DECELERATION_DURATION) {
+          // イージング関数（ease-out）を使用した減速
+          const progress = elapsedTime / DECELERATION_DURATION;
+          const easeOut = 1 - Math.pow(progress, 3); // cubic ease-out
+          rotationSpeedRef.current = easeOut;
+        } else {
+          // 減速完了
+          rotationSpeedRef.current = 0;
+        }
+      } else if (!player.isPlaying && !isTrackEnding) {
+        // 一時停止：即座に停止
+        rotationSpeedRef.current = 0;
+        decelerationStartTimeRef.current = null;
+      }
+      
+      // 速度に応じて回転を更新
+      if (rotationSpeedRef.current > 0) {
+        // 20秒で360度 = 18度/秒（基本速度）
         const degreesPerMs = 360 / 20000;
-        rotationRef.current = (rotationRef.current + deltaTime * degreesPerMs) % 360;
+        rotationRef.current = (rotationRef.current + deltaTime * degreesPerMs * rotationSpeedRef.current) % 360;
         setRotation(rotationRef.current);
       }
+      
       lastTime = currentTime;
       animationFrameRef.current = requestAnimationFrame(updateRotation);
     };
@@ -200,7 +248,7 @@ const MusicPlayer = ({ playlist: propPlaylist }: MusicPlayerProps) => {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [player.isPlaying]);
+  }, [player.isPlaying, isTrackEnding]);
 
   return (
     <>

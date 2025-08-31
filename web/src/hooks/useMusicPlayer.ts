@@ -121,13 +121,13 @@ export const useMusicPlayer = (initialVolume?: number): UseMusicPlayerReturn => 
     };
 
     const handleEnded = () => {
-      // 2秒のインターバルを設けてから次の曲へ
+      // 3秒のインターバルを設けてから次の曲へ
       setState(prev => ({ ...prev, playbackStatus: 'paused', isPlaying: false }));
       setTimeout(() => {
         if (handleNextRef.current) {
           handleNextRef.current();
         }
-      }, 2000);
+      }, 3000);
     };
 
     const handleLoadedMetadata = () => {

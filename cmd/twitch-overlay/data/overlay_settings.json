@@ -1,17 +1,17 @@
 {
   "music_enabled": true,
   "music_playlist": null,
-  "music_volume": 50,
+  "music_volume": 24,
   "music_auto_play": true,
   "fax_enabled": true,
   "fax_animation_speed": 1,
   "clock_enabled": true,
   "clock_format": "24h",
-  "clock_show_icons": false,
+  "clock_show_icons": true,
   "location_enabled": false,
   "date_enabled": false,
   "time_enabled": true,
   "stats_enabled": false,
   "show_debug_info": false,
-  "updated_at": "2025-08-29T14:27:27.336814+09:00"
+  "updated_at": "2025-08-31T10:14:21.244691+09:00"
 }
