@@ -13,6 +13,7 @@ const TabsList = React.forwardRef<
     ref={ref}
     className={cn(
       "inline-flex h-10 items-center justify-center rounded-md bg-gray-100 dark:bg-gray-800 p-1 text-gray-500 dark:text-gray-400",
+      "scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none]",
       className
     )}
     {...props}
