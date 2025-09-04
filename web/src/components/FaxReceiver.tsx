@@ -207,7 +207,7 @@ const FaxReceiver = () => {
         <FaxDisplay
           faxData={currentFax}
           onComplete={onDisplayComplete}
-          imageType="mono"
+          imageType={settings?.fax_image_type ?? 'mono'}
           onLabelPositionUpdate={setLabelPosition}
           onAnimationStateChange={setIsAnimating}
           onStateChange={setFaxState}

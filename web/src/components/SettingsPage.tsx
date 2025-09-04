@@ -1722,6 +1722,24 @@ export const SettingsPage: React.FC = () => {
                       />
                     </div>
 
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="fax-color-mode" className="flex flex-col">
+                        <span>カラーモード</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {overlaySettings?.fax_image_type === 'color' 
+                            ? 'カラー: 鮮やかな表示' 
+                            : 'モノクロ: クラシックなFAX風'}
+                        </span>
+                      </Label>
+                      <Switch
+                        id="fax-color-mode"
+                        checked={overlaySettings?.fax_image_type === 'color'}
+                        onCheckedChange={(checked) => 
+                          updateOverlaySettings({ fax_image_type: checked ? 'color' : 'mono' })
+                        }
+                      />
+                    </div>
+
                     <div className="space-y-2">
                       <Label htmlFor="fax-speed">
                         アニメーション速度: {((overlaySettings?.fax_animation_speed ?? 1.0) * 100).toFixed(0)}%

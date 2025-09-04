@@ -24,6 +24,7 @@ type OverlaySettings struct {
 	// FAX表示設定
 	FaxEnabled        bool    `json:"fax_enabled"`
 	FaxAnimationSpeed float64 `json:"fax_animation_speed"`
+	FaxImageType      string  `json:"fax_image_type"` // "mono" or "color"
 
 	// 時計表示設定
 	ClockEnabled    bool   `json:"clock_enabled"`
@@ -63,6 +64,7 @@ func InitOverlaySettings() {
 		MusicAutoPlay:     false,
 		FaxEnabled:        true,
 		FaxAnimationSpeed: 1.0,
+		FaxImageType:      "mono",
 		ClockEnabled:      true,
 		ClockFormat:       "24h",
 		ClockShowIcons:    true,
@@ -81,6 +83,9 @@ func InitOverlaySettings() {
 			// 新しいフィールドのデフォルト値を適用（後方互換性のため）
 			if settings.ClockFormat == "" {
 				settings.ClockFormat = "24h"
+			}
+			if settings.FaxImageType == "" {
+				settings.FaxImageType = "mono"
 			}
 			// ClockShowIconsはbool型なので、JSONに存在しない場合はfalseになる
 			// 既存ユーザーのためにtrueをデフォルトにする

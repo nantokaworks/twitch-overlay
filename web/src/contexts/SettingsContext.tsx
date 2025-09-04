@@ -9,6 +9,7 @@ interface OverlaySettings {
   // FAX表示設定
   fax_enabled: boolean;
   fax_animation_speed: number;
+  fax_image_type: 'mono' | 'color';
   
   // 時計表示設定
   clock_enabled: boolean;
