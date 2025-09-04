@@ -20,6 +20,9 @@ interface OverlaySettings {
   time_enabled: boolean;
   stats_enabled: boolean;
   
+  // 開発者設定
+  debug_enabled: boolean;
+  
   updated_at: string;
 }
 

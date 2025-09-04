@@ -1919,6 +1919,41 @@ export const SettingsPage: React.FC = () => {
                     )}
               </CardContent>
             </Card>
+
+            {/* 開発者設定 */}
+            <Card>
+              <CardHeader>
+                <CardTitle>開発者設定</CardTitle>
+                <CardDescription>
+                  開発・デバッグ用の設定
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="debug-enabled" className="flex flex-col">
+                    <span>デバッグモード</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      デバッグパネルを表示してテスト機能を有効化します
+                    </span>
+                  </Label>
+                  <Switch
+                    id="debug-enabled"
+                    checked={overlaySettings?.debug_enabled ?? false}
+                    onCheckedChange={(checked) => 
+                      updateOverlaySettings({ debug_enabled: checked })
+                    }
+                  />
+                </div>
+                
+                {(overlaySettings?.debug_enabled ?? false) && (
+                  <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+                    <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                      デバッグモードが有効です。オーバーレイ画面でデバッグパネルが表示されます。
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
             </div>
           </TabsContent>
 

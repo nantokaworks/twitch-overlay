@@ -37,6 +37,9 @@ type OverlaySettings struct {
 
 	// その他の表示設定
 	ShowDebugInfo bool `json:"show_debug_info"`
+	
+	// 開発者設定
+	DebugEnabled bool `json:"debug_enabled"`
 
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -73,6 +76,7 @@ func InitOverlaySettings() {
 		TimeEnabled:       true,
 		StatsEnabled:      true,
 		ShowDebugInfo:     false,
+		DebugEnabled:      false,
 		UpdatedAt:         time.Now(),
 	}
 

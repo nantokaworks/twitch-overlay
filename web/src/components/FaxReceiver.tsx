@@ -29,9 +29,12 @@ const FaxReceiver = () => {
   // Settings from context
   const { settings } = useSettings();
   
-  // URLパラメータからデバッグモードだけ取得
+  // URLパラメータからデバッグモードを取得
   const params = new URLSearchParams(window.location.search);
-  const isDebug = params.get('debug') === 'true';
+  const urlDebug = params.get('debug') === 'true';
+  
+  // デバッグモードはURLパラメータまたは設定のいずれかがtrueの場合に有効
+  const isDebug = urlDebug || (settings?.debug_enabled ?? false);
   
   // 設定から表示状態を取得（設定がない場合はデフォルト値）
   const showFax = settings?.fax_enabled ?? true;
