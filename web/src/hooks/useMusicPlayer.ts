@@ -52,7 +52,7 @@ export const useMusicPlayer = (initialVolume?: number): UseMusicPlayerReturn => 
   
   // 保存された値を初期値として使用（Settingsからの音量を優先）
   const [state, setState] = useState<MusicPlayerState>({
-    playbackStatus: getFromStorage<PlaybackStatus>(STORAGE_KEYS.PLAYBACK_STATUS, 'stopped'),
+    playbackStatus: 'stopped', // 初期表示時は常に停止状態から開始
     isPlaying: false,
     currentTrack: null,
     playlist: [],
@@ -349,14 +349,14 @@ export const useMusicPlayer = (initialVolume?: number): UseMusicPlayerReturn => 
         console.log('🎵 Found saved track:', savedTrack.title);
         console.log('📍 Saved position:', savedState.position);
         
-        // リロード時は常に一時停止状態で復元（再生位置は保持）
-        const playbackStatus: PlaybackStatus = 'paused';
+        // リロード時は常に停止状態で復元（再生位置は保持）
+        const playbackStatus: PlaybackStatus = 'stopped';
         
         // stateを直接更新（loadTrackを経由しない）
         setState(prev => ({
           ...prev,
           playbackStatus,
-          isPlaying: false, // 常に一時停止で復元
+          isPlaying: false, // 常に停止状態で復元
           currentTrack: savedTrack,
           isLoading: true,
           // 位置をリセットしない
