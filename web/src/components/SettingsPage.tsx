@@ -1,33 +1,33 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Settings2, Bluetooth, Wifi, Eye, EyeOff, FileText, Upload, X, RefreshCw, Server, Monitor, Bug, Radio, Sun, Moon, Music, Layers, Play, Pause, SkipForward, SkipBack, Volume2, Square } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Switch } from './ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Alert, AlertDescription } from './ui/alert';
-import { LogViewer } from './LogViewer';
-import MusicManagerEmbed from './music/MusicManagerEmbed';
-import { Tooltip } from './ui/tooltip';
+import { Bluetooth, Bug, Eye, EyeOff, FileText, Layers, Monitor, Moon, Music, Pause, Play, Radio, RefreshCw, Server, Settings2, SkipBack, SkipForward, Square, Sun, Upload, Volume2, Wifi, X } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { useSettings } from '../contexts/SettingsContext';
-import { 
-  FeatureStatus, 
-  BluetoothDevice, 
-  SettingsResponse,
-  UpdateSettingsRequest,
+import { useTheme } from '../hooks/useTheme';
+import {
+  AuthStatus,
+  BluetoothDevice,
+  FeatureStatus,
+  PrinterStatusInfo,
   ScanResponse,
+  SettingsResponse,
+  StreamStatus,
   TestResponse,
   TwitchUserInfo,
-  PrinterStatusInfo,
-  AuthStatus,
-  StreamStatus
+  UpdateSettingsRequest
 } from '../types';
 import type { Playlist, Track } from '../types/music';
 import { buildApiUrl, buildEventSourceUrl } from '../utils/api';
-import { toast } from 'sonner';
-import { useTheme } from '../hooks/useTheme';
+import { LogViewer } from './LogViewer';
+import MusicManagerEmbed from './music/MusicManagerEmbed';
+import { Alert, AlertDescription } from './ui/alert';
+import { Button } from './ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Switch } from './ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { Tooltip } from './ui/tooltip';
 
 // タブ状態を保存するキー
 const SETTINGS_TAB_KEY = 'settingsPage.activeTab';
@@ -745,36 +745,7 @@ export const SettingsPage: React.FC = () => {
                   className="flex items-center space-x-1"
                 >
                   <Monitor className="w-3 h-3" />
-                  <span>モノクロ表示</span>
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => window.open('/?debug=true', '_blank')}
-                  className="flex items-center space-x-1"
-                >
-                  <Monitor className="w-3 h-3" />
-                  <Bug className="w-3 h-3" />
-                  <span>モノクロ＋デバッグ</span>
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => window.open('/color', '_blank')}
-                  className="flex items-center space-x-1"
-                >
-                  <Monitor className="w-3 h-3" />
-                  <span>カラー表示</span>
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => window.open('/color?debug=true', '_blank')}
-                  className="flex items-center space-x-1"
-                >
-                  <Monitor className="w-3 h-3" />
-                  <Bug className="w-3 h-3" />
-                  <span>カラー＋デバッグ</span>
+                  <span>オーバーレイ表示</span>
                 </Button>
               </div>
             </div>

@@ -34,7 +34,7 @@ type SSEServer struct {
 func (s *SSEServer) broadcast(data []byte) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	
+
 	for client := range s.clients {
 		select {
 		case client <- string(data):
@@ -88,7 +88,7 @@ func BroadcastMessage(message interface{}) {
 func StartWebServer(port int) {
 	// Register SSE server as the global broadcaster
 	broadcast.SetBroadcaster(sseServer)
-	
+
 	// Register stream status change callback
 	status.RegisterStatusChangeCallback(func(streamStatus status.StreamStatus) {
 		BroadcastMessage(map[string]interface{}{
@@ -100,14 +100,14 @@ func StartWebServer(port int) {
 	// Serve static files - try multiple paths
 	var staticDir string
 	possiblePaths := []string{}
-	
+
 	// First, try to find public directory relative to executable
 	if execPath, err := os.Executable(); err == nil {
 		execDir := filepath.Dir(execPath)
 		// Try public directory in the same directory as the executable
 		possiblePaths = append(possiblePaths, filepath.Join(execDir, "public"))
 	}
-	
+
 	// Then try relative paths from current working directory
 	possiblePaths = append(possiblePaths,
 		"./public",      // Production: same directory as executable
@@ -221,14 +221,9 @@ func StartWebServer(port int) {
 	fmt.Println("====================================================")
 	fmt.Printf("🚀 Webサーバーが起動しました\n")
 	fmt.Printf("📡 アクセスURL:\n")
-	fmt.Printf("   モノクロ表示: http://localhost:%d\n", port)
-	fmt.Printf("   カラー表示:   http://localhost:%d/color\n", port)
+	fmt.Printf("   オーバーレイ: http://localhost:%d\n", port)
 	fmt.Printf("\n")
 	fmt.Printf("⚙️  設定画面:     http://localhost:%d/settings\n", port)
-	fmt.Printf("\n")
-	fmt.Printf("🐛 デバッグモード:\n")
-	fmt.Printf("   モノクロ表示: http://localhost:%d?debug=true\n", port)
-	fmt.Printf("   カラー表示:   http://localhost:%d/color?debug=true\n", port)
 	fmt.Printf("\n")
 	fmt.Printf("🔧 環境変数 SERVER_PORT で変更可能\n")
 	fmt.Println("====================================================")
@@ -631,7 +626,7 @@ func handleDebugClock(w http.ResponseWriter, r *http.Request) {
 	// Call PrintClock with options based on request
 	err = output.PrintClockWithOptions(timeStr, req.EmptyLeaderboard)
 	if err != nil {
-		logger.Error("Failed to print debug clock", 
+		logger.Error("Failed to print debug clock",
 			zap.Error(err),
 			zap.String("time", timeStr),
 			zap.Bool("emptyLeaderboard", req.EmptyLeaderboard))
@@ -1298,7 +1293,7 @@ func handleStreamStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	streamStatus := status.GetStreamStatus()
-	
+
 	// 追加情報を取得（視聴者数など）
 	var viewerCount int
 	if streamStatus.IsLive {
@@ -1309,10 +1304,10 @@ func handleStreamStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := map[string]interface{}{
-		"is_live":       streamStatus.IsLive,
-		"started_at":    streamStatus.StartedAt,
-		"viewer_count":  viewerCount,
-		"last_checked":  streamStatus.LastChecked,
+		"is_live":      streamStatus.IsLive,
+		"started_at":   streamStatus.StartedAt,
+		"viewer_count": viewerCount,
+		"last_checked": streamStatus.LastChecked,
 	}
 
 	if streamStatus.IsLive && streamStatus.StartedAt != nil {
@@ -1368,7 +1363,7 @@ func handleTwitchRefreshToken(w http.ResponseWriter, r *http.Request) {
 
 	// リフレッシュ成功後、新しいトークン情報を取得
 	newToken, isValid, _ := twitchtoken.GetLatestToken()
-	
+
 	logger.Info("Token refreshed manually via API")
 
 	w.Header().Set("Content-Type", "application/json")
