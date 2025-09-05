@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/nantokaworks/twitch-overlay/internal/env"
 	"github.com/nantokaworks/twitch-overlay/internal/output"
@@ -37,10 +36,10 @@ func handlePrinterReconnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// First, try simple reconnection (disconnect and reconnect)
-	logger.Info("[Reconnect] Attempting simple reconnection")
+	// 常に完全リセットを実行（SetupPrinterが内部で完全リセットするように修正済み）
+	logger.Info("[Reconnect] Performing complete printer reset")
 	
-	// Setup printer (will disconnect if connected, reuse existing client)
+	// Setup printer (内部で完全リセットを実行)
 	c, err := output.SetupPrinter()
 	if err != nil {
 		logger.Error("Failed to setup printer", zap.Error(err))
@@ -52,48 +51,10 @@ func handlePrinterReconnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Try to connect
-	err = output.ConnectPrinter(c, printerAddress)
-	if err == nil {
-		// Simple reconnection succeeded
-		logger.Info("Simple reconnection successful", zap.String("address", printerAddress))
-		response := map[string]interface{}{
-			"success":         true,
-			"connected":       output.IsConnected(),
-			"printer_address": printerAddress,
-			"message":         "プリンターに再接続しました",
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
-		return
-	}
-
-	// Simple reconnection failed, try complete reset
-	logger.Warn("Simple reconnection failed, attempting complete reset", zap.Error(err))
-	
-	// Completely reset printer connection and BLE device
-	logger.Info("[Reconnect] Stopping printer and releasing BLE device")
-	output.Stop() // This disconnects AND releases BLE device
-
-	// Wait for Bluetooth to fully disconnect and release resources
-	time.Sleep(500 * time.Millisecond)
-
-	// Setup and connect to printer (create new BLE device)
-	c, err = output.SetupPrinter()
-	if err != nil {
-		logger.Error("Failed to setup new printer after reset", zap.Error(err))
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"success": false,
-			"error":   fmt.Sprintf("プリンターセットアップエラー: %v", err),
-		})
-		return
-	}
-
-	// Final connection attempt
+	// Connect to printer
 	err = output.ConnectPrinter(c, printerAddress)
 	if err != nil {
-		logger.Error("Failed to reconnect after complete reset", zap.String("address", printerAddress), zap.Error(err))
+		logger.Error("Failed to reconnect", zap.String("address", printerAddress), zap.Error(err))
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"success": false,
@@ -102,14 +63,14 @@ func handlePrinterReconnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Info("Printer reconnected successfully after reset", zap.String("address", printerAddress))
+	logger.Info("Printer reconnected successfully", zap.String("address", printerAddress))
 	
 	// Return success with current status
 	response := map[string]interface{}{
 		"success":         true,
 		"connected":       output.IsConnected(),
 		"printer_address": printerAddress,
-		"message":         "プリンターに再接続しました（完全リセット後）",
+		"message":         "プリンターに再接続しました",
 	}
 
 	w.Header().Set("Content-Type", "application/json")

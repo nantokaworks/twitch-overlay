@@ -1,6 +1,8 @@
 package output
 
 import (
+	"time"
+
 	"git.massivebox.net/massivebox/go-catprinter"
 	"github.com/nantokaworks/twitch-overlay/internal/env"
 	"github.com/nantokaworks/twitch-overlay/internal/shared/logger"
@@ -11,22 +13,40 @@ import (
 var latestPrinter *catprinter.Client
 var opts *catprinter.PrinterOptions
 var isConnected bool
+var isReconnecting bool
 var hasInitialPrintBeenDone bool
 
 func SetupPrinter() (*catprinter.Client, error) {
-	// 既存のクライアントがあれば再利用（BLEデバイスの再取得を避ける）
+	// 既存のクライアントがある場合は完全リセット（真のKeepAliveのため）
 	if latestPrinter != nil {
-		// 接続状態のみリセット
+		logger.Info("Resetting printer client for proper keep-alive")
+		
+		// 再接続中フラグを立てる
+		isReconnecting = true
+		
+		// 既存の接続を切断
 		if isConnected {
-			logger.Info("Reusing existing printer client, disconnecting current connection")
+			logger.Info("Disconnecting existing connection")
 			latestPrinter.Disconnect()
 			isConnected = false
-			status.SetPrinterConnected(false)
+			// 再接続中はステータスを変更しない（接続中を維持）
+			// status.SetPrinterConnected(false) を呼ばない
 		}
-		return latestPrinter, nil
+		
+		// BLEデバイスを完全に解放
+		logger.Info("Releasing BLE device")
+		latestPrinter.Stop()
+		latestPrinter = nil
+		
+		// Bluetoothリソースの解放を待つ
+		// Note: この待機時間により、BLEデバイスが完全に解放される
+		time.Sleep(500 * time.Millisecond)
+	} else {
+		// 新規接続の場合は再接続フラグをクリア
+		isReconnecting = false
 	}
 
-	// 初回のみ新規作成
+	// 新規クライアント作成
 	logger.Info("Creating new printer client")
 	instance, err := catprinter.NewClient()
 	if err != nil {
@@ -41,8 +61,8 @@ func ConnectPrinter(c *catprinter.Client, address string) error {
 		return nil
 	}
 	
-	// Skip if already connected
-	if isConnected {
+	// Skip if already connected (and not reconnecting)
+	if isConnected && !isReconnecting {
 		return nil
 	}
 
@@ -55,10 +75,20 @@ func ConnectPrinter(c *catprinter.Client, address string) error {
 
 	err := c.Connect(address)
 	if err != nil {
+		// 接続失敗時、再接続中でなければステータスを更新
+		if !isReconnecting {
+			status.SetPrinterConnected(false)
+		}
 		return err
 	}
+	
 	logger.Info("Successfully connected to printer", zap.String("address", address))
 	isConnected = true
+	
+	// 再接続が完了したらフラグをクリア
+	isReconnecting = false
+	
+	// 常にステータスを更新（再接続完了時も含む）
 	status.SetPrinterConnected(true)
 
 	return nil
@@ -86,6 +116,7 @@ func Stop() {
 		// Stop()を呼ぶとBLEデバイスも解放される
 		latestPrinter.Stop()
 		latestPrinter = nil
+		isReconnecting = false  // 再接続フラグもクリア
 		logger.Info("Printer client stopped and BLE device released")
 	}
 }
