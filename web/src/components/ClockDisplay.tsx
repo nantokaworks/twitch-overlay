@@ -24,7 +24,7 @@ const ClockDisplay: React.FC<ClockDisplayProps> = ({
   
   // URLパラメータからアイコン表示設定を取得
   const params = new URLSearchParams(window.location.search);
-  const showIcons = params.get('icons') !== 'false';
+  const showIcons = params.get('icon') !== 'false';
 
   useEffect(() => {
     const fetchSettings = async () => {

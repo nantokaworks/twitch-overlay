@@ -37,7 +37,8 @@ const FaxReceiver = () => {
   const isDebug = urlDebug || (settings?.debug_enabled ?? false);
   
   // 設定から表示状態を取得（設定がない場合はデフォルト値）
-  const showFax = settings?.fax_enabled ?? true;
+  // FAX表示はURLパラメータを優先、なければ設定値を使用
+  const showFax = params.get('fax') !== 'false' && (settings?.fax_enabled ?? true);
   const playlistName = settings?.music_playlist || undefined;
   
   // 時計表示用 - URLパラメータを優先、なければデフォルトで表示
