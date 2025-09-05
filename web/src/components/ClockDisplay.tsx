@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { useSettings } from '../contexts/SettingsContext';
 import { useClock } from '../hooks/useClock';
 import { buildApiUrl } from '../utils/api';
 import { CalendarIcon, ClockIcon, LocationIcon } from './ClockIcons';
@@ -18,12 +17,14 @@ const ClockDisplay: React.FC<ClockDisplayProps> = ({
   showStats = true 
 }) => {
   const { year, month, date, day, hour, min, flashing } = useClock();
-  const { settings: overlaySettings } = useSettings();
   const [weight, setWeight] = useState<string>('75.4');
   const [wallet, setWallet] = useState<string>('10,387');
 
   const today = `${year}.${month}.${date} ${day}`;
-  const showIcons = overlaySettings?.clock_show_icons ?? true;
+  
+  // URLパラメータからアイコン表示設定を取得
+  const params = new URLSearchParams(window.location.search);
+  const showIcons = params.get('icons') !== 'false';
 
   useEffect(() => {
     const fetchSettings = async () => {

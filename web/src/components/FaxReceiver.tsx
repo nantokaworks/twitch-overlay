@@ -38,14 +38,13 @@ const FaxReceiver = () => {
   
   // 設定から表示状態を取得（設定がない場合はデフォルト値）
   const showFax = settings?.fax_enabled ?? true;
-  const showClock = settings?.clock_enabled ?? true;
   const playlistName = settings?.music_playlist || undefined;
   
-  // 時計表示用
-  const showLocation = settings?.location_enabled ?? true;
-  const showDate = settings?.date_enabled ?? true;
-  const showTime = settings?.time_enabled ?? true;
-  const showStats = settings?.stats_enabled ?? true;
+  // 時計表示用 - URLパラメータを優先、なければデフォルトで表示
+  const showLocation = params.get('location') !== 'false';
+  const showDate = params.get('date') !== 'false';
+  const showTime = params.get('time') !== 'false';
+  const showStats = params.get('stats') !== 'false';
   
   // デバッグ情報をコンソールに出力
   useEffect(() => {

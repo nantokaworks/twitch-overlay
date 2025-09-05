@@ -11,15 +11,6 @@ interface OverlaySettings {
   fax_animation_speed: number;
   fax_image_type: 'mono' | 'color';
   
-  // 時計表示設定
-  clock_enabled: boolean;
-  clock_format: '12h' | '24h';
-  clock_show_icons: boolean;
-  location_enabled: boolean;
-  date_enabled: boolean;
-  time_enabled: boolean;
-  stats_enabled: boolean;
-  
   // 開発者設定
   debug_enabled: boolean;
   
